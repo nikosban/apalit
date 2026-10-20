@@ -3,6 +3,10 @@
 Project history, newest first. One to two sentences per task; details are
 in `HANDOFF.md`. Entries are not edited after they are written.
 
+## 2026-10-20 — Git repository and GitHub remote
+
+The project is now a Git repository on branch `main`, pushed to the private GitHub repository `nikosban/apalit` (SSH remote) with an initial commit of 348 files; `archive/` was added to `.gitignore` and stays local only.
+
 ## 2026-10-20 — Stale editor cache cleanup
 
 Removed 61 stale `.godot/` cache files (about 5.2 MB: editor state for deleted or moved scenes and imported textures of deleted PNGs) and the deleted `experiments/station_docking/tri_station.tscn` entry from `scene_groups_cache.cfg`; live entries and the editor's general caches were kept.

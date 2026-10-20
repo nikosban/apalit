@@ -1,7 +1,8 @@
 # HANDOFF.md
 
 Last updated: 2026-10-20, after the production combat migration (accepted by the
-owner after gameplay testing) and the M8 repository cleanup. The movement baseline
+owner after gameplay testing), the M8 repository cleanup and the Git / GitHub
+setup. The movement baseline
 is still cause C with the 2026-10-18 direct-move prediction horizon correction.
 History: `CHANGELOG.md`. The original game (before Movement V3) and its full
 documentation are preserved in the archive (see Archive); the retired experiments
@@ -48,7 +49,8 @@ manufacturing, station construction or strategic AI.
 - `main.tscn`: the playable scene (see Scenes).
 - `game/`: all production code and scenes (see Code).
 - `icon.svg`, `icon.svg.import`: project icon.
-- `archive/`: the pre-integration ZIP and its manifest (see Archive).
+- `archive/`: the pre-integration ZIP and its manifest (see Archive); ignored by
+  Git, local only.
 - `experiments/planned_rejoin/ship_avoidance_rejoin.gd`: the only remaining
   experiment: the paused cause B planned-rejoin prototype (unaccepted; a full
   replacement of `game/avoidance/ship_avoidance.gd` as it was on 2026-10-15,
@@ -65,8 +67,12 @@ manufacturing, station construction or strategic AI.
   to `game/tests/docking/`; the superseded prototype scripts and logs removed) and
   `_migration_tmp/` (residue of the 2026-10-17 architecture migration).
 - `AGENTS.md`, `CHANGELOG.md`, `HANDOFF.md`, `.editorconfig`, `.gitattributes`,
-  `.gitignore`; `.godot/` is the editor cache.
-- Not a Git repository (owner decision 2026-10-14: no Git; ZIP archives).
+  `.gitignore`; `.godot/` is the editor cache (ignored by Git).
+- Git repository (owner decision 2026-10-20, replacing the 2026-10-14 no-Git
+  decision): branch `main`, remote `origin` =
+  `git@github.com:nikosban/apalit.git` (private), initial commit `d2eb056`.
+  `.gitignore` excludes `.godot/`, `/android/` and `/archive/`; `.gitattributes`
+  stores text files with LF line endings.
 
 Terminology (owner-agreed): shared, self-contained pieces such as the camera
 rig are "reusable scenes" (own `.tscn`, instanced into other scenes).
@@ -1954,6 +1960,10 @@ stations added later); stations cannot be under `Ships` (GroupOrders requires
 
 ## Environment notes
 
+- Git 2.55.0 (`C:\Program Files\Git\cmd\git.exe`) and GitHub CLI 2.102.0 are
+  installed; `gh` is logged in as `nikosban` and pushes use SSH
+  (`~\.ssh\id_ed25519`). Sessions started before an install may not see the new
+  PATH.
 - `godot` is not on PATH. Console executable:
   `C:\Users\Nikos\Downloads\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe`
   (4.7.2.stable).
@@ -1990,9 +2000,10 @@ stations added later); stations cannot be under `Ships` (GroupOrders requires
 
 ## Next task
 
-None assigned: await the owner's next task. The production combat migration and the
-M8 repository cleanup (2026-10-20) are the latest accepted work and the new
-baseline; combat behaviour is frozen as accepted (no tuning, new mechanics, Frigate
+None assigned: await the owner's next task. The project is under Git and pushed
+to GitHub (2026-10-20); no commit or push conventions are decided beyond the
+initial setup. The production combat migration and the M8 repository cleanup
+(2026-10-20) are the latest accepted game work and the baseline; combat behaviour is frozen as accepted (no tuning, new mechanics, Frigate
 weapons or hostile AI changes without the owner). Components, upgrades and equipment
 swapping remain placeholders; the transport editor's Components tab is disabled.
 Recipes, construction times, mineral distribution, refining rates, logistics
