@@ -22,8 +22,9 @@ explicit approval.
 - Language: GDScript.
 - Platform: Windows desktop (initially).
 - Rendering: 3D.
-- Camera: perspective projection, fixed 45° pitch; yaw rotation, pan, and
-  zoom allowed.
+- Camera: perspective projection; pitch follows zoom (45° close in,
+  steepening gradually toward top-down as the camera zooms out; no manual
+  tilt); yaw rotation, pan, and zoom allowed.
 - Navigation: strictly 2D on a fixed horizontal plane. No vertical movement
   or altitude changes.
 - Units: spaceships. A cube is the initial prototype.

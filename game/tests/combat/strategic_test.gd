@@ -89,21 +89,63 @@ func _set_zoom(zoom: float) -> void:
 	await process_frame
 
 
-## Zoom range and the model / marker switch with hysteresis.
+## The ground area seen on screen: [corner ground points (null where a ray misses), area].
+func _footprint() -> Array:
+	var size := scene.get_viewport().get_visible_rect().size
+	var points := []
+	for f in [Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)]:
+		var screen: Vector2 = size * f
+		points.append(Plane(Vector3.UP, 0.0).intersects_ray(_camera().project_ray_origin(screen), _camera().project_ray_normal(screen)))
+	if points.has(null):
+		return [points, 0.0]
+	var area := 0.0
+	for i in 4:
+		var a: Vector3 = points[i]
+		var b: Vector3 = points[(i + 1) % 4]
+		area += a.x * b.z - b.x * a.z
+	return [points, absf(area) * 0.5]
+
+
+## Zoom range and the model / marker switch with hysteresis. Phase A (continuous zoom):
+## the wheel sets the target at once and the rendered zoom follows it smoothly; at the
+## maximum the camera is at its Tactical pitch. Tactical view inspects a region of the
+## battlefield; seeing the whole battlefield is the later Global view's requirement (the
+## former check that all four E05 corners are on screen at zoom 150 no longer applies).
 func _case_zoom() -> void:
-	print("\n=== S1 zoom range and representation switch")
-	root.size = Vector2i(1920, 1080) # the headless window is square; judge coverage at 16:9
+	print("\n=== S1 zoom range, Tactical camera and representation switch")
+	root.size = Vector2i(1920, 1080) # the headless window is square; judge at 16:9
 	await process_frame
 	_rig().global_position = Vector3.ZERO
 	_rig().rotation = Vector3.ZERO
 	await _set_zoom(40.0)
+	var close_area: float = _footprint()[1]
 	await _wheel(false, 30)
+	var target: float = _rig().zoom_target
+	var frames := 0
+	while absf(_rig().zoom_distance - target) > 0.01 and frames < 120:
+		await process_frame
+		frames += 1
 	var reached: float = _rig().zoom_distance
-	var rect := scene.get_viewport().get_visible_rect()
-	var corners := [Vector3(-100, 0, -80), Vector3(100, 0, -80), Vector3(-100, 0, 80), Vector3(100, 0, 80)]
-	var inside := corners.filter(func(c: Vector3) -> bool: return rect.has_point(_screen(c))).size()
-	_check("the wheel zooms out to the strategic maximum %.0f and no further; centred, all four corners of the E05 battlefield (±100 × ±80) on screen (%d / 4, viewport %s)" % [reached, inside, rect.size],
-		is_equal_approx(reached, 150.0) and inside == 4)
+	_check("the wheel takes the requested zoom to the strategic maximum and no further (target %.1f); the rendered zoom converges on it %d frames later (%.3f)" % [target, frames, reached],
+		is_equal_approx(target, 150.0) and absf(reached - 150.0) <= 0.01 and frames < 120)
+	var pitch := -rad_to_deg(_camera().rotation.x)
+	var pivot := _rig().global_position
+	var bounds: Rect2 = _rig().bounds
+	var view := _footprint()
+	var centre: Variant = Plane(Vector3.UP, 0.0).intersects_ray(_camera().project_ray_origin(scene.get_viewport().get_visible_rect().size * 0.5), _camera().project_ray_normal(scene.get_viewport().get_visible_rect().size * 0.5))
+	var finite: bool = _camera().global_position.is_finite() and centre != null and not view[0].has(null) and view[0].all(func(p: Vector3) -> bool: return p.is_finite())
+	_check("at the maximum: Tactical pitch %.2f° (configured %.1f°), pivot %s inside the bounds, camera and the ground under the screen centre and corners finite" % [pitch, _rig().tactical_pitch_degrees, pivot],
+		absf(pitch - _rig().tactical_pitch_degrees) < 0.01 and bounds.has_point(Vector2(pivot.x, pivot.z)) and finite and (centre as Vector3).distance_to(pivot) < 0.01)
+	_check("Tactical view inspects a wider region than zoom 40 (ground on screen %.0f u² vs %.0f u²)" % [view[1], close_area], view[1] > close_area * 2.0)
+	var gunship: Node3D = scene.ship("Gunship")
+	var picked: Node3D = scene.selection().pick_any(_screen(gunship.global_position))
+	scene.selection().set_selection([gunship])
+	var at: Vector2 = scene.get_viewport().get_visible_rect().size * Vector2(0.3, 0.6)
+	var ground: Vector3 = Plane(Vector3.UP, 0.0).intersects_ray(_camera().project_ray_origin(at), _camera().project_ray_normal(at))
+	var command: Dictionary = scene.resolve_command(at)
+	scene.selection().set_selection([])
+	_check("interaction at the maximum: the Gunship's marker is picked under it; a right-click resolves to a MOVE at the ground point under the cursor (%s)" % str(command.get("point")),
+		scene.markers.strategic and picked == gunship and command.get("kind") == scene.CommandKind.MOVE and (command.point as Vector2).distance_to(Vector2(ground.x, ground.z)) < 0.01)
 	var markers = scene.markers
 	var ship: Node3D = scene.ship("Destroyer")
 	var states := []

@@ -148,7 +148,7 @@ func _test_camera() -> void:
 	event.pressed = true
 	event.position = _screen("Gunship")
 	root.push_input(event, true)
-	var zoom: float = _rig.zoom_distance
+	var zoom: float = _rig.zoom_target # requested at once; the rendered zoom follows over frames
 	var yaw: float = _rig.rotation.y
 	var motion := InputEventMouseMotion.new()
 	motion.position = _screen("Gunship")

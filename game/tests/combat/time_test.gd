@@ -265,15 +265,21 @@ func _case_pause_orders() -> void:
 		held_targeting and paused and not scene.target_selection and CombatShip.of(gunship).manual_target == hostile and CombatShip.of(destroyer).manual_target == hostile)
 	_check("paused: F2 sets Defensive on both selected ships", CombatShip.of(gunship).stance == CombatShip.Stance.DEFENSIVE and CombatShip.of(destroyer).stance == CombatShip.Stance.DEFENSIVE)
 
-	# Camera in real time while paused: wheel zoom and a W pan.
+	# Camera in real time while paused: wheel zoom and a W pan. The wheel sets the requested
+	# zoom at once; the rendered zoom starts toward it in the next frame and gets there
+	# while the game stays paused.
 	var zoom0: float = rig.zoom_distance
 	var wheel := InputEventMouseButton.new()
 	wheel.button_index = MOUSE_BUTTON_WHEEL_UP
 	wheel.pressed = true
 	wheel.position = scene.get_viewport().get_visible_rect().size * 0.5
 	root.push_input(wheel, true)
+	var requested: bool = rig.zoom_target < zoom0
 	await process_frame
-	var zoomed: bool = rig.zoom_distance < zoom0
+	var zoomed: bool = requested and rig.zoom_distance < zoom0 and rig.zoom_distance > rig.zoom_target
+	for i in 60:
+		await process_frame
+	zoomed = zoomed and paused and rig.zoom_distance == rig.zoom_target
 	var pan0 := rig.global_position
 	var w := InputEventKey.new()
 	w.physical_keycode = KEY_W
@@ -286,7 +292,7 @@ func _case_pause_orders() -> void:
 	w.pressed = false
 	Input.parse_input_event(w)
 	await process_frame
-	_check("paused: the wheel zooms and W pans the camera (zoom %.1f -> %.1f, pan %.2f u)" % [zoom0, rig.zoom_distance, rig.global_position.distance_to(pan0)], zoomed and rig.global_position.distance_to(pan0) > 0.5)
+	_check("paused: the wheel sets the requested zoom at once, the rendered zoom follows and settles while paused (%.1f -> %.1f), and W pans (%.2f u)" % [zoom0, rig.zoom_distance, rig.global_position.distance_to(pan0)], zoomed and rig.global_position.distance_to(pan0) > 0.5)
 
 	for i in 120:
 		await process_frame
@@ -415,6 +421,7 @@ func _case_paused_route() -> void:
 	_check("paused: a MOVE behind the asteroid at (%.0f, %.0f) is routed around it at once (%s, %d points)" % [center.x, center.y, RouteFollower.RouteStatus.keys()[follower.status], follower.route.size()],
 		given and follower.status == RouteFollower.RouteStatus.ROUTE and follower.route.size() > 2)
 	var pans := []
+	var settle := []
 	for mode in ["paused", "0.25x", "1x"]:
 		if mode == "0.25x":
 			scene.time_control.set_paused(false)
@@ -422,6 +429,9 @@ func _case_paused_route() -> void:
 		elif mode == "1x":
 			scene.time_control.step_speed(1)
 		var rig: Node3D = scene.get_node("CameraRig")
+		if mode == "paused":
+			rig.zoom_distance = 40.0 # every mode pans and zooms from the same distance
+			rig._apply_zoom()
 		var pan0 := rig.global_position
 		var w := InputEventKey.new()
 		w.physical_keycode = KEY_D
@@ -435,8 +445,26 @@ func _case_paused_route() -> void:
 		Input.parse_input_event(up)
 		await process_frame
 		pans.append(rig.global_position.distance_to(pan0))
+		# Zoom smoothing in real time: one wheel notch out from 40 and the frames until the
+		# rendered zoom settles, then back to 40 for the next mode.
+		rig.zoom_distance = 40.0
+		rig._apply_zoom()
+		var wheel := InputEventMouseButton.new()
+		wheel.button_index = MOUSE_BUTTON_WHEEL_DOWN
+		wheel.pressed = true
+		wheel.position = scene.get_viewport().get_visible_rect().size * 0.5
+		root.push_input(wheel, true)
+		var frames := 0
+		while rig.zoom_distance != rig.zoom_target and frames < 240:
+			await process_frame
+			frames += 1
+		settle.append(frames)
+		rig.zoom_distance = 40.0
+		rig._apply_zoom()
 	_check("the camera pans the same distance in 30 frames paused, at 0.25x and at 1x (%.2f / %.2f / %.2f u)" % pans,
 		absf(pans[0] - pans[2]) < 0.05 and absf(pans[1] - pans[2]) < 0.05 and pans[2] > 1.0)
+	_check("one wheel notch settles in the same number of frames paused, at 0.25x and at 1x (%d / %d / %d)" % settle,
+		settle[0] == settle[1] and settle[1] == settle[2] and settle[0] > 5 and settle[0] < 240)
 
 
 ## Fast-forward safety: the E05 battle without player orders at 1x and at 2x (60 Hz ticks,

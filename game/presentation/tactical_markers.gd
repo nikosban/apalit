@@ -11,7 +11,6 @@ extends CanvasLayer
 ##   category shape: combat ship triangle, logistics ship octagon;
 ##   faction: the faction tint, and a second outer outline on hostile markers;
 ##   combat ships: one bar inside, two for the Destroyer class (larger marker);
-##   a tick from the centre along the ship's heading;
 ##   selected: corner brackets;  manual target of a selected ship: four crosshair ticks;
 ##   movement order of a selected ship: dashed line to its destination and a small ring;
 ##   destroyed (hulk): a small grey cross.
@@ -148,9 +147,6 @@ func _draw_markers() -> void:
 			for i in bars:
 				var y := h * 0.18 + (float(i) - (bars - 1) * 0.5) * h * 0.3
 				_canvas.draw_line(center + Vector2(-h * 0.38, y), center + Vector2(h * 0.38, y), Color(0.95, 0.95, 0.95, 0.9), width)
-		var bow: Vector3 = ship.global_position - ship.global_basis.z * 4.0
-		var direction := (camera.unproject_position(bow) - center).normalized()
-		_canvas.draw_line(center + direction * h * 1.05, center + direction * h * 1.75, Color(0.95, 0.95, 0.95, 0.9), width)
 		if selected.has(ship):
 			_brackets(center, h * 1.45, Color(SELECT_COLOR, 0.95), width)
 		if targets.has(ship):

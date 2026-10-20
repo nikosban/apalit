@@ -1,8 +1,9 @@
 # HANDOFF.md
 
 Last updated: 2026-10-20, after the production combat migration (accepted by the
-owner after gameplay testing), the M8 repository cleanup and the Git / GitHub
-setup. The movement baseline
+owner after gameplay testing), the M8 repository cleanup, the Git / GitHub
+setup, the removal of the defended-area ring and camera Phase A (continuous,
+cursor-anchored zoom with pitch following zoom). The movement baseline
 is still cause C with the 2026-10-18 direct-move prediction horizon correction.
 History: `CHANGELOG.md`. The original game (before Movement V3) and its full
 documentation are preserved in the archive (see Archive); the retired experiments
@@ -101,8 +102,9 @@ rig are "reusable scenes" (own `.tscn`, instanced into other scenes).
   child), `Contacts`, `Projectiles`, `Effects`, `OrdnanceTrails`, `CombatOrders`,
   `Sensors` (100 u, every 0.2 s, 8 s contact memory), `CombatOverlay` and `CombatHUD`;
   `movement_lab.gd` adds `TimeControl`, `WeaponEnvelopes`, `TacticalMarkers`,
-  `TacticalGrid`, `FogView` and `BehaviorView` at start; the camera zooms out to 150
-  (strategic zoom). All starting ships are player faction; there are no hostiles.
+  `TacticalGrid`, `FogView` and `BehaviorView` at start; the camera rig's
+  `max_zoom` is 150 (strategic zoom). All starting ships are player faction; there
+  are no hostiles.
 - `game/scenes/combat_test.tscn` (inherits `main.tscn`): the integrated combat scene
   for play and `combat_scene_test`: a second player Gunship (`Gunship2`, (2, −12)) and
   a hostile fleet in the east, beyond the player's sensor range (`HostileDestroyer`
@@ -372,8 +374,19 @@ see Production combat below.
   (test arena ground).
 - `debug/`: Movement, Navigation and Avoidance Debug panel and drawings
   (collision contacts shown under Avoidance Debug).
-- `camera/`: camera rig (pan W/A/S/D, rotate Q/E or middle drag, zoom wheel
-  5–40, pitch 45°, clamped to 300 × 300).
+- `camera/`: camera rig (pan W/A/S/D, rotate Q/E or middle drag, pivot clamped
+  to 300 × 300; zoom 5–40 by default, 150 in `main.tscn` and `encounter_arena`).
+  Camera Phase A (accepted 2026-10-20): the wheel sets `zoom_target` (× / ÷ 1.1 per
+  notch, `InputEventMouseButton.factor` honoured, at most 10 notches per event);
+  the rendered `zoom_distance` follows in log space (95% in `zoom_smoothing_time`
+  0.25 s, real time); the ground point under the cursor at the last wheel event
+  stays under it (pivot shifted each frame; bounds win; W/A/S/D, Q/E, middle drag
+  or an outside move drop the anchor); pitch is `pitch_for(rendered distance)`:
+  45° up to 20 u, smoothstep in log distance to 80° at 100 u (all exported); the
+  wheel is ignored while a UI control is hovered (`gui_get_hovered_control()`).
+  Snap: write `zoom_distance` and call `_apply_zoom()` (a write alone snaps on the
+  next frame). `zoom_level()`: 0–1, log on the fixed 5–150 reference range; not
+  yet read by any presentation system (Phase B).
 - `ships/`: `frigate.tscn` (3 u), `gunship.tscn` (6 u), `destroyer.tscn`
   (12 u), `miner.tscn` (2.4 × 1.6 u: dark hull, wider mid-grey rear cargo
   section, light-grey flat-fronted mining block; farthest corner 1.44 u),
@@ -894,9 +907,9 @@ Shipyard untouched). Owner decisions that stay in force:
 	grid, progress, DATA UPLOADED) stays in SurveyView.
   - `command_cursor.gd`: the cursor shows what a right-click would do, from
 	`movement_lab.gd`'s read-only `resolve_command()` and `command_available()` (the
-    same resolution and checks as the click, notices muted): Move (cross), Mine
-    (pointing hand), Dock (can-drop), Unavailable (forbidden), arrow otherwise. OS
-    cursor shapes are placeholders. Cached per target / 2 u cell, refreshed every
+	same resolution and checks as the click, notices muted): Move (cross), Mine
+	(pointing hand), Dock (can-drop), Unavailable (forbidden), arrow otherwise. OS
+	cursor shapes are placeholders. Cached per target / 2 u cell, refreshed every
 	0.5 s; a group's assignment is checked after 0.25 s rest.
 - Propulsion effects: `thruster_view.gd` (one node, reads every child of `Ships`
   each physics tick after the ships, never writes) and `thruster_plume.gdshader`.
@@ -1024,7 +1037,8 @@ each system:
   combat / octagon logistics, in the faction tint, hostile with a second outer
   outline; picking through the markers), `tactical_grid.gd` (G), `weapon_envelopes.gd`
   (Alt, target selection), `combat_overlay.gd` (target lines; F10 debug arcs),
-  `behavior_view.gd` (defended areas, guard positions, waypoint and Attack-Move lines).
+  `behavior_view.gd` (guard positions, waypoint and Attack-Move lines; the Defensive
+  defended area is not drawn).
   Hull tint: player blue, hostile red. Selection: only live ships of the player's
   faction are selectable; `pick_any()` finds hostiles for targeting.
 - Not migrated (by decision): the prototype's heading lock and fixed forward cannon,
@@ -1069,7 +1083,8 @@ each system:
   Shipyard's panel adds Ship Production (Order Mining Ship / Order Transport Ship
   while idle, Cancel Order while waiting for materials); produced ships are
   selected and commanded like the others.
-- Camera: W/A/S/D pan, Q/E or middle-drag rotate, wheel zoom.
+- Camera: W/A/S/D pan, Q/E or middle-drag rotate, wheel zoom toward the cursor
+  (smooth; tilts toward top-down when zoomed out; not over UI panels).
 - Debug panel (top left, off at launch): Movement, Navigation, Avoidance Debug.
 - UX round: hovering a ship, station or asteroid outlines it (pale) and shows its
   marker; selected ships and the selected station are outlined cyan. The cursor
@@ -1294,7 +1309,27 @@ Berth nodes the only source of docking geometry (legacy calculations and
 `DockEast` / `DockWest` removed). Requirements met: no RouteFollower order reaches
 a guided ship (counters 0 in every suite); handover only with the ship at rest.
 
-## Latest verification (2026-10-20, production combat migration and M8 cleanup)
+## Latest verification (2026-10-20, camera Phase A)
+
+- Baseline once before the change (52 suites: 50 pass, known failures navigation
+  35/36 and obstruction 9/12), then the full set after it, twice (the second after
+  the UI-panel wheel block): 51 of 53 pass; the two known failures have identical
+  output; no suite's error or warning lines changed. `main.tscn`, `combat_test.tscn`
+  (and once `movement_test.tscn`) ran 600 frames headless without errors. Not the
+  full protocol under Environment notes (one baseline run; three scene runs).
+- New `camera_test` 34/34: smoothing (95% in 15 frames at 60 fps, no overshoot,
+  reversal, limits, inverse steps), wheel factor, pitch, anchoring (0.000 px drift
+  at centre, off-centre, edges, yaws 0 / 45 / 200 / 300, during the pitch change),
+  bounds and missed-ray cases, pan / Q / middle drag cancelling the anchor, snaps,
+  `zoom_level()`, UI panel blocking, equal settle time at 1x / 0.25x / 2x / paused.
+- Changed checks: `strategic_test` S1 (all E05 corners on screen at 150 replaced by
+  target and convergence, 80° pitch, pivot in bounds, finite ground under the screen,
+  a wider region than at 40, marker pick and MOVE at the maximum) 17/17;
+  `time_test` C3 / C6 (target at once, settling while paused, equal settle frames)
+  39/39; `selection_test` line 151 reads `zoom_target` 41/41.
+- Owner acceptance 2026-10-20. No rendered or visual check was run by the agent.
+
+## Earlier verification (2026-10-20, production combat migration and M8 cleanup)
 
 - Recovery: both snapshots above verified before any change (Gate 0 of the migration,
   M8 Gate 0).
@@ -1791,14 +1826,21 @@ Open movement issues (owner, 2026-10-15: unresolved, not accepted):
   by the Shipyard's `ship_deployed`); a ship added under `Ships` without it makes
   `ShipSelection.pick()` (called every frame by AsteroidHover) log a script error
   (reproduced in the Phase 4 probe). No code removes ships.
+- Camera Phase A: near the bounds the clamp lets the cursor point drift (the pivot
+  stays inside); a large wheel burst can tilt up to about 8° per frame (one notch
+  at most 0.6°); hover updates on mouse motion, so a panel opening under a still
+  cursor may not block the first wheel step (inferred, not observed); models still
+  switch to markers at zoom 65 / 55 mid-zoom and the grid ramps on raw distance
+  until Phase B; scenes that zoom to 40 now show about 59° instead of 45°; in
+  headless runs the visible rect is 1152 × 648 (project stretch), whatever
+  `root.size` is set to.
 - Not available: camera focus / follow trigger (the rig's `follow()` exists);
   stall or "stuck" notices for the player; camera start zoom shows the Destroyer
   only partly in the test arena.
 - The yield fallback is not a permanent test scenario (verified once).
 - The playable scene still uses the lab's script name (`movement_lab.gd`).
 - Stage 1: the live-cursor hover path is checked only in rendered runs
-  (headless runs have no cursor); wheel zoom does not reach the camera over the
-  Scan Area button; % / DATA UPLOADED labels of asteroids close on screen can
+  (headless runs have no cursor); % / DATA UPLOADED labels of asteroids close on screen can
   overlap at maximum zoom; markers draw under the debug panel. Analyzed ice
   hover shows "Asteroid Ice" and reserves only (no "Ice 100%" line).
 - Station-controlled docking (accepted 2026-10-16; no further movement or
@@ -1930,23 +1972,23 @@ Open movement issues (owner, 2026-10-15: unresolved, not accepted):
   - Propulsion: a teleported ship (`place()`) can flash its jets for a tick.
 - Production combat (accepted 2026-10-20):
   - The Shipyard builds only the Mining Ship and the Transport Ship; warship
-    production would need its own recipe (deployment and registration would apply).
+	production would need its own recipe (deployment and registration would apply).
   - Aggressive hostile ships acquire civilian player ships like any other player
-    ship (the same hostile-faction rule); friendly fire does not exist.
+	ship (the same hostile-faction rule); friendly fire does not exist.
   - Stations have no hull component, so they block fire but take no damage; sensors
-    ignore stations (asteroids only); weapon envelopes draw asteroid shadows only.
+	ignore stations (asteroids only); weapon envelopes draw asteroid shadows only.
   - Every ship's hull is 150 (the validated value; civilian ships use the same).
   - A ship destroyed during the controlled docking entry or exit stays as an inert
     hulk where it was for 2 s; its station records are released at once and the
     berth is granted again only when physically empty.
   - Placeholders: the Target cursor (OS four-arrow shape), the hostile marker's outer
-    outline, the weapon placeholder meshes, the hull tint.
+	outline, the weapon placeholder meshes, the hull tint.
   - `combat_test.tscn` battle: with the player's warships Aggressive and no orders the
     hostile fleet won the headless run (an observation, no tuning).
   - The owner's editor state (`.godot/editor/editor_layout.cfg` and fold / script
-    caches) still names files of the retired experiments; the editor may report once
-    that it cannot reopen them (headless `--import` logs "Cannot load shader:
-    res://experiments/movement_v3/…"); project files are unaffected.
+	caches) still names files of the retired experiments; the editor may report once
+	that it cannot reopen them (headless `--import` logs "Cannot load shader:
+	res://experiments/movement_v3/…"); project files are unaffected.
 
 ## Unresolved
 
@@ -1968,8 +2010,8 @@ stations added later); stations cannot be under `Ships` (GroupOrders requires
   `C:\Users\Nikos\Downloads\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe`
   (4.7.2.stable).
 - Tests: `<godot console> --headless --path . -s res://game/tests/<name>.gd`;
-  `shipyard_runtime_test` and `reuse_test` with `--fixed-fps 60` (uninterrupted loop
-  as fast as possible). Combat suites, every one with `--fixed-fps 60`:
+  `shipyard_runtime_test`, `reuse_test` and `camera_test` with `--fixed-fps 60`
+  (the first two: uninterrupted loop as fast as possible). Combat suites, every one with `--fixed-fps 60`:
   `res://game/tests/combat/<name>.gd` (`acquisition_test`, `behavior_test` (P01–P03),
   `command_test`, `e05_behavior_test`, `fleet_test` (E05), `fog_test`, `hull_test`,
   `salvo_test`, `strategic_test`, `time_test`, `turret_pitch_test`, `weapons_test`,
@@ -2012,5 +2054,7 @@ movement or docking refinements are authorized (durations and the Destroyer's
 footprint wait for the owner). The movement baseline is fixed at cause C with the
 direct-move prediction horizon correction; cause B, planned rejoin
 (`experiments/planned_rejoin/`, paused) and parked navigation are not to be reopened
-without the owner. All work follows the AGENTS.md workflow (replace this section
-after every task).
+without the owner. Camera Phase A is accepted; Phase B (semantic presentation:
+models, tactical markers and grid driven by `zoom_level()`) and a Global view are
+anticipated but not authorized or planned. All work follows the AGENTS.md workflow
+(replace this section after every task).

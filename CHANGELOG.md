@@ -3,6 +3,18 @@
 Project history, newest first. One to two sentences per task; details are
 in `HANDOFF.md`. Entries are not edited after they are written.
 
+## 2026-10-20 — Camera Phase A: continuous zoom
+
+Wheel zoom is now smooth and cursor-anchored, the camera pitch follows the rendered zoom (45° to 80° between 20 and 100 u), and the wheel no longer zooms over UI panels (`camera_rig.gd`, new `camera_test`, adapted strategic, time and selection checks); accepted by the owner.
+
+## 2026-10-20 — Defended-area ring hidden
+
+Stopped drawing the Defensive defended-area ring (`behavior_view.gd`); the 12 u repositioning limit is unchanged. Accepted by the owner.
+
+## 2026-10-20 — Strategic marker heading tick removed
+
+Removed the white heading tick drawn beside every ship marker at strategic zoom (`tactical_markers.gd`); accepted by the owner.
+
 ## 2026-10-20 — Git repository and GitHub remote
 
 The project is now a Git repository on branch `main`, pushed to the private GitHub repository `nikosban/apalit` (SSH remote) with an initial commit of 348 files; `archive/` was added to `.gitignore` and stays local only.

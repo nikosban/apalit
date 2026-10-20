@@ -1,7 +1,6 @@
 extends MeshInstance3D
 ## Behavior (migrated from the behavior prototype v0.1): ground lines for every player ship with a Behavior node (P01–
 ## P03; added by the arena when one exists). Drawing only.
-##   Defensive without a command: the defended area (DEFENSE_RADIUS around the anchor).
 ##   Guard: a line to the chosen guard position and a ring there.
 ##   A movement request of the layer under way: a line to the requested point.
 ##   Attack investigating: a ring at the target's last known position.
@@ -12,7 +11,6 @@ const Behavior := preload("res://game/behavior/ship_behavior.gd")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const PLAYER := 0
 const HEIGHT := 0.06
-const AREA := Color(0.35, 0.75, 0.85, 0.7)
 const GUARD := Color(0.4, 0.9, 0.45, 0.9)
 const REQUEST := Color(0.95, 0.75, 0.3, 0.8)
 const LAST_KNOWN := Color(0.75, 0.76, 0.78, 0.85)
@@ -43,8 +41,6 @@ func _process(_delta: float) -> void:
 		if behavior == null or combat == null or not combat.alive or combat.faction != PLAYER:
 			continue
 		var here := Vector2(ship.global_position.x, ship.global_position.z)
-		if behavior.command == Behavior.Command.NONE and combat.stance == CombatShip.Stance.DEFENSIVE and behavior.has_anchor:
-			_circle(lines, behavior.anchor, Behavior.DEFENSE_RADIUS, AREA)
 		if behavior.command == Behavior.Command.GUARD and behavior.guard_slot >= 0 and is_instance_valid(behavior.guard_target):
 			var slot: Vector2 = behavior.slot_point(behavior.guard_slot)
 			lines.append([here, slot, GUARD])
