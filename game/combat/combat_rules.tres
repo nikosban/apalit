@@ -1,0 +1,10 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://game/combat/combat_rules.gd" id="1_rules"]
+
+[resource]
+script = ExtResource("1_rules")
+hull_health = 150.0
+defensive_radius = 30.0
+threat_persistence = 10.0
+hulk_duration = 2.0

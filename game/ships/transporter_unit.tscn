@@ -1,0 +1,31 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://game/ships/archetypes/transport_ship.tscn" id="1_archetype"]
+[ext_resource type="PackedScene" path="res://game/ships/transporter.tscn" id="2_model"]
+
+[node name="Transporter" instance=ExtResource("1_archetype")]
+metadata/display_class = "Transport Ship"
+
+[node name="Locomotion" parent="." index="0"]
+max_speed = 4.5
+max_reverse_speed = 2.5
+max_lateral_speed = 2.0
+forward_accel = 3.0
+reverse_accel = 1.5
+lateral_accel = 1.2
+max_turn_rate_deg = 60.0
+turn_accel_deg = 90.0
+
+[node name="RouteFollower" parent="." index="1"]
+ship_radius = 4.1
+clearance_margin = 1.0
+
+[node name="Avoidance" parent="." index="2"]
+size_class = 2
+separation_margin = 1.0
+
+[node name="Fuel" parent="." index="7"]
+capacity = 200.0
+consumption = 0.5
+
+[node name="Model" parent="." instance=ExtResource("2_model")]

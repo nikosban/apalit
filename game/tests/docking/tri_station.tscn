@@ -1,0 +1,141 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/stations/station.gd" id="1_tri"]
+[ext_resource type="Script" path="res://game/stations/berth.gd" id="2_berth"]
+
+[sub_resource type="StandardMaterial3D" id="Mat_hub"]
+albedo_color = Color(0.36, 0.37, 0.38, 1)
+metallic = 0.4
+roughness = 0.7
+
+[sub_resource type="StandardMaterial3D" id="Mat_wall"]
+albedo_color = Color(0.27, 0.28, 0.29, 1)
+metallic = 0.4
+roughness = 0.7
+
+[sub_resource type="CylinderMesh" id="Mesh_hub"]
+material = SubResource("Mat_hub")
+top_radius = 8.5
+bottom_radius = 8.5
+height = 3.0
+radial_segments = 6
+
+[sub_resource type="BoxMesh" id="Mesh_back"]
+material = SubResource("Mat_hub")
+size = Vector3(13.75, 3, 5.8)
+
+[sub_resource type="BoxMesh" id="Mesh_wall"]
+material = SubResource("Mat_wall")
+size = Vector3(1.9, 2, 13.1)
+
+[node name="TriStation" type="Node3D" groups=["station"]]
+script = ExtResource("1_tri")
+show_berths = true
+
+[node name="Hub" type="MeshInstance3D" parent="." groups=["static_obstacle"]]
+mesh = SubResource("Mesh_hub")
+[node name="BayLeftBack" type="MeshInstance3D" parent="." groups=["static_obstacle"]]
+transform = Transform3D(-0.5, 0, -0.866025, 0, 1, 0, 0.866025, 0, -0.5, -8.573403, 0, -4.95)
+mesh = SubResource("Mesh_back")
+
+[node name="BayLeftWallA" type="MeshInstance3D" parent="." groups=["static_obstacle"]]
+transform = Transform3D(-0.5, 0, -0.866025, 0, 1, 0, 0.866025, 0, -0.5, -20.684702, 0, -5.072286)
+mesh = SubResource("Mesh_wall")
+
+[node name="BayLeftWallB" type="MeshInstance3D" parent="." groups=["static_obstacle"]]
+transform = Transform3D(-0.5, 0, -0.866025, 0, 1, 0, 0.866025, 0, -0.5, -14.734702, 0, -15.377714)
+mesh = SubResource("Mesh_wall")
+
+[node name="BayLeft" type="Node3D" parent="."]
+transform = Transform3D(-0.5, 0, -0.866025, 0, 1, 0, 0.866025, 0, -0.5, -12.990381, 0, -7.5)
+script = ExtResource("2_berth")
+slot_size = Vector2(18.4, 7.5)
+
+[node name="ParkStop" type="Marker3D" parent="BayLeft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.7)
+
+[node name="Handover" type="Marker3D" parent="BayLeft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 18.4)
+
+[node name="ExitBack" type="Marker3D" parent="BayLeft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 12)
+
+[node name="ExitA" type="Marker3D" parent="BayLeft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11, 0, 23)
+
+[node name="ExitB" type="Marker3D" parent="BayLeft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11, 0, 23)
+
+[node name="BayRightBack" type="MeshInstance3D" parent="." groups=["static_obstacle"]]
+transform = Transform3D(-0.5, 0, 0.866025, 0, 1, 0, -0.866025, 0, -0.5, 8.573403, 0, -4.95)
+mesh = SubResource("Mesh_back")
+
+[node name="BayRightWallA" type="MeshInstance3D" parent="." groups=["static_obstacle"]]
+transform = Transform3D(-0.5, 0, 0.866025, 0, 1, 0, -0.866025, 0, -0.5, 14.734702, 0, -15.377714)
+mesh = SubResource("Mesh_wall")
+
+[node name="BayRightWallB" type="MeshInstance3D" parent="." groups=["static_obstacle"]]
+transform = Transform3D(-0.5, 0, 0.866025, 0, 1, 0, -0.866025, 0, -0.5, 20.684702, 0, -5.072286)
+mesh = SubResource("Mesh_wall")
+
+[node name="BayRight" type="Node3D" parent="."]
+transform = Transform3D(-0.5, 0, 0.866025, 0, 1, 0, -0.866025, 0, -0.5, 12.990381, 0, -7.5)
+script = ExtResource("2_berth")
+slot_size = Vector2(18.4, 7.5)
+
+[node name="ParkStop" type="Marker3D" parent="BayRight"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.7)
+
+[node name="Handover" type="Marker3D" parent="BayRight"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 18.4)
+
+[node name="ExitBack" type="Marker3D" parent="BayRight"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 12)
+
+[node name="ExitA" type="Marker3D" parent="BayRight"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11, 0, 23)
+
+[node name="ExitB" type="Marker3D" parent="BayRight"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11, 0, 23)
+
+[node name="BayBottomBack" type="MeshInstance3D" parent="." groups=["static_obstacle"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 9.9)
+mesh = SubResource("Mesh_back")
+
+[node name="BayBottomWallA" type="MeshInstance3D" parent="." groups=["static_obstacle"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.95, 0, 20.45)
+mesh = SubResource("Mesh_wall")
+
+[node name="BayBottomWallB" type="MeshInstance3D" parent="." groups=["static_obstacle"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.95, 0, 20.45)
+mesh = SubResource("Mesh_wall")
+
+[node name="BayBottom" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 15)
+script = ExtResource("2_berth")
+slot_size = Vector2(18.4, 7.5)
+
+[node name="ParkStop" type="Marker3D" parent="BayBottom"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.7)
+
+[node name="Handover" type="Marker3D" parent="BayBottom"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 18.4)
+
+[node name="ExitBack" type="Marker3D" parent="BayBottom"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 12)
+
+[node name="ExitA" type="Marker3D" parent="BayBottom"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11, 0, 23)
+
+[node name="ExitB" type="Marker3D" parent="BayBottom"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11, 0, 23)
+
+[node name="Hold1" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -44)
+
+[node name="Hold2" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38.105118, 0, 22)
+
+[node name="Hold3" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -38.105118, 0, 22)
+

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://game/weapons/weapon_config.gd" id="1_config"]
+
+[resource]
+script = ExtResource("1_config")
+display_name = "Turret"
+damage = 8.0
+cooldown = 1.0
+weapon_range = 45.0
+travel_factor = 1.25
+projectile_speed = 40.0
+projectile_lifetime = 2.5
+alignment_tolerance_deg = 3.0
+yaw_limit_deg = 160.0
+pitch_min_deg = -15.0
+pitch_max_deg = 75.0
+yaw_speed_deg = 60.0
+pitch_speed_deg = 40.0

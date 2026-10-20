@@ -1,0 +1,205 @@
+[gd_scene format=3 uid="uid://b0kjmnu1j2uwx"]
+
+[ext_resource type="PackedScene" path="res://main.tscn" id="1_main"]
+[ext_resource type="Script" uid="uid://drqfso3v28nxc" path="res://game/refining/refinery.gd" id="2_leknj"]
+[ext_resource type="Script" uid="uid://1pchtu0sfvia" path="res://game/shipyard/shipyard.gd" id="3_sdoyt"]
+[ext_resource type="Script" uid="uid://cmcbtcwtherkk" path="res://game/locomotion/ship_locomotion.gd" id="4_iybya"]
+[ext_resource type="Script" uid="uid://dlj5ckrqr07bf" path="res://game/navigation/route_follower.gd" id="5_cjla7"]
+[ext_resource type="Script" uid="uid://bwwkuorb0d5ay" path="res://game/avoidance/ship_avoidance.gd" id="6_6gjqx"]
+[ext_resource type="Script" uid="uid://cuog48do2wea7" path="res://game/survey/scanner.gd" id="7_yydku"]
+[ext_resource type="Script" uid="uid://iehf480pw5ua" path="res://game/stations/docking.gd" id="8_77gxb"]
+[ext_resource type="Script" uid="uid://rowf6kmwte2l" path="res://game/fuel/fuel.gd" id="9_5ahtl"]
+[ext_resource type="Script" uid="uid://dkrihgsnrsn2x" path="res://game/cargo/cargo.gd" id="10_6ehos"]
+[ext_resource type="Script" uid="uid://dijlmy1ybaotp" path="res://game/mining/extractor.gd" id="11_xgtfe"]
+[ext_resource type="Script" uid="uid://18hff0td0xob" path="res://game/mining/mining_operation.gd" id="12_o4muq"]
+[ext_resource type="Script" uid="uid://cbxbkm7gqb1n5" path="res://game/transport/transport_operation.gd" id="13_5sc6q"]
+
+[node name="Main" unique_id=401889429 instance=ExtResource("1_main")]
+
+[node name="Station" parent="Stations" index="0"]
+show_berths = true
+
+[node name="Station2" parent="Stations" index="1"]
+show_berths = true
+
+[node name="Refinery2" type="Node" parent="Stations/Station2" index="11" unique_id=266724757]
+script = ExtResource("2_leknj")
+
+[node name="Shipyard2" type="Node" parent="Stations/Shipyard" index="11" unique_id=1317398120]
+script = ExtResource("3_sdoyt")
+
+[node name="Deployment2" type="Marker3D" parent="Stations/Shipyard" index="12" unique_id=470537699]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -16)
+
+[node name="Locomotion2" type="Node" parent="Ships/Frigate" index="4" unique_id=361939212]
+script = ExtResource("4_iybya")
+max_speed = 5.0
+
+[node name="RouteFollower2" type="Node" parent="Ships/Frigate" index="5" unique_id=696366365]
+script = ExtResource("5_cjla7")
+
+[node name="Avoidance2" type="Node" parent="Ships/Frigate" index="6" unique_id=1442533538]
+script = ExtResource("6_6gjqx")
+
+[node name="Scanner2" type="Node" parent="Ships/Frigate" index="7" unique_id=2058064855]
+script = ExtResource("7_yydku")
+
+[node name="Docking2" type="Node" parent="Ships/Frigate" index="8" unique_id=1551529230]
+script = ExtResource("8_77gxb")
+
+[node name="Fuel2" type="Node" parent="Ships/Frigate" index="9" unique_id=644207252]
+script = ExtResource("9_5ahtl")
+
+[node name="Locomotion2" type="Node" parent="Ships/Gunship" index="6" unique_id=1640605844]
+script = ExtResource("4_iybya")
+max_speed = 4.5
+max_reverse_speed = 2.5
+max_lateral_speed = 2.0
+forward_accel = 3.0
+reverse_accel = 1.5
+lateral_accel = 1.2
+max_turn_rate_deg = 60.0
+turn_accel_deg = 90.0
+
+[node name="RouteFollower2" type="Node" parent="Ships/Gunship" index="7" unique_id=1052142812]
+script = ExtResource("5_cjla7")
+ship_radius = 3.4
+
+[node name="Avoidance2" type="Node" parent="Ships/Gunship" index="8" unique_id=2124990619]
+script = ExtResource("6_6gjqx")
+size_class = 2
+
+[node name="Scanner2" type="Node" parent="Ships/Gunship" index="9" unique_id=15513515]
+script = ExtResource("7_yydku")
+
+[node name="Docking2" type="Node" parent="Ships/Gunship" index="10" unique_id=1070205140]
+script = ExtResource("8_77gxb")
+
+[node name="Fuel2" type="Node" parent="Ships/Gunship" index="11" unique_id=546615015]
+script = ExtResource("9_5ahtl")
+capacity = 200.0
+consumption = 0.5
+
+[node name="Locomotion2" type="Node" parent="Ships/Destroyer" index="6" unique_id=1887215060]
+script = ExtResource("4_iybya")
+max_speed = 3.0
+max_reverse_speed = 1.5
+max_lateral_speed = 1.0
+forward_accel = 1.2
+reverse_accel = 0.5
+lateral_accel = 0.3
+max_turn_rate_deg = 25.0
+turn_accel_deg = 20.0
+
+[node name="RouteFollower2" type="Node" parent="Ships/Destroyer" index="7" unique_id=1388283221]
+script = ExtResource("5_cjla7")
+ship_radius = 6.2
+
+[node name="Avoidance2" type="Node" parent="Ships/Destroyer" index="8" unique_id=2107423263]
+script = ExtResource("6_6gjqx")
+size_class = 3
+
+[node name="Scanner2" type="Node" parent="Ships/Destroyer" index="9" unique_id=467086620]
+script = ExtResource("7_yydku")
+
+[node name="Docking2" type="Node" parent="Ships/Destroyer" index="10" unique_id=200232364]
+script = ExtResource("8_77gxb")
+
+[node name="Fuel2" type="Node" parent="Ships/Destroyer" index="11" unique_id=1487095439]
+script = ExtResource("9_5ahtl")
+capacity = 400.0
+consumption = 1.0
+
+[node name="Locomotion2" type="Node" parent="Ships/Miner1" index="3" unique_id=2099012731]
+script = ExtResource("4_iybya")
+max_speed = 5.0
+
+[node name="RouteFollower2" type="Node" parent="Ships/Miner1" index="4" unique_id=1604989815]
+script = ExtResource("5_cjla7")
+
+[node name="Avoidance2" type="Node" parent="Ships/Miner1" index="5" unique_id=18916404]
+script = ExtResource("6_6gjqx")
+
+[node name="Cargo2" type="Node" parent="Ships/Miner1" index="6" unique_id=1093440506]
+script = ExtResource("10_6ehos")
+
+[node name="Extractor2" type="Node" parent="Ships/Miner1" index="7" unique_id=608402793]
+script = ExtResource("11_xgtfe")
+
+[node name="Mining2" type="Node" parent="Ships/Miner1" index="8" unique_id=1730827492]
+script = ExtResource("12_o4muq")
+
+[node name="Scanner2" type="Node" parent="Ships/Miner1" index="9" unique_id=623685760]
+script = ExtResource("7_yydku")
+kind = 1
+
+[node name="Docking2" type="Node" parent="Ships/Miner1" index="10" unique_id=324701980]
+script = ExtResource("8_77gxb")
+
+[node name="Fuel2" type="Node" parent="Ships/Miner1" index="11" unique_id=1294817530]
+script = ExtResource("9_5ahtl")
+
+[node name="Locomotion2" type="Node" parent="Ships/Miner2" index="3" unique_id=982279737]
+script = ExtResource("4_iybya")
+max_speed = 5.0
+
+[node name="RouteFollower2" type="Node" parent="Ships/Miner2" index="4" unique_id=1638064153]
+script = ExtResource("5_cjla7")
+
+[node name="Avoidance2" type="Node" parent="Ships/Miner2" index="5" unique_id=471332880]
+script = ExtResource("6_6gjqx")
+
+[node name="Cargo2" type="Node" parent="Ships/Miner2" index="6" unique_id=1633629896]
+script = ExtResource("10_6ehos")
+
+[node name="Extractor2" type="Node" parent="Ships/Miner2" index="7" unique_id=1615924750]
+script = ExtResource("11_xgtfe")
+
+[node name="Mining2" type="Node" parent="Ships/Miner2" index="8" unique_id=1260378043]
+script = ExtResource("12_o4muq")
+
+[node name="Scanner2" type="Node" parent="Ships/Miner2" index="9" unique_id=1882814438]
+script = ExtResource("7_yydku")
+kind = 1
+
+[node name="Docking2" type="Node" parent="Ships/Miner2" index="10" unique_id=5561332]
+script = ExtResource("8_77gxb")
+
+[node name="Fuel2" type="Node" parent="Ships/Miner2" index="11" unique_id=998415056]
+script = ExtResource("9_5ahtl")
+
+[node name="Locomotion2" type="Node" parent="Ships/Transporter" index="3" unique_id=1658430272]
+script = ExtResource("4_iybya")
+max_speed = 4.5
+max_reverse_speed = 2.5
+max_lateral_speed = 2.0
+forward_accel = 3.0
+reverse_accel = 1.5
+lateral_accel = 1.2
+max_turn_rate_deg = 60.0
+turn_accel_deg = 90.0
+
+[node name="RouteFollower2" type="Node" parent="Ships/Transporter" index="4" unique_id=583709760]
+script = ExtResource("5_cjla7")
+ship_radius = 4.1
+
+[node name="Avoidance2" type="Node" parent="Ships/Transporter" index="5" unique_id=223090921]
+script = ExtResource("6_6gjqx")
+size_class = 2
+
+[node name="Cargo2" type="Node" parent="Ships/Transporter" index="6" unique_id=1990940579]
+script = ExtResource("10_6ehos")
+
+[node name="Transport2" type="Node" parent="Ships/Transporter" index="7" unique_id=525181116]
+script = ExtResource("13_5sc6q")
+
+[node name="Scanner2" type="Node" parent="Ships/Transporter" index="8" unique_id=372645938]
+script = ExtResource("7_yydku")
+
+[node name="Docking2" type="Node" parent="Ships/Transporter" index="9" unique_id=1340985310]
+script = ExtResource("8_77gxb")
+
+[node name="Fuel2" type="Node" parent="Ships/Transporter" index="10" unique_id=166645427]
+script = ExtResource("9_5ahtl")
+capacity = 200.0
+consumption = 0.5

@@ -1,0 +1,58 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://game/tests/combat/fixtures/encounter_arena.tscn" id="1_base"]
+[ext_resource type="PackedScene" path="res://game/ships/gunship_unit.tscn" id="2_gunship"]
+[ext_resource type="Script" path="res://game/tests/combat/fixtures/behavior_scenarios.gd" id="3_scenarios"]
+[ext_resource type="Script" path="res://game/sensors/sensors.gd" id="4_sensors"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_asteroid"]
+albedo_color = Color(0.36, 0.34, 0.32, 1)
+roughness = 1.0
+
+[sub_resource type="SphereMesh" id="SphereMesh_asteroid"]
+material = SubResource("StandardMaterial3D_asteroid")
+radial_segments = 24
+rings = 12
+
+[node name="P03Guard" instance=ExtResource("1_base")]
+scenarios = ExtResource("3_scenarios")
+
+[node name="CameraRig" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60, 0, 40)
+
+[node name="Asteroid1" type="MeshInstance3D" parent="Asteroids"]
+transform = Transform3D(12, 0, 0, 0, 12, 0, 0, 0, 12, -62, 1.5, 75)
+mesh = SubResource("SphereMesh_asteroid")
+metadata/asteroid_id = 1
+
+[node name="Asteroid2" type="MeshInstance3D" parent="Asteroids"]
+transform = Transform3D(14, 0, 0, 0, 14, 0, 0, 0, 14, 35, 1.5, 2)
+mesh = SubResource("SphereMesh_asteroid")
+metadata/asteroid_id = 2
+
+[node name="Asteroid3" type="MeshInstance3D" parent="Asteroids"]
+transform = Transform3D(16, 0, 0, 0, 16, 0, 0, 0, 16, 95, 1.5, -10)
+mesh = SubResource("SphereMesh_asteroid")
+metadata/asteroid_id = 3
+
+[node name="Gunship2" parent="Ships" instance=ExtResource("2_gunship")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -60, 1.5, 120)
+
+[node name="Combat" parent="Ships/Gunship2" index="7"]
+faction = 0
+combat_id = 5
+stance = 1
+
+[node name="HostileGunship2" parent="Ships" instance=ExtResource("2_gunship")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 60, 1.5, 120)
+
+[node name="Combat" parent="Ships/HostileGunship2" index="7"]
+faction = 1
+combat_id = 6
+stance = 0
+
+[node name="Sensors" type="Node" parent="."]
+script = ExtResource("4_sensors")
+sensor_range = 100.0
+update_interval = 0.2
+memory = 8.0

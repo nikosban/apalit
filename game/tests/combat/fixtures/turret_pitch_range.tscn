@@ -1,0 +1,111 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/weapons/turret.gd" id="1_turret"]
+[ext_resource type="Resource" path="res://game/tests/combat/fixtures/turret.tres" id="2_config"]
+[ext_resource type="Script" path="res://game/combat/combat_ship.gd" id="3_combat"]
+[ext_resource type="Script" path="res://game/tests/combat/fixtures/target_dummy.gd" id="4_dummy"]
+[ext_resource type="Script" path="res://game/sensors/contact_board.gd" id="5_contacts"]
+[ext_resource type="Script" path="res://game/combat/projectile_system.gd" id="6_projectiles"]
+[ext_resource type="Script" path="res://game/combat/combat_effects.gd" id="7_effects"]
+[ext_resource type="Script" path="res://game/combat/combat_orders.gd" id="8_orders"]
+[ext_resource type="Script" path="res://game/time/sim_clock.gd" id="90_clock"]
+
+[sub_resource type="Environment" id="Environment_range"]
+background_mode = 1
+background_color = Color(0.05, 0.055, 0.06, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.55, 0.58, 0.62, 1)
+ambient_light_energy = 0.5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_platform"]
+albedo_color = Color(0.32, 0.33, 0.34, 1)
+metallic = 0.4
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_platform"]
+material = SubResource("StandardMaterial3D_platform")
+size = Vector3(2, 1, 3)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dummy"]
+albedo_color = Color(0.5, 0.45, 0.4, 1)
+roughness = 0.8
+
+[sub_resource type="BoxMesh" id="BoxMesh_dummy"]
+material = SubResource("StandardMaterial3D_dummy")
+size = Vector3(1.6, 1.6, 1.6)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ground"]
+albedo_color = Color(0.1, 0.105, 0.11, 1)
+roughness = 1.0
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
+material = SubResource("StandardMaterial3D_ground")
+size = Vector2(80, 80)
+
+[node name="TurretPitchRange" type="Node3D"]
+
+[node name="SimClock" type="Node" parent="."]
+script = ExtResource("90_clock")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_range")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, -0.75, 0.433013, 0, 10, 0)
+shadow_enabled = true
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(0.707107, -0.353553, 0.612372, 0, 0.866025, 0.5, -0.707107, -0.353553, 0.612372, 9, 7.5, 9)
+current = true
+
+[node name="Ground" type="MeshInstance3D" parent="."]
+mesh = SubResource("PlaneMesh_ground")
+
+[node name="Ships" type="Node3D" parent="."]
+
+[node name="Platform" type="Node3D" parent="Ships"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+
+[node name="Model" type="MeshInstance3D" parent="Ships/Platform"]
+mesh = SubResource("BoxMesh_platform")
+
+[node name="Weapons" type="Node3D" parent="Ships/Platform"]
+
+[node name="Turret" type="Node3D" parent="Ships/Platform/Weapons"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+script = ExtResource("1_turret")
+config = ExtResource("2_config")
+base_diameter = 0.5
+body_height = 0.25
+barrel_length = 0.65
+
+[node name="Combat" type="Node" parent="Ships/Platform"]
+script = ExtResource("3_combat")
+faction = 0
+combat_id = 1
+stance = 2
+
+[node name="Dummy" type="Node3D" parent="Ships"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -20)
+script = ExtResource("4_dummy")
+
+[node name="Model" type="MeshInstance3D" parent="Ships/Dummy"]
+mesh = SubResource("BoxMesh_dummy")
+
+[node name="Combat" type="Node" parent="Ships/Dummy"]
+script = ExtResource("3_combat")
+faction = 1
+combat_id = 2
+stance = 0
+
+[node name="Contacts" type="Node" parent="."]
+script = ExtResource("5_contacts")
+
+[node name="Projectiles" type="Node3D" parent="."]
+script = ExtResource("6_projectiles")
+
+[node name="Effects" type="Node3D" parent="."]
+script = ExtResource("7_effects")
+
+[node name="CombatOrders" type="Node" parent="."]
+script = ExtResource("8_orders")

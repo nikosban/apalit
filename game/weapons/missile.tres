@@ -1,0 +1,39 @@
+[gd_resource type="Resource" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://game/weapons/weapon_config.gd" id="1_config"]
+[ext_resource type="Script" path="res://game/weapons/ordnance_config.gd" id="2_ordnance"]
+
+[sub_resource type="Resource" id="Resource_missile"]
+script = ExtResource("2_ordnance")
+kind = &"missile"
+turn_rate_deg = 40.0
+eject_speed = 5.0
+clearance = 2.5
+hull_margin = 0.5
+orient_rate_deg = 75.0
+powered_within_deg = 15.0
+acceleration = 18.0
+max_speed = 32.0
+steering_deadband_deg = 3.0
+avoidance = true
+avoid_lookahead = 1.4
+avoid_margin = 1.0
+flight_time = 9.0
+lifetime = 30.0
+max_travel = 400.0
+radius = 0.3
+length = 0.6
+body_radius = 0.06
+trail_time = 0.35
+
+[resource]
+script = ExtResource("1_config")
+display_name = "Missile cells"
+family = &"missile"
+size = 1
+damage = 30.0
+cooldown = 4.0
+weapon_range = 90.0
+alignment_tolerance_deg = 3.0
+ammunition = 6
+ordnance = SubResource("Resource_missile")

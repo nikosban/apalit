@@ -1,0 +1,266 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/ui/ship_panel.gd" id="1_panel"]
+[ext_resource type="PackedScene" path="res://game/ui/components/panel_shell.tscn" id="2_shell"]
+[ext_resource type="PackedScene" path="res://game/ui/components/section.tscn" id="3_section"]
+[ext_resource type="PackedScene" path="res://game/ui/transport_editor.tscn" id="4_editor"]
+
+[node name="ShipPanel" type="CanvasLayer"]
+script = ExtResource("1_panel")
+
+[node name="Panel" parent="." instance=ExtResource("2_shell")]
+
+[node name="ShipName" type="LineEdit" parent="Panel/Layout/Header"]
+layout_mode = 2
+tooltip_text = "Ship name (Enter to apply; empty restores the original name)"
+theme_override_font_sizes/font_size = 18
+placeholder_text = "Ship name"
+max_length = 32
+flat = true
+select_all_on_focus = true
+
+[node name="ShipClass" type="Label" parent="Panel/Layout/Header"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+
+[node name="Status" parent="Panel/Layout/Scroll/Body" instance=ExtResource("3_section")]
+layout_mode = 2
+title = "Status"
+
+[node name="Activity" type="Label" parent="Panel/Layout/Scroll/Body/Status"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="Dock" type="Label" parent="Panel/Layout/Scroll/Body/Status"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="Fuel" type="VBoxContainer" parent="Panel/Layout/Scroll/Body/Status"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Amount" type="Label" parent="Panel/Layout/Scroll/Body/Status/Fuel"]
+layout_mode = 2
+
+[node name="Bar" type="ProgressBar" parent="Panel/Layout/Scroll/Body/Status/Fuel"]
+custom_minimum_size = Vector2(0, 8)
+layout_mode = 2
+mouse_filter = 2
+max_value = 1.0
+show_percentage = false
+
+[node name="Status" type="Label" parent="Panel/Layout/Scroll/Body/Status/Fuel"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="Health" type="Label" parent="Panel/Layout/Scroll/Body/Status"]
+layout_mode = 2
+
+[node name="Combat" parent="Panel/Layout/Scroll/Body" instance=ExtResource("3_section")]
+layout_mode = 2
+title = "Combat"
+
+[node name="TacticRow" type="HBoxContainer" parent="Panel/Layout/Scroll/Body/Combat"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Panel/Layout/Scroll/Body/Combat/TacticRow"]
+layout_mode = 2
+text = "Tactic"
+
+[node name="Tactic" type="OptionButton" parent="Panel/Layout/Scroll/Body/Combat/TacticRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "F1 Passive, F2 Defensive, F3 Aggressive"
+
+[node name="ProfileRow" type="HBoxContainer" parent="Panel/Layout/Scroll/Body/Combat"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Panel/Layout/Scroll/Body/Combat/ProfileRow"]
+layout_mode = 2
+text = "Weapon profile"
+
+[node name="Profile" type="OptionButton" parent="Panel/Layout/Scroll/Body/Combat/ProfileRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Only the profiles the installed weapons support (P: next)"
+
+[node name="Command" type="Label" parent="Panel/Layout/Scroll/Body/Combat"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="Target" type="Label" parent="Panel/Layout/Scroll/Body/Combat"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="Weapons" type="Label" parent="Panel/Layout/Scroll/Body/Combat"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+autowrap_mode = 3
+
+[node name="Cargo" parent="Panel/Layout/Scroll/Body" instance=ExtResource("3_section")]
+layout_mode = 2
+title = "Cargo"
+
+[node name="Summary" type="Label" parent="Panel/Layout/Scroll/Body/Cargo"]
+layout_mode = 2
+
+[node name="Tiles" type="HFlowContainer" parent="Panel/Layout/Scroll/Body/Cargo"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Actions" parent="Panel/Layout/Scroll/Body" instance=ExtResource("3_section")]
+layout_mode = 2
+title = "Actions"
+
+[node name="Equipment" type="Label" parent="Panel/Layout/Scroll/Body/Actions"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+
+[node name="ScanArea" type="Button" parent="Panel/Layout/Scroll/Body/Actions"]
+layout_mode = 2
+focus_mode = 0
+text = "Scan Area"
+
+[node name="Mining" type="VBoxContainer" parent="Panel/Layout/Scroll/Body/Actions"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Target" type="Label" parent="Panel/Layout/Scroll/Body/Actions/Mining"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="BaseRow" type="HBoxContainer" parent="Panel/Layout/Scroll/Body/Actions/Mining"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="Panel/Layout/Scroll/Body/Actions/Mining/BaseRow"]
+layout_mode = 2
+text = "Base:"
+
+[node name="Base" type="OptionButton" parent="Panel/Layout/Scroll/Body/Actions/Mining/BaseRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+clip_text = true
+fit_to_longest_item = false
+
+[node name="Resume" type="Button" parent="Panel/Layout/Scroll/Body/Actions/Mining"]
+layout_mode = 2
+focus_mode = 0
+text = "Start / Resume Mining"
+
+[node name="Transport" type="VBoxContainer" parent="Panel/Layout/Scroll/Body/Actions"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="LoadRow" type="HBoxContainer" parent="Panel/Layout/Scroll/Body/Actions/Transport"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="Panel/Layout/Scroll/Body/Actions/Transport/LoadRow"]
+custom_minimum_size = Vector2(90, 0)
+layout_mode = 2
+text = "Load at:"
+
+[node name="Station" type="OptionButton" parent="Panel/Layout/Scroll/Body/Actions/Transport/LoadRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+clip_text = true
+fit_to_longest_item = false
+
+[node name="UnloadRow" type="HBoxContainer" parent="Panel/Layout/Scroll/Body/Actions/Transport"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="Panel/Layout/Scroll/Body/Actions/Transport/UnloadRow"]
+custom_minimum_size = Vector2(90, 0)
+layout_mode = 2
+text = "Unload at:"
+
+[node name="Station" type="OptionButton" parent="Panel/Layout/Scroll/Body/Actions/Transport/UnloadRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+clip_text = true
+fit_to_longest_item = false
+
+[node name="Route" type="Label" parent="Panel/Layout/Scroll/Body/Actions/Transport"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="Required" type="Label" parent="Panel/Layout/Scroll/Body/Actions/Transport"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="Unloading" type="Label" parent="Panel/Layout/Scroll/Body/Actions/Transport"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Unload: all cargo aboard, at the destination"
+autowrap_mode = 3
+
+[node name="Configure" type="Button" parent="Panel/Layout/Scroll/Body/Actions/Transport"]
+layout_mode = 2
+focus_mode = 0
+text = "Configure Cargo..."
+
+[node name="Start" type="Button" parent="Panel/Layout/Scroll/Body/Actions/Transport"]
+layout_mode = 2
+focus_mode = 0
+text = "Start / Resume Transport"
+
+[node name="Docking" type="VBoxContainer" parent="Panel/Layout/Scroll/Body/Actions"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Undock" type="Button" parent="Panel/Layout/Scroll/Body/Actions/Docking"]
+layout_mode = 2
+focus_mode = 0
+text = "Undock"
+
+[node name="Transfer" type="VBoxContainer" parent="Panel/Layout/Scroll/Body/Actions/Docking"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Storage" type="Label" parent="Panel/Layout/Scroll/Body/Actions/Docking/Transfer"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="Unload" type="Button" parent="Panel/Layout/Scroll/Body/Actions/Docking/Transfer"]
+layout_mode = 2
+focus_mode = 0
+text = "Unload Cargo"
+
+[node name="LoadRow" type="HBoxContainer" parent="Panel/Layout/Scroll/Body/Actions/Docking/Transfer"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Family" type="OptionButton" parent="Panel/Layout/Scroll/Body/Actions/Docking/Transfer/LoadRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+clip_text = true
+fit_to_longest_item = false
+
+[node name="Amount" type="SpinBox" parent="Panel/Layout/Scroll/Body/Actions/Docking/Transfer/LoadRow"]
+layout_mode = 2
+min_value = 1.0
+max_value = 1000.0
+value = 100.0
+custom_arrow_step = 50.0
+
+[node name="Load" type="Button" parent="Panel/Layout/Scroll/Body/Actions/Docking/Transfer/LoadRow"]
+layout_mode = 2
+focus_mode = 0
+text = "Load"
+
+[node name="Progress" type="ProgressBar" parent="Panel/Layout/Scroll/Body/Actions/Docking/Transfer"]
+custom_minimum_size = Vector2(0, 8)
+layout_mode = 2
+mouse_filter = 2
+show_percentage = false
+
+[node name="ProgressLabel" type="Label" parent="Panel/Layout/Scroll/Body/Actions/Docking/Transfer"]
+layout_mode = 2
+
+[node name="TransportEditor" parent="." instance=ExtResource("4_editor")]

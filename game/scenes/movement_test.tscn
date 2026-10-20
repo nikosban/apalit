@@ -1,0 +1,324 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://game/camera/camera_rig.tscn" id="1_rig"]
+[ext_resource type="Shader" path="res://game/scenes/lab_grid.gdshader" id="2_grid"]
+[ext_resource type="PackedScene" path="res://game/ships/frigate.tscn" id="3_frigate"]
+[ext_resource type="PackedScene" path="res://game/ships/gunship.tscn" id="4_gunship"]
+[ext_resource type="PackedScene" path="res://game/ships/destroyer.tscn" id="5_destroyer"]
+[ext_resource type="Script" path="res://game/scenes/movement_lab.gd" id="6_lab"]
+[ext_resource type="Script" path="res://game/locomotion/ship_locomotion.gd" id="7_locomotion"]
+[ext_resource type="PackedScene" path="res://game/debug/debug_ui.tscn" id="8_debug"]
+[ext_resource type="Script" path="res://game/navigation/static_navigation.gd" id="9_navigation"]
+[ext_resource type="Script" path="res://game/navigation/route_follower.gd" id="10_follower"]
+[ext_resource type="Script" path="res://game/debug/navigation_debug.gd" id="11_navigation_debug"]
+[ext_resource type="Script" path="res://game/avoidance/ship_avoidance.gd" id="12_avoidance"]
+[ext_resource type="Script" path="res://game/debug/avoidance_debug.gd" id="13_avoidance_debug"]
+[ext_resource type="Script" path="res://game/selection/ship_selection.gd" id="14_selection"]
+[ext_resource type="Script" path="res://game/orders/group_orders.gd" id="15_group_orders"]
+[ext_resource type="Script" path="res://game/collision/planar_collision.gd" id="16_collision"]
+[ext_resource type="Script" path="res://game/time/sim_clock.gd" id="90_clock"]
+
+[sub_resource type="Environment" id="Environment_lab"]
+background_mode = 1
+background_color = Color(0.05, 0.055, 0.06, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.55, 0.58, 0.62, 1)
+ambient_light_energy = 0.5
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_grid"]
+render_priority = 0
+shader = ExtResource("2_grid")
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
+material = SubResource("ShaderMaterial_grid")
+size = Vector2(300, 300)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_marker"]
+shading_mode = 0
+albedo_color = Color(0.85, 0.6, 0.25, 1)
+
+[sub_resource type="TorusMesh" id="TorusMesh_marker"]
+material = SubResource("StandardMaterial3D_marker")
+inner_radius = 0.6
+outer_radius = 0.75
+
+[sub_resource type="BoxMesh" id="BoxMesh_request_line"]
+material = SubResource("StandardMaterial3D_marker")
+size = Vector3(0.05, 0.05, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_obstacle"]
+albedo_color = Color(0.3, 0.31, 0.32, 1)
+metallic = 0.1
+roughness = 0.85
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_r2"]
+material = SubResource("StandardMaterial3D_obstacle")
+top_radius = 2.0
+bottom_radius = 2.0
+height = 4.0
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_r3"]
+material = SubResource("StandardMaterial3D_obstacle")
+top_radius = 3.0
+bottom_radius = 3.0
+height = 4.0
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_r8"]
+material = SubResource("StandardMaterial3D_obstacle")
+top_radius = 8.0
+bottom_radius = 8.0
+height = 4.0
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_r18"]
+material = SubResource("StandardMaterial3D_obstacle")
+top_radius = 18.0
+bottom_radius = 18.0
+height = 4.0
+
+[sub_resource type="BoxMesh" id="BoxMesh_wall"]
+material = SubResource("StandardMaterial3D_obstacle")
+size = Vector3(50, 4, 6)
+
+[sub_resource type="BoxMesh" id="BoxMesh_gap_block"]
+material = SubResource("StandardMaterial3D_obstacle")
+size = Vector3(20, 4, 6)
+
+[sub_resource type="BoxMesh" id="BoxMesh_pocket_side"]
+material = SubResource("StandardMaterial3D_obstacle")
+size = Vector3(22, 4, 3)
+
+[sub_resource type="BoxMesh" id="BoxMesh_pocket_back"]
+material = SubResource("StandardMaterial3D_obstacle")
+size = Vector3(3, 4, 18)
+
+[sub_resource type="BoxMesh" id="BoxMesh_enclosure_long"]
+material = SubResource("StandardMaterial3D_obstacle")
+size = Vector3(24, 4, 2)
+
+[sub_resource type="BoxMesh" id="BoxMesh_enclosure_short"]
+material = SubResource("StandardMaterial3D_obstacle")
+size = Vector3(2, 4, 20)
+
+[sub_resource type="BoxMesh" id="BoxMesh_rotated_block"]
+material = SubResource("StandardMaterial3D_obstacle")
+size = Vector3(16, 4, 4)
+
+[node name="MovementLab" type="Node3D"]
+script = ExtResource("6_lab")
+
+[node name="SimClock" type="Node" parent="."]
+script = ExtResource("90_clock")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_lab")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, -0.75, 0.433013, 0, 10, 0)
+shadow_enabled = true
+
+[node name="CameraRig" parent="." instance=ExtResource("1_rig")]
+transform = Transform3D(0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, 0.707107, 0, 0, 0)
+zoom_distance = 20.0
+
+[node name="Ground" type="MeshInstance3D" parent="."]
+mesh = SubResource("PlaneMesh_ground")
+
+[node name="Obstacles" type="Node3D" parent="."]
+
+[node name="SmallRound" type="MeshInstance3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -25)
+mesh = SubResource("CylinderMesh_r2")
+
+[node name="MediumRound" type="MeshInstance3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -35, 2, -30)
+mesh = SubResource("CylinderMesh_r8")
+
+[node name="LargeRound" type="MeshInstance3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40, 2, -45)
+mesh = SubResource("CylinderMesh_r18")
+
+[node name="Wall" type="MeshInstance3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 2, -80)
+mesh = SubResource("BoxMesh_wall")
+
+[node name="RotatedBlock" type="MeshInstance3D" parent="Obstacles"]
+transform = Transform3D(0.866025, 0, 0.5, 0, 1, 0, -0.5, 0, 0.866025, -70, 2, -70)
+mesh = SubResource("BoxMesh_rotated_block")
+
+[node name="GapWest" type="MeshInstance3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -16, 2, 40)
+mesh = SubResource("BoxMesh_gap_block")
+
+[node name="GapEast" type="MeshInstance3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 2, 40)
+mesh = SubResource("BoxMesh_gap_block")
+
+[node name="PocketNorth" type="MeshInstance3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -62, 2, 22.5)
+mesh = SubResource("BoxMesh_pocket_side")
+
+[node name="PocketSouth" type="MeshInstance3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -62, 2, 37.5)
+mesh = SubResource("BoxMesh_pocket_side")
+
+[node name="PocketBack" type="MeshInstance3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -74.5, 2, 30)
+mesh = SubResource("BoxMesh_pocket_back")
+
+[node name="EnclosureNorth" type="MeshInstance3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 2, 39)
+mesh = SubResource("BoxMesh_enclosure_long")
+
+[node name="EnclosureSouth" type="MeshInstance3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 2, 61)
+mesh = SubResource("BoxMesh_enclosure_long")
+
+[node name="EnclosureWest" type="MeshInstance3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 49, 2, 50)
+mesh = SubResource("BoxMesh_enclosure_short")
+
+[node name="EnclosureEast" type="MeshInstance3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 71, 2, 50)
+mesh = SubResource("BoxMesh_enclosure_short")
+
+[node name="Slalom1" type="MeshInstance3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40, 2, 75)
+mesh = SubResource("CylinderMesh_r3")
+
+[node name="Slalom2" type="MeshInstance3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, 2, 90)
+mesh = SubResource("CylinderMesh_r3")
+
+[node name="Slalom3" type="MeshInstance3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 75)
+mesh = SubResource("CylinderMesh_r3")
+
+[node name="Slalom4" type="MeshInstance3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 2, 90)
+mesh = SubResource("CylinderMesh_r3")
+
+[node name="Slalom5" type="MeshInstance3D" parent="Obstacles"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40, 2, 75)
+mesh = SubResource("CylinderMesh_r3")
+
+[node name="StaticNavigation" type="Node" parent="."]
+script = ExtResource("9_navigation")
+
+[node name="PlanarCollision" type="Node" parent="."]
+script = ExtResource("16_collision")
+
+[node name="Ships" type="Node3D" parent="."]
+
+[node name="Frigate" parent="Ships" instance=ExtResource("3_frigate")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 1.5, 0)
+
+[node name="Locomotion" type="Node" parent="Ships/Frigate"]
+script = ExtResource("7_locomotion")
+max_speed = 5.0
+max_reverse_speed = 4.0
+max_lateral_speed = 3.0
+forward_accel = 6.0
+reverse_accel = 3.0
+lateral_accel = 2.5
+max_turn_rate_deg = 120.0
+turn_accel_deg = 240.0
+
+[node name="RouteFollower" type="Node" parent="Ships/Frigate"]
+script = ExtResource("10_follower")
+ship_radius = 1.6
+clearance_margin = 1.0
+
+[node name="Avoidance" type="Node" parent="Ships/Frigate"]
+script = ExtResource("12_avoidance")
+size_class = 1
+separation_margin = 1.0
+
+[node name="Gunship" parent="Ships" instance=ExtResource("4_gunship")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+
+[node name="Locomotion" type="Node" parent="Ships/Gunship"]
+script = ExtResource("7_locomotion")
+max_speed = 4.5
+max_reverse_speed = 2.5
+max_lateral_speed = 2.0
+forward_accel = 3.0
+reverse_accel = 1.5
+lateral_accel = 1.2
+max_turn_rate_deg = 60.0
+turn_accel_deg = 90.0
+
+[node name="RouteFollower" type="Node" parent="Ships/Gunship"]
+script = ExtResource("10_follower")
+ship_radius = 3.4
+clearance_margin = 1.0
+
+[node name="Avoidance" type="Node" parent="Ships/Gunship"]
+script = ExtResource("12_avoidance")
+size_class = 2
+separation_margin = 1.0
+
+[node name="Destroyer" parent="Ships" instance=ExtResource("5_destroyer")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 1.5, 0)
+
+[node name="Locomotion" type="Node" parent="Ships/Destroyer"]
+script = ExtResource("7_locomotion")
+max_speed = 3.0
+max_reverse_speed = 1.5
+max_lateral_speed = 1.0
+forward_accel = 1.2
+reverse_accel = 0.5
+lateral_accel = 0.3
+max_turn_rate_deg = 25.0
+turn_accel_deg = 20.0
+
+[node name="RouteFollower" type="Node" parent="Ships/Destroyer"]
+script = ExtResource("10_follower")
+ship_radius = 6.2
+clearance_margin = 1.0
+
+[node name="Avoidance" type="Node" parent="Ships/Destroyer"]
+script = ExtResource("12_avoidance")
+size_class = 3
+separation_margin = 1.0
+
+[node name="Selection" type="Node3D" parent="."]
+script = ExtResource("14_selection")
+
+[node name="GroupOrders" type="Node" parent="."]
+script = ExtResource("15_group_orders")
+
+[node name="DestinationLines" type="MeshInstance3D" parent="."]
+cast_shadow = 0
+
+[node name="DestinationMarker" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.05, 0, 0, 0, 1, 0, 0.02, 0)
+visible = false
+cast_shadow = 0
+mesh = SubResource("TorusMesh_marker")
+
+[node name="RequestLine" type="MeshInstance3D" parent="."]
+visible = false
+cast_shadow = 0
+mesh = SubResource("BoxMesh_request_line")
+
+[node name="NavigationDebug" type="Node3D" parent="."]
+script = ExtResource("11_navigation_debug")
+
+[node name="AvoidanceDebug" type="Node3D" parent="."]
+script = ExtResource("13_avoidance_debug")
+
+[node name="NoticeUI" type="CanvasLayer" parent="."]
+
+[node name="Notice" type="Label" parent="NoticeUI"]
+visible = false
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_top = 64.0
+grow_horizontal = 2
+theme_override_font_sizes/font_size = 20
+horizontal_alignment = 1
+
+[node name="DebugUI" parent="." instance=ExtResource("8_debug")]
+navigation_debug_path = NodePath("../NavigationDebug")
+avoidance_debug_path = NodePath("../AvoidanceDebug")

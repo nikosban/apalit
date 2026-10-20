@@ -1,0 +1,209 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/tests/combat/fixtures/combat_arena.gd" id="1_arena"]
+[ext_resource type="PackedScene" path="res://game/camera/camera_rig.tscn" id="2_rig"]
+[ext_resource type="Script" path="res://game/resources/asteroid_field.gd" id="3_field"]
+[ext_resource type="Script" path="res://game/navigation/static_navigation.gd" id="4_navigation"]
+[ext_resource type="Script" path="res://game/collision/planar_collision.gd" id="5_collision"]
+[ext_resource type="Script" path="res://game/survey/survey.gd" id="6_survey"]
+[ext_resource type="PackedScene" path="res://game/ships/gunship_unit.tscn" id="7_gunship"]
+[ext_resource type="PackedScene" path="res://game/ships/destroyer_unit.tscn" id="8_destroyer"]
+[ext_resource type="Script" path="res://game/sensors/contact_board.gd" id="9_contacts"]
+[ext_resource type="Script" path="res://game/combat/projectile_system.gd" id="10_projectiles"]
+[ext_resource type="Script" path="res://game/combat/combat_effects.gd" id="11_effects"]
+[ext_resource type="Script" path="res://game/combat/combat_orders.gd" id="12_orders"]
+[ext_resource type="Script" path="res://game/tests/combat/fixtures/enemy_controller.gd" id="13_enemy"]
+[ext_resource type="Script" path="res://game/selection/ship_selection.gd" id="14_selection"]
+[ext_resource type="Script" path="res://game/orders/group_orders.gd" id="15_group_orders"]
+[ext_resource type="Script" path="res://game/debug/navigation_debug.gd" id="16_navigation_debug"]
+[ext_resource type="Script" path="res://game/debug/avoidance_debug.gd" id="17_avoidance_debug"]
+[ext_resource type="PackedScene" path="res://game/debug/debug_ui.tscn" id="18_debug"]
+[ext_resource type="Script" path="res://game/presentation/thruster_view.gd" id="19_thruster_view"]
+[ext_resource type="Script" path="res://game/presentation/combat_overlay.gd" id="20_overlay"]
+[ext_resource type="Script" path="res://game/tests/combat/fixtures/combat_hud.gd" id="21_hud"]
+[ext_resource type="Script" path="res://game/combat/ordnance_trails.gd" id="22_trails"]
+[ext_resource type="Script" path="res://game/tests/combat/fixtures/encounters.gd" id="23_encounters"]
+[ext_resource type="Script" path="res://game/time/sim_clock.gd" id="90_clock"]
+
+[sub_resource type="Environment" id="Environment_arena"]
+background_mode = 1
+background_color = Color(0.05, 0.055, 0.06, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.55, 0.58, 0.62, 1)
+ambient_light_energy = 0.5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ground"]
+albedo_color = Color(0.1, 0.105, 0.11, 1)
+roughness = 1.0
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
+material = SubResource("StandardMaterial3D_ground")
+size = Vector2(300, 300)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_marker"]
+shading_mode = 0
+albedo_color = Color(0.85, 0.6, 0.25, 1)
+
+[sub_resource type="TorusMesh" id="TorusMesh_marker"]
+material = SubResource("StandardMaterial3D_marker")
+inner_radius = 0.6
+outer_radius = 0.75
+
+[sub_resource type="BoxMesh" id="BoxMesh_request_line"]
+material = SubResource("StandardMaterial3D_marker")
+size = Vector3(0.05, 0.05, 1)
+
+[node name="EncounterArena" type="Node3D"]
+script = ExtResource("1_arena")
+scenario_keys = false
+scenarios = ExtResource("23_encounters")
+encounter = true
+
+[node name="SimClock" type="Node" parent="."]
+script = ExtResource("90_clock")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_arena")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, -0.75, 0.433013, 0, 10, 0)
+shadow_enabled = true
+
+[node name="CameraRig" parent="." instance=ExtResource("2_rig")]
+max_zoom = 150.0
+zoom_distance = 40.0
+
+[node name="Ground" type="MeshInstance3D" parent="."]
+mesh = SubResource("PlaneMesh_ground")
+
+[node name="Asteroids" type="Node3D" parent="."]
+script = ExtResource("3_field")
+session_seed = 20261019
+
+[node name="StaticNavigation" type="Node" parent="."]
+script = ExtResource("4_navigation")
+obstacles_path = NodePath("../Asteroids")
+
+[node name="PlanarCollision" type="Node" parent="."]
+script = ExtResource("5_collision")
+obstacles_path = NodePath("../Asteroids")
+
+[node name="Survey" type="Node" parent="."]
+script = ExtResource("6_survey")
+
+[node name="Ships" type="Node3D" parent="."]
+
+[node name="Gunship" parent="Ships" instance=ExtResource("7_gunship")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -22, 1.5, -8)
+
+[node name="Combat" parent="Ships/Gunship" index="7"]
+faction = 0
+combat_id = 1
+stance = 2
+
+[node name="Destroyer" parent="Ships" instance=ExtResource("8_destroyer")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -24, 1.5, 8)
+
+[node name="Combat" parent="Ships/Destroyer" index="7"]
+faction = 0
+combat_id = 2
+stance = 2
+
+[node name="HostileGunship" parent="Ships" instance=ExtResource("7_gunship")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 22, 1.5, -8)
+
+[node name="Combat" parent="Ships/HostileGunship" index="7"]
+faction = 1
+combat_id = 3
+stance = 2
+
+[node name="HostileDestroyer" parent="Ships" instance=ExtResource("8_destroyer")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 24, 1.5, 8)
+
+[node name="Combat" parent="Ships/HostileDestroyer" index="7"]
+faction = 1
+combat_id = 4
+stance = 2
+
+[node name="MissileCells" parent="Ships/Destroyer/Weapons/DeckHardpoint" index="0"]
+cell_size = Vector3(0.8, 0.2, 1.2)
+cells = 2
+cell_columns = 1
+salvo_size = 1
+ammunition_override = -1
+
+[node name="MissileCells" parent="Ships/HostileDestroyer/Weapons/DeckHardpoint" index="0"]
+cell_size = Vector3(0.8, 0.2, 1.2)
+cells = 2
+cell_columns = 1
+salvo_size = 1
+ammunition_override = -1
+
+[node name="Contacts" type="Node" parent="."]
+script = ExtResource("9_contacts")
+
+[node name="Projectiles" type="Node3D" parent="."]
+script = ExtResource("10_projectiles")
+
+[node name="Effects" type="Node3D" parent="."]
+script = ExtResource("11_effects")
+
+[node name="OrdnanceTrails" type="MeshInstance3D" parent="."]
+script = ExtResource("22_trails")
+
+[node name="CombatOrders" type="Node" parent="."]
+script = ExtResource("12_orders")
+
+[node name="EnemyController" type="Node" parent="."]
+script = ExtResource("13_enemy")
+
+[node name="Selection" type="Node3D" parent="."]
+script = ExtResource("14_selection")
+
+[node name="GroupOrders" type="Node" parent="."]
+script = ExtResource("15_group_orders")
+
+[node name="DestinationLines" type="MeshInstance3D" parent="."]
+cast_shadow = 0
+
+[node name="DestinationMarker" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.05, 0, 0, 0, 1, 0, 0.02, 0)
+visible = false
+cast_shadow = 0
+mesh = SubResource("TorusMesh_marker")
+
+[node name="RequestLine" type="MeshInstance3D" parent="."]
+visible = false
+cast_shadow = 0
+mesh = SubResource("BoxMesh_request_line")
+
+[node name="NavigationDebug" type="Node3D" parent="."]
+script = ExtResource("16_navigation_debug")
+
+[node name="AvoidanceDebug" type="Node3D" parent="."]
+script = ExtResource("17_avoidance_debug")
+
+[node name="NoticeUI" type="CanvasLayer" parent="."]
+
+[node name="Notice" type="Label" parent="NoticeUI"]
+visible = false
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_top = 64.0
+grow_horizontal = 2
+theme_override_font_sizes/font_size = 20
+horizontal_alignment = 1
+
+[node name="DebugUI" parent="." instance=ExtResource("18_debug")]
+navigation_debug_path = NodePath("../NavigationDebug")
+avoidance_debug_path = NodePath("../AvoidanceDebug")
+
+[node name="ThrusterView" type="Node3D" parent="."]
+script = ExtResource("19_thruster_view")
+
+[node name="CombatOverlay" type="Node3D" parent="."]
+script = ExtResource("20_overlay")
+
+[node name="CombatHUD" type="CanvasLayer" parent="."]
+script = ExtResource("21_hud")

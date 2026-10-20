@@ -1,0 +1,24 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://game/tests/combat/fixtures/encounter_arena.tscn" id="1_base"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_asteroid"]
+albedo_color = Color(0.36, 0.34, 0.32, 1)
+roughness = 1.0
+
+[sub_resource type="SphereMesh" id="SphereMesh_asteroid"]
+material = SubResource("StandardMaterial3D_asteroid")
+radial_segments = 24
+rings = 12
+
+[node name="E02Torpedo" instance=ExtResource("1_base")]
+
+[node name="Asteroid1" type="MeshInstance3D" parent="Asteroids"]
+transform = Transform3D(8, 0, 0, 0, 8, 0, 0, 0, 8, 12, 1.5, -20)
+mesh = SubResource("SphereMesh_asteroid")
+metadata/asteroid_id = 1
+
+[node name="Asteroid2" type="MeshInstance3D" parent="Asteroids"]
+transform = Transform3D(10, 0, 0, 0, 10, 0, 0, 0, 10, 15, 1.5, 22)
+mesh = SubResource("SphereMesh_asteroid")
+metadata/asteroid_id = 2

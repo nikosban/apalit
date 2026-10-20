@@ -1,0 +1,34 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/locomotion/ship_locomotion.gd" id="1_locomotion"]
+[ext_resource type="Script" path="res://game/navigation/route_follower.gd" id="2_follower"]
+[ext_resource type="Script" path="res://game/avoidance/ship_avoidance.gd" id="3_avoidance"]
+[ext_resource type="Script" path="res://game/survey/scanner.gd" id="4_scanner"]
+[ext_resource type="Script" path="res://game/stations/docking.gd" id="5_docking"]
+[ext_resource type="Script" path="res://game/fuel/fuel.gd" id="6_fuel"]
+[ext_resource type="Script" path="res://game/combat/combat_ship.gd" id="7_combat"]
+
+[node name="Warship" type="Node3D"]
+
+[node name="Locomotion" type="Node" parent="."]
+script = ExtResource("1_locomotion")
+
+[node name="RouteFollower" type="Node" parent="."]
+script = ExtResource("2_follower")
+
+[node name="Avoidance" type="Node" parent="."]
+script = ExtResource("3_avoidance")
+
+[node name="Scanner" type="Node" parent="."]
+script = ExtResource("4_scanner")
+
+[node name="Docking" type="Node" parent="."]
+script = ExtResource("5_docking")
+
+[node name="Fuel" type="Node" parent="."]
+script = ExtResource("6_fuel")
+
+[node name="Weapons" type="Node3D" parent="."]
+
+[node name="Combat" type="Node" parent="."]
+script = ExtResource("7_combat")

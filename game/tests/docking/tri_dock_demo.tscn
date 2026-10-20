@@ -1,0 +1,24 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://game/tests/docking/station_docking_demo.tscn" id="1_demo"]
+[ext_resource type="PackedScene" path="res://game/tests/docking/tri_station.tscn" id="2_tri"]
+
+[node name="Main" instance=ExtResource("1_demo")]
+
+[node name="Asteroids" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1000, 0)
+visible = false
+
+[node name="StaticNavigation" parent="."]
+obstacles_path = NodePath("../TriObstacles")
+
+[node name="PlanarCollision" parent="."]
+obstacles_path = NodePath("../TriObstacles")
+
+[node name="CameraRig" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50, 0, 40)
+
+[node name="TriStation" parent="Stations" instance=ExtResource("2_tri")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 70, 1.5, 60)
+
+[node name="TriObstacles" type="Node3D" parent="."]

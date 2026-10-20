@@ -1,0 +1,10 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://game/stations/station.tscn" id="1_layout"]
+[ext_resource type="Script" path="res://game/refining/refinery.gd" id="2_refinery"]
+
+[node name="RefineryStation" instance=ExtResource("1_layout")]
+metadata/display_class = "Refinery Station"
+
+[node name="Refinery" type="Node" parent="."]
+script = ExtResource("2_refinery")

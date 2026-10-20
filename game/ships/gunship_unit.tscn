@@ -1,0 +1,88 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://game/ships/archetypes/warship.tscn" id="1_archetype"]
+[ext_resource type="PackedScene" path="res://game/ships/gunship.tscn" id="2_model"]
+[ext_resource type="Script" path="res://game/weapons/hardpoint.gd" id="3_hardpoint"]
+[ext_resource type="Script" path="res://game/weapons/turret.gd" id="4_turret"]
+[ext_resource type="Script" path="res://game/weapons/gatling.gd" id="5_gatling"]
+[ext_resource type="Resource" path="res://game/weapons/cannon.tres" id="6_cannon"]
+[ext_resource type="Resource" path="res://game/weapons/gatling.tres" id="7_gatling"]
+[ext_resource type="Script" path="res://game/behavior/ship_behavior.gd" id="8_behavior"]
+
+[node name="Gunship" instance=ExtResource("1_archetype")]
+metadata/display_class = "Gunship"
+
+[node name="Locomotion" parent="." index="0"]
+max_speed = 4.5
+max_reverse_speed = 2.5
+max_lateral_speed = 2.0
+forward_accel = 3.0
+reverse_accel = 1.5
+lateral_accel = 1.2
+max_turn_rate_deg = 60.0
+turn_accel_deg = 90.0
+
+[node name="RouteFollower" parent="." index="1"]
+ship_radius = 3.4
+clearance_margin = 1.0
+
+[node name="Avoidance" parent="." index="2"]
+size_class = 2
+separation_margin = 1.0
+
+[node name="Fuel" parent="." index="5"]
+capacity = 200.0
+consumption = 0.5
+
+[node name="DorsalHardpoint" type="Node3D" parent="Weapons"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1.15)
+script = ExtResource("3_hardpoint")
+size = 1
+families = PackedStringArray("cannon")
+yaw_limit_deg = 160.0
+pitch_min_deg = -10.0
+pitch_max_deg = 60.0
+
+[node name="Cannon" type="Node3D" parent="Weapons/DorsalHardpoint"]
+script = ExtResource("4_turret")
+config = ExtResource("6_cannon")
+base_diameter = 0.5
+body_height = 0.25
+barrel_length = 0.75
+
+[node name="LeftHardpoint" type="Node3D" parent="Weapons"]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -0.75, 0.5, -1)
+script = ExtResource("3_hardpoint")
+size = 0
+families = PackedStringArray("gatling")
+yaw_limit_deg = 100.0
+pitch_min_deg = -10.0
+pitch_max_deg = 85.0
+
+[node name="Gatling" type="Node3D" parent="Weapons/LeftHardpoint"]
+script = ExtResource("5_gatling")
+config = ExtResource("7_gatling")
+base_diameter = 0.36
+body_height = 0.16
+barrel_length = 0.5
+
+[node name="RightHardpoint" type="Node3D" parent="Weapons"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0.75, 0.5, -1)
+script = ExtResource("3_hardpoint")
+size = 0
+families = PackedStringArray("gatling")
+yaw_limit_deg = 100.0
+pitch_min_deg = -10.0
+pitch_max_deg = 85.0
+
+[node name="Gatling" type="Node3D" parent="Weapons/RightHardpoint"]
+script = ExtResource("5_gatling")
+config = ExtResource("7_gatling")
+base_diameter = 0.36
+body_height = 0.16
+barrel_length = 0.5
+
+[node name="Behavior" type="Node" parent="."]
+script = ExtResource("8_behavior")
+
+[node name="Model" parent="." instance=ExtResource("2_model")]

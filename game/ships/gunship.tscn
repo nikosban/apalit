@@ -1,0 +1,116 @@
+[gd_scene format=3]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_hull"]
+albedo_color = Color(0.2, 0.21, 0.22, 1)
+metallic = 0.4
+roughness = 0.6
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_structure"]
+albedo_color = Color(0.42, 0.43, 0.44, 1)
+metallic = 0.4
+roughness = 0.6
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_accent"]
+albedo_color = Color(0.62, 0.45, 0.2, 1)
+metallic = 0.2
+roughness = 0.7
+
+[sub_resource type="BoxMesh" id="BoxMesh_hull"]
+material = SubResource("StandardMaterial3D_hull")
+size = Vector3(2, 1, 4.8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_bow"]
+material = SubResource("StandardMaterial3D_hull")
+size = Vector3(1.4, 0.7, 1.2)
+
+[sub_resource type="BoxMesh" id="BoxMesh_sponson"]
+material = SubResource("StandardMaterial3D_structure")
+size = Vector3(0.5, 0.6, 3.2)
+
+[sub_resource type="BoxMesh" id="BoxMesh_dorsal"]
+material = SubResource("StandardMaterial3D_structure")
+size = Vector3(1, 0.5, 1.6)
+
+[sub_resource type="BoxMesh" id="BoxMesh_accent"]
+material = SubResource("StandardMaterial3D_accent")
+size = Vector3(0.6, 0.04, 0.3)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_thruster"]
+albedo_color = Color(0.03, 0.03, 0.03, 1)
+metallic = 0.2
+roughness = 0.5
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_engine"]
+material = SubResource("StandardMaterial3D_thruster")
+top_radius = 0.35
+bottom_radius = 0.35
+height = 0.4
+radial_segments = 24
+
+[sub_resource type="BoxMesh" id="BoxMesh_jet"]
+material = SubResource("StandardMaterial3D_thruster")
+size = Vector3(0.22, 0.22, 0.22)
+
+[node name="Gunship" type="Node3D"]
+
+[node name="Hull" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.6)
+mesh = SubResource("BoxMesh_hull")
+
+[node name="Bow" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, -2.4)
+mesh = SubResource("BoxMesh_bow")
+
+[node name="SponsonLeft" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.25, -0.1, 0.9)
+mesh = SubResource("BoxMesh_sponson")
+
+[node name="SponsonRight" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.25, -0.1, 0.9)
+mesh = SubResource("BoxMesh_sponson")
+
+[node name="Dorsal" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 1.4)
+mesh = SubResource("BoxMesh_dorsal")
+
+[node name="Accent" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.32, -2.6)
+mesh = SubResource("BoxMesh_accent")
+
+[node name="Thrusters" type="Node3D" parent="."]
+
+[node name="MainEngine" type="MeshInstance3D" parent="Thrusters"]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 3.17)
+mesh = SubResource("CylinderMesh_engine")
+
+[node name="Retro_L" type="MeshInstance3D" parent="Thrusters"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.45, 0, -3.11)
+mesh = SubResource("BoxMesh_jet")
+
+[node name="Retro_R" type="MeshInstance3D" parent="Thrusters"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.45, 0, -3.11)
+mesh = SubResource("BoxMesh_jet")
+
+[node name="Bow_L" type="MeshInstance3D" parent="Thrusters"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.81, 0, -2.4)
+mesh = SubResource("BoxMesh_jet")
+
+[node name="Bow_R" type="MeshInstance3D" parent="Thrusters"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.81, 0, -2.4)
+mesh = SubResource("BoxMesh_jet")
+
+[node name="Lateral_L" type="MeshInstance3D" parent="Thrusters"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.61, -0.1, 0.9)
+mesh = SubResource("BoxMesh_jet")
+
+[node name="Lateral_R" type="MeshInstance3D" parent="Thrusters"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.61, -0.1, 0.9)
+mesh = SubResource("BoxMesh_jet")
+
+[node name="Stern_L" type="MeshInstance3D" parent="Thrusters"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.11, 0, 2.6)
+mesh = SubResource("BoxMesh_jet")
+
+[node name="Stern_R" type="MeshInstance3D" parent="Thrusters"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.11, 0, 2.6)
+mesh = SubResource("BoxMesh_jet")

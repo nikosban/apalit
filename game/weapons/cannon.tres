@@ -1,0 +1,22 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://game/weapons/weapon_config.gd" id="1_config"]
+
+[resource]
+script = ExtResource("1_config")
+display_name = "Cannon"
+family = &"cannon"
+size = 1
+damage = 12.0
+cooldown = 2.5
+weapon_range = 75.0
+effective_range = 45.0
+lead_quality_at_max = 0.3
+travel_factor = 1.25
+projectile_speed = 40.0
+projectile_lifetime = 2.5
+projectile_style = &"shell"
+alignment_tolerance_deg = 3.0
+yaw_speed_deg = 60.0
+pitch_speed_deg = 40.0
+ammunition = 40

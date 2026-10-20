@@ -1,0 +1,117 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://game/ui/station_panel.gd" id="1_panel"]
+[ext_resource type="PackedScene" path="res://game/ui/components/panel_shell.tscn" id="2_shell"]
+[ext_resource type="PackedScene" path="res://game/ui/components/section.tscn" id="3_section"]
+[ext_resource type="PackedScene" path="res://game/ui/components/refinery_slot.tscn" id="4_slot"]
+
+[node name="StationPanel" type="CanvasLayer"]
+script = ExtResource("1_panel")
+
+[node name="Panel" parent="." instance=ExtResource("2_shell")]
+
+[node name="StationName" type="LineEdit" parent="Panel/Layout/Header"]
+layout_mode = 2
+tooltip_text = "Station name (Enter to apply; empty restores the original name)"
+theme_override_font_sizes/font_size = 18
+placeholder_text = "Station name"
+max_length = 32
+flat = true
+select_all_on_focus = true
+
+[node name="StationType" type="Label" parent="Panel/Layout/Header"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+
+[node name="Status" parent="Panel/Layout/Scroll/Body" instance=ExtResource("3_section")]
+layout_mode = 2
+title = "Status"
+
+[node name="Fuel" type="Label" parent="Panel/Layout/Scroll/Body/Status"]
+layout_mode = 2
+
+[node name="FuelBar" type="ProgressBar" parent="Panel/Layout/Scroll/Body/Status"]
+custom_minimum_size = Vector2(0, 8)
+layout_mode = 2
+mouse_filter = 2
+max_value = 1.0
+show_percentage = false
+
+[node name="Health" type="Label" parent="Panel/Layout/Scroll/Body/Status"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Health: not implemented (placeholder)"
+
+[node name="Storage" parent="Panel/Layout/Scroll/Body" instance=ExtResource("3_section")]
+layout_mode = 2
+title = "Storage"
+
+[node name="Summary" type="Label" parent="Panel/Layout/Scroll/Body/Storage"]
+layout_mode = 2
+
+[node name="Tiles" type="HFlowContainer" parent="Panel/Layout/Scroll/Body/Storage"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Refinery" parent="Panel/Layout/Scroll/Body" instance=ExtResource("3_section")]
+layout_mode = 2
+title = "Refinery"
+
+[node name="Slot1" parent="Panel/Layout/Scroll/Body/Refinery" instance=ExtResource("4_slot")]
+layout_mode = 2
+title = "Slot 1"
+
+[node name="Slot2" parent="Panel/Layout/Scroll/Body/Refinery" instance=ExtResource("4_slot")]
+layout_mode = 2
+title = "Slot 2"
+
+[node name="Production" parent="Panel/Layout/Scroll/Body" instance=ExtResource("3_section")]
+layout_mode = 2
+title = "Ship Production"
+
+[node name="Status" type="Label" parent="Panel/Layout/Scroll/Body/Production"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="Details" type="RichTextLabel" parent="Panel/Layout/Scroll/Body/Production"]
+layout_mode = 2
+mouse_filter = 2
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+autowrap_mode = 3
+
+[node name="Progress" type="ProgressBar" parent="Panel/Layout/Scroll/Body/Production"]
+custom_minimum_size = Vector2(0, 8)
+layout_mode = 2
+mouse_filter = 2
+max_value = 1.0
+show_percentage = false
+
+[node name="Note" type="Label" parent="Panel/Layout/Scroll/Body/Production"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+autowrap_mode = 3
+
+[node name="Buttons" type="HFlowContainer" parent="Panel/Layout/Scroll/Body/Production"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="OrderMining" type="Button" parent="Panel/Layout/Scroll/Body/Production/Buttons"]
+layout_mode = 2
+focus_mode = 0
+text = "Order Mining Ship"
+
+[node name="OrderTransport" type="Button" parent="Panel/Layout/Scroll/Body/Production/Buttons"]
+layout_mode = 2
+focus_mode = 0
+text = "Order Transport Ship"
+
+[node name="Cancel" type="Button" parent="Panel/Layout/Scroll/Body/Production/Buttons"]
+layout_mode = 2
+focus_mode = 0
+text = "Cancel Order"
+
+[node name="LastCompleted" type="Label" parent="Panel/Layout/Scroll/Body/Production"]
+layout_mode = 2
+autowrap_mode = 3

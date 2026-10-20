@@ -1,0 +1,277 @@
+# CHANGELOG.md
+
+Project history, newest first. One to two sentences per task; details are
+in `HANDOFF.md`. Entries are not edited after they are written.
+
+## 2026-10-20 — Stale editor cache cleanup
+
+Removed 61 stale `.godot/` cache files (about 5.2 MB: editor state for deleted or moved scenes and imported textures of deleted PNGs) and the deleted `experiments/station_docking/tri_station.tscn` entry from `scene_groups_cache.cfg`; live entries and the editor's general caches were kept.
+
+## 2026-10-20 — Orphan UID cleanup
+
+A file inventory audit found four `.uid` files in `game/tests/combat/fixtures/` (`combat_camera_rig`, `combat_locomotion`, `combat_selection`, `combat_thruster_view`) whose scripts no longer exist and whose UIDs nothing referenced; they were deleted, leaving one `.uid` per script and shader (143).
+
+## 2026-10-20 — Production combat integration and repository consolidation
+
+The play-tested combat and fleet behaviour (four weapon families with hardpoints, ammunition, salvos and point defense, hull damage on every ship, Commands, Tactics and Weapon Profiles on the armed Gunship and Destroyer, faction-shared sensors and fog of war, global pause and time dilation for the whole simulation, strategic zoom and tactical UI, a minimal hostile commander) now runs in production on the existing movement, docking, selection and economy systems, with autonomous positioning separated from player commands and the held-command defect fixed; accepted by the owner after gameplay testing, with the ported combat suites unchanged and three new production suites. The superseded combat prototype, Movement V3, parked-navigation and station-docking experiments and `_migration_tmp/` were deleted (671 files) after a verified post-migration snapshot, the docking regression files moved to `game/tests/docking/`, three unused code paths were removed, and every regression run before and twice after the cleanup matched (known navigation and obstruction failures unchanged). Details: `HANDOFF.md`.
+
+## 2026-10-18 — Movement V3: Direct-move prediction horizon (group MOVE rotation)
+
+On a direct move, avoidance now ends its own-ship prediction where the leg ends instead of after the straight distance from a displaced ship, which ran past the destination and kept a pass against an idle ship parked beyond it, so ships (most often a Miner after a group MOVE) shuttled and spun beside their destination indefinitely; in a 336-click group MOVE sweep rotating stalls fell from 19 to 1 and stalled ships from 189 to 141, with every regression suite unchanged and a new `group_rotation_test`. Accepted with known deviations (more collision contacts in layouts that still stall, some ex-spinning ships now in the known mutual give-way stall). Details: `HANDOFF.md`.
+
+## 2026-10-18 — UX and quality-of-life round
+
+Fixed the transport configuration and refinery counter defects. Added:
+- commands given during docking maneuvers are validated in two stages, and the latest valid one is kept;
+- Miners face their asteroid before extracting;
+- automated transports wait in their berth until loading or unloading is complete;
+- a themed right-hand inspector with editable display names, and a draft transport editor with one atomic Apply;
+- hover and selection outlines, hover/selected-only object markers and context cursors;
+- black thruster parts with a three-state main plume and directional jets on every ship type.
+
+Accepted package by package and as a whole round, with nine new test suites and owner-approved assertion migrations; every regression suite matches the baseline (known navigation and obstruction failures unchanged). Details: `HANDOFF.md`.
+
+## 2026-10-17 — Reusable ships and stations architecture
+
+Every ship type is now defined once as a variant scene (hull under `Model`, its own settings) inheriting one of three functional archetypes (Warship, Mining Ship, Transport Ship), all starting ships in `main.tscn` and the Shipyard's produced ships are instances of those same variants, and Refinery and Shipyard became reusable station scenes on the unchanged `station.tscn` layout, with every model, component setting and behaviour preserved. Accepted after gameplay testing, with the configuration dump and every regression suite matching the baseline (known navigation and obstruction failures unchanged) and a new reuse test proving cross-scene reuse and independent instances under the documented scene layout contract. Details: `HANDOFF.md`.
+
+## 2026-10-17 — Phase 4: Ship Production
+
+A third station, the Shipyard, uses the existing docking and station storage to build one Mining Ship (200 iron, 100 nickel, 50 silicon ingots, 60 s) or Transport Ship (300 iron, 100 titanium, 50 cobalt ingots, 90 s) per order from complete unit scenes: orders wait without consuming or reserving anything, the whole recipe is consumed at once when present, and the finished ship deploys idle and fully fueled at an authored marker only when its footprint is clear (otherwise it waits), joining selection and the command layer through new runtime registration; a Ship Production section in the station panel shows recipes, shortages, progress and blocked deployment. Accepted after gameplay testing, with the new deterministic and uninterrupted-game-loop suites passing and every regression suite matching the baseline (known navigation and obstruction failures unchanged); recipes and durations are provisional. Details: `HANDOFF.md`.
+
+## 2026-10-16 — Phase 3: Refining
+
+Metal Chunks were replaced by individually stored Iron, Nickel, Silicon, Cobalt, Gold, Titanium and Ice, mined deterministically in each asteroid's fixed proportions; transport requirements can be units or percentages of the hold (edits exceeding it rejected), and Station2 gained a two-slot refinery turning raw minerals 1 for 1 into ingots, configured from a new station selection and panel. Accepted after gameplay testing with every regression suite passing (known navigation and obstruction failures unchanged); mineral distribution, refining rates, logistics balance, models and UI polish remain subject to future iteration. Details: `HANDOFF.md`.
+
+## 2026-10-16 — Phase 2.5: Station-controlled docking (stage 2b)
+
+Docking now uses the stations' editor-authored berths: ships navigate to a handover point, the station guides them in and out at a fixed heading through Locomotion, berths are granted from the FIFO queue only when physically clear and the waiting ship's corridor is free (removing the hand-over deadlocks), and player commands given during a maneuver or while docked are held or validated before the controlled exit, with group destinations kept and Mining / Transport unchanged. Accepted after gameplay testing; durations are a baseline, the Destroyer's circular footprint remains a known limitation, and no further docking refinements are authorized. Details: `HANDOFF.md`.
+
+## 2026-10-15 — Phase 2.5: Station docking integration, stage 2a (passive berth geometry)
+
+Both stations now carry editor-authored Berth nodes (Destroyer-sized parking rectangles, parking pose and heading, handover, back-out and two fixed exit points) with an on-demand occupancy query and an optional debug drawing, which production docking does not use yet; `berth_test` (12/12) confirms the authored parking points equal today's docking positions and records that Station's west-berth ExitA is blocked by an asteroid for the Destroyer, and every other suite is unchanged. Details: `HANDOFF.md`.
+
+## 2026-10-15 — Phase 2.5: Station docking integration, stage 1 (guided Locomotion)
+
+Locomotion gained a guided mode (station-defined turn and straight legs within limits capped by each ship's own, no route or avoidance input, heading held at hand-back, collision and fuel unchanged) that nothing in the game uses yet, verified by a new `guided_locomotion_test` (10/10) with every other suite identical to the pre-change baseline apart from timings. Details: `HANDOFF.md`.
+
+## 2026-10-15 — Experiment: Station-controlled docking prototype (not integrated)
+
+An isolated prototype (`experiments/station_docking/`) where the station guides ships through a fixed entry and exit via Locomotion, with authored parking rectangles that keep reservation, physical occupancy and corridor clearance apart, and deferred player commands, docked every class at 0.00° with no contacts and removed the reproduced hand-over deadlocks on the exposed-arm station and a recessed tri-dock test station; it is slower than production, and the Destroyer's collision circle does not fit the tri-dock bays. Details: `HANDOFF.md`.
+
+## 2026-10-15 — Phase 2.5: Transport configuration consistency
+
+Changing or clearing a station, or setting every requirement to zero, during an active transport assignment now pauses it once with a notice (docked: stays docked, transfer stopped; undocking: finishes; otherwise the dock request is released; cargo, fuel and configuration kept), and an invalid configuration never reaches docking; before, it caused per-tick script errors, endless same-station or empty round trips, or cargo delivered back to its source. Details: `HANDOFF.md`.
+
+## 2026-10-15 — Phase 2.5: Rejected-order consistency
+
+A refused player command (MOVE without a route, Mine without a reachable working position, Dock without a reachable docking position, Resume) now only shows a notice and leaves the ship's order, route and assignments unchanged, and Dock on the station a ship is already docking at changes nothing; before, refusals replaced targets, released docks while the ship stayed in its slot, paused mining, or left a ship steering at a frozen aim point without avoidance. Details: `HANDOFF.md`.
+
+## 2026-10-15 — Investigation: Parked-ship navigation (not integrated)
+
+An isolated experiment (`experiments/parked_navigation/`) showed that routes plan correctly around already-parked ships, but synchronous rebaking costs about 119 ms per park/departure on the game map, routes planned before a ship parks need invalidation and replanning, and local avoidance is still required; asynchronous or incremental updates were not evaluated. Production avoidance was restored to the accepted cause C version and the paused cause B planned-rejoin prototype kept in `experiments/planned_rejoin/`. Details: `HANDOFF.md`.
+
+## 2026-10-15 — Movement V3: Multiple stationary ships (cause C)
+
+A ship now passes two stationary ships when the passing shift it applies already clears the second one (no contradictory yield, the second encounter takes the same passing side), so 14 of 14 passable two-ship layouts arrive instead of 5, while gaps too narrow to pass still hold short. Details: `HANDOFF.md`.
+
+## 2026-10-15 — Movement V3: Ship obstruction correction
+
+Ships now pass a stationary ship from close range (ShipAvoidance: the passing steering point keeps the reserve and the pass speed cap limits only travel toward the stationary ship, 75 of 75 previously stalling approaches arrive), and a single-ship MOVE onto or beside a stationary ship goes to the nearest valid point outside its clearance (notice; refused with a notice and nothing cancelled if none within 5 u). Two stationary ships close together and the direct-move overshoot past a stationary ship remain open movement issues. Details: `HANDOFF.md`.
+
+## 2026-10-14 — Phase 2, Stage 6: Transport logistics
+
+A Transporter graybox (Gunship handling, 4.1 u radius) and a second station at (−108, 6) were added; a transport assignment (load at, unload at, Metal / Ice Chunk quantities) now repeats load → deliver → return unattended through the existing docking, timed transfers and refueling, waiting nearby for missing stock or destination storage, configured and resumed from the ship panel, with manual orders pausing it. Logistics soaks exposed Movement V3 stalls (a ship pushed sideways near its route's end stops short; deadlocks beside asteroid 19 and at docking hand-overs), recorded as known limitations. Details: `HANDOFF.md`.
+
+## 2026-10-14 — Phase 2, Stage 5: Automated mining
+
+A Miner's asteroid assignment now runs the whole cycle unattended: mine until full, return to its chosen base or the nearest station it can dock at through the existing docking queue, unload with the timed transfer, refuel, and go back to the same asteroid, with a final return on depletion; the panel adds a base selector, the operation's status and Start / Resume Mining, and manual orders pause the operation while keeping its settings. Two Miners sharing one asteroid can still stall permanently (Movement V3 mutual give-way), recorded as a known limitation. Details: `HANDOFF.md`.
+
+## 2026-10-14 — Phase 2, Stage 4: Fuel & resupply
+
+Every ship now has a fuel tank used by the distance it actually moves (after collision), with Low Fuel / Fuel Warning / Critical Fuel notices at 15 / 10 / 5 %, complete immobilization at zero (no translation or rotation, order kept, reported to avoidance as stationary so others pass it), and automatic refueling from the station's separate fuel stock while docked, shown in the ship panel and station hover. With fuel available movement is unchanged. Details: `HANDOFF.md`.
+
+## 2026-10-14 — Phase 2, Stage 3: Stations & docking
+
+One graybox station (a static obstacle for navigation and collision) with two external docking arms now serves every ship class: right-click it with one ship selected to dock bow-in through RouteFollower orders only, with two shared slots, a first-in-first-out queue and holding positions, Undock, station storage and timed manual Unload / Load of raw cargo that keeps its request when blocked. Traffic deadlocks under heavy simultaneous station traffic (Movement V3 mutual give-way) are accepted as a known limitation (owner: Option A). Details: `HANDOFF.md`.
+
+## 2026-10-14 — Phase 2, Stage 2: Mining and cargo
+
+Two Miner graybox ships (Frigate handling, Mining Scanner) now mine an asteroid on a right-click: one validated working position, one route order, then extraction into a capacity-limited cargo of raw lots (Metal Chunks keep their asteroid's composition, Ice Chunks are ice) until the cargo is full or the asteroid depleted, with a beam and panel status; a manual MOVE cancels the assignment and keeps its target. The Frigate, Gunship and Destroyer now carry Generic Scanners. Details: `HANDOFF.md`.
+
+## 2026-10-14 — Phase 2, Stage 1: Asteroid resources and scanning
+
+Every asteroid now has a fixed resource deposit (minerals: six whole-percent minerals, or ice 100 %; finite reserves; stable ids; reproducible session seed), and the Frigate (Generic Scanner) and Gunship (Mining Scanner) reveal it into a fleet-wide survey through Scan Area: pulse, surface-analysis grid with progress, DATA UPLOADED and three persistent asteroid markers, plus hover information and a selected-ship panel. Movement V3 unchanged. Details: `HANDOFF.md`.
+
+## 2026-10-14 — Final legacy cleanup
+
+Removed the original game's remaining documents (`Refine/`, `tech_docs/`), its older baseline ZIP and the unused `asteroid.tscn`, all preserved in the verified archive; the owner design decisions that still apply were kept in `HANDOFF.md`. No gameplay change. Details: `HANDOFF.md` → Archive, Design decisions carried forward.
+
+## 2026-10-14 — Stage 7: Movement V3 becomes the game
+
+After archiving the original game (`archive/apalit_pre_v3_integration_2026-10-14.zip`, verified), Movement V3 was copied into `res://game/` and became the game: `main.tscn` is now a playable scene with the three V3 ships in a field of 36 sphere asteroids (read as circles by navigation and collision), the former lab is the test arena `game/scenes/movement_test.tscn`, and the old movement scripts and scenes were removed. The experiment stays unchanged as the reference. Details: `HANDOFF.md`.
+
+## 2026-10-14 — Movement V3 experiment, stage 6: Collision enforcement
+
+Ships in the lab can no longer move into other ships or obstacles: a read-only planar collision service constrains each Locomotion step (bounding circles, rotated boxes, continuous sweeps, only the velocity into a contact removed, orders kept), with identical movement when nothing is touched and every earlier suite unchanged; Movement V3 is now the approved movement baseline. Carried forward: collision does not resolve traffic deadlocks, conservative circles (Destroyer), surface creep, plus the stage 3–5 limitations. Details: `HANDOFF.md` → Movement V3 experiment.
+
+## 2026-10-13 — Movement V3 experiment, stage 5: Selection, orders and group movement
+
+Ships in the lab are now selected by click, Shift-click and box drag and keep their right-click MOVE orders independently of the selection, and a group MOVE gives every selected ship its own reachable destination once per command (largest first, approach-aware, preferring fewer departure conflicts, all or none), with avoidance extended by overtaking, converging and crossing-yield rules. Carried forward: no physical collision enforcement, late detection of ships accelerating from rest and some unsafe passes still possible in avoidance, plus the stage 3–4 limitations. Details: `HANDOFF.md` → Movement V3 experiment.
+
+## 2026-10-13 — Movement V3 experiment, stage 4: Local avoidance
+
+Ships in the lab now pass or yield to each other with a small per-ship avoidance step that only offsets steering and caps speed through the same locomotion (smaller ship gives way, starboard in head-on, astern in crossings, idle ships held around), with no contacts and at least 1 u clearance in every tested encounter; the Frigate's top speed is now 5 u/s. Carried forward: the Destroyer mid-route redirect aim-line failure, no physical collision response, the yield fallback not yet a permanent test, and the camera start zoom. Details: `HANDOFF.md` → Movement V3 experiment.
+
+## 2026-10-13 — Movement V3 experiment, stage 3: Static navigation
+
+Ships in the lab now route around fixed obstacles (NavigationServer2D, one map per ship size, one route per order, followed with a continuous lookahead through the same locomotion), plan corner and arrival speeds ahead, brake without overshooting, and ease into small course changes; top speeds are now 6 / 4.5 / 3 u/s. Still open: one Destroyer mid-route redirect brings its aim line inside the clearance reserve for a few ticks (no hull overlap), and the Frigate's speed is to be lowered in stage 4. Details: `HANDOFF.md` → Movement V3 experiment.
+
+## 2026-10-13 — Movement V3 experiment, stage 2: Locomotion
+
+Ships in the lab now move with one shared bounded-kinematics controller (per-ship profiles, forward/reverse/lateral limits, turn-aware braking, facing their destination except for short corrections), commanded by temporary 1/2/3 + right-click input with a Movement Debug HUD and headless tests. Deferred: the Frigate feels too fast and the Destroyer may face a few degrees off its marker. Details: `HANDOFF.md` → Movement V3 experiment.
+
+## 2026-10-13 — Movement V3 experiment, stage 1: Isolated lab
+
+Added the disposable `experiments/movement_v3/` folder with a standalone lab scene (grid, lighting, copied camera rig) and three graybox ships (Frigate 3 u, Gunship 6 u, Destroyer 12 u), with no movement and no changes to existing files; debug tools are deferred until the new systems exist. Details: `HANDOFF.md` → Movement V3 experiment, `experiments/movement_v3/README.md`.
+
+## 2026-10-13 — Movement refinement milestone closed (S4-I7 not accepted)
+
+A fix for traffic holds while turning (S4-I7: ships stopping straight along their velocity) cured its target collisions but added contacts and stalled orders in the 30-ship stress run, so it was kept aside in `Refine/experimental/S4-I7/` and the game was restored to the verified post-S4-I1 baseline. The movement refinement is closed with stage 4 not yet safety-accepted; the remaining traffic bugs and improvements are a backlog to be taken up from observed gameplay. Details: `HANDOFF.md` → Next task, `Refine/TASKS.md`.
+
+## 2026-10-13 — S4-I1: Head-on late blocker
+
+A give-way ship braking to a stop inside another ship's path is now treated as an obstacle at the point where it will rest, so the other ship holds short of it: the S4-I1 head-on completes both orders with no contact, both original soak contacts are gone and the 30-ship stress test has none, with Scenario 2 unchanged. Traffic holds while turning (a mid-arc hold contact in the soak and an imprecise stop point across corners) remain a stage 4 safety blocker under S4-I7, the next task. Details: `HANDOFF.md` → Next task, `Refine/TASKS.md`.
+
+## 2026-10-13 — Fantasy alignment pass closed: stage 4 verification (S4-T4)
+
+Stage 4 was verified (acceptance 7 of 7, Scenario 2 accepted on replay) and a provisionally retained latest-arrival correction now lets a head-on give-way ship pass with one small alteration (Scenario 2: 8.23 u off its route instead of 69 u), closing the movement refinement pass with thruster braking, persistent orders, arcs and course alteration in place. Outstanding as follow-up tasks: the S4-I1 head-on late blocker (safety; soak ship contacts 2 → 4 since the correction), traffic performance (about 2.9 ms per frame at 30 ships against 1 ms), destination congestion and the other S4-I items; the manual profiler check is pending. Details: `HANDOFF.md` → Next task, `Refine/TASKS.md`.
+
+## 2026-10-12 — Fantasy alignment pass, stage 4 (S4-T2, S4-T3): Course alteration
+
+In crossing and head-on conflicts the give-way ship (head-on: both) now bends around the other with one validated thruster-arc course alteration instead of holding, monitored every step and replaced by the normal holds as soon as it stops being valid, with no weaving and a checked resume after a hold; stage 4 verification (S4-T4) and a pre-existing head-on late-blocker contact (S4-I1) remain open. Details: `HANDOFF.md` → Next task, `Refine/TASKS.md`.
+
+## 2026-10-12 — Fantasy alignment pass, stage 3: Arcs
+
+Moving ships now turn on their directional thrusters with the main engines dark, flying course changes and route corners as predictable constant-speed arcs (corners sharper than 90° stop and pivot), with corner speeds and braking legs planned so they can always be flown and validated before an order is given. Details: `HANDOFF.md` → Ship propulsion, Route planning, `Refine/TASKS.md`.
+
+## 2026-10-11 — Fantasy alignment pass, stage 2: Orders never die
+
+Main now keeps every order in a record until arrival: blocked or taken destinations are moved to the nearest reachable point (refused only beyond 40 u), contacts and failed replans leave the order waiting and rechecking instead of cancelling it, and the player is told when a ship makes no progress for 5 minutes or at once when two ships block each other. Details: `HANDOFF.md` → Orders, `Refine/TASKS.md`.
+
+## 2026-10-11 — Fantasy alignment pass, stage 1: Thruster braking
+
+Ships now brake only with their directional thrusters, nose held and no flip, in two modes (MANEUVER, CRUISE), with every stopping estimate and caller switched together (stop from top speed ≈ 124 u); braking through route corners (D15) remains a tracked limitation for stages 2–3. Details: `HANDOFF.md` → Ship propulsion, `Refine/TASKS.md`.
+
+## 2026-10-11 — Task 17: Dynamic ship navigation
+
+Ships now give way to each other (the later arrival holds short using normal braking), reroute once around idle or waiting ships, and otherwise wait with the order kept, rechecking every 20 s and notifying the player after 5 minutes of waiting. Details: `HANDOFF.md` → Ship traffic.
+
+## 2026-10-11 — Task 16: Asteroid pathfinding
+
+Move orders now route around asteroids (AStarGrid2D with 1 u path clearance) and the ships follow the route with the existing propulsion, braking early for corners; unreachable or unsafe orders are refused with a 2 s notification, and a route failure gets one automatic recovery. Details: `HANDOFF.md` → Route planning and autopilot.
+
+## 2026-10-11 — Task 15: Ship-to-ship collision
+
+Ships now stop on contact with each other (1.7 u spheres, resolved after all
+ships move; moving ships stop and report `blocked`, stationary ships are
+untouched), and a "Collision Debug" toggle shows each ship's collision ring.
+Details: `HANDOFF.md` → Ship-to-ship collision.
+
+## 2026-10-10 — Flip recovery fix
+
+A new order during the braking flip or roll no longer snaps the ship model
+level; it now rotates back smoothly at `rotation_speed` (visual only).
+Details: `HANDOFF.md` → Braking flip.
+
+## 2026-10-10 — Task 14: Ship-to-asteroid collision
+
+Asteroids now have convex-hull collision, and ships sweep a 1.7 u sphere each
+step, stopping at contact with the order cancelled (`blocked`, not
+`arrived`). Details: `HANDOFF.md` → Asteroid collision, Asteroids.
+
+## 2026-10-10 — Task 13: Multiple ships and selection
+
+Added two more ship instances (three in total) with click, Shift-click, and
+box selection, and right-click orders sent to every selected ship, each moving
+independently. Details: `HANDOFF.md` → Unit and selection.
+
+## 2026-10-10 — Braking flip visual
+
+The BRAKE turn is now shown as a nose-down pitch followed by a 180° roll
+back upright (visual only; movement unchanged). Details: `HANDOFF.md` →
+Braking flip.
+
+## 2026-10-10 — Task 12.5: Thruster visual effects
+
+Added blue-white exhaust plumes and directional jets that show the thrust
+the movement component actually applies (main engines, translation, and
+rotation), smoothed to avoid flicker. Details: `HANDOFF.md` → Ship, Thruster
+effects.
+
+## 2026-10-10 — Task 12: Ship model and asteroid clusters
+
+Replaced the cube ship with a flat elongated body, two rear main thrusters,
+and 16 directional thruster cubes, and added three fixed, visual-only
+asteroid clusters (3, 8, and 12 asteroids). Details: `HANDOFF.md` → Ship,
+Asteroids.
+
+## 2026-10-10 — Task 11: Heavy-ship propulsion
+
+Lowered main thrust and braking to 0.3 u/s² and directional thrust to 0.2,
+widened the directional braking range to 60 u, and gave CURVE its own
+`turn_acceleration` (0.5) independent of the main engine. Details:
+`HANDOFF.md` → Ship propulsion.
+
+## 2026-10-10 — Task 10: Course changes
+
+Raised directional thrusters to 1.0 u/s² and the maneuvering speed to 3 u/s,
+and added a CURVE phase so MAIN-mode course changes bend with a 45° nose lead
+instead of a retrograde flip when the target is outside the turning circle.
+Details: `HANDOFF.md` → Ship propulsion.
+
+## 2026-10-10 — Task 09: Movement debug tools
+
+Added a "Movement Debug" toggle (off at launch) that shows a speed/mode/phase
+HUD, the range circles, the debug label, and a ship-to-destination line.
+Details: `HANDOFF.md` → Movement debug.
+
+## 2026-10-10 — Task 08: Larger playable area
+
+Enlarged the playable area from 100 × 100 to 300 × 300 (ground mesh,
+`map_bounds`, camera rig `bounds`), still centred on the origin.
+
+## 2026-10-10 — Task 07: Map bounds for move orders
+
+Added `map_bounds` (100 × 100 on X/Z) to `main.gd`; right-click move orders
+outside it are silently ignored. Details: `HANDOFF.md` → Unit and selection.
+
+## 2026-10-10 — Task 06: Reusable ship scenes
+
+Split the cube into a reusable `ship.tscn` unit and a `ship_movement.tscn`
+component that moves its parent; behavior unchanged. Also introduced this
+changelog. Details: `HANDOFF.md` → Ship, Ship movement.
+
+## 2026-10-10 — Task 05: Directional braking range
+
+Added a medium-distance mode (HYBRID) between two ship-centred range
+circles: the main thruster accelerates, directional thrusters brake without
+a flip, falling back to main braking when needed. Details: `HANDOFF.md` →
+Ship propulsion.
+
+## 2026-10-10 — Task 04: Ship propulsion and movement
+
+Replaced constant-speed movement with main and directional thrusters,
+inertia, rotation, braking, and course-change handling, plus debug range
+circle, label, and nose. Details: `HANDOFF.md` → Ship propulsion.
+
+## 2026-10-10 — Task 03: Camera controls
+
+Added the reusable camera rig scene with pan, rotate, zoom, and
+focus/follow. Details: `HANDOFF.md` → Camera.
+
+## 2026-10-10 — Task 02: Single-unit selection and movement
+
+Added the hovering cube with left-click selection, right-click move orders,
+and a destination marker; window set to maximized. Details: `HANDOFF.md` →
+Unit and selection.

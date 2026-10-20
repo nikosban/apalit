@@ -1,0 +1,46 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/locomotion/ship_locomotion.gd" id="1_locomotion"]
+[ext_resource type="Script" path="res://game/navigation/route_follower.gd" id="2_follower"]
+[ext_resource type="Script" path="res://game/avoidance/ship_avoidance.gd" id="3_avoidance"]
+[ext_resource type="Script" path="res://game/cargo/cargo.gd" id="4_cargo"]
+[ext_resource type="Script" path="res://game/mining/extractor.gd" id="5_extractor"]
+[ext_resource type="Script" path="res://game/mining/mining_operation.gd" id="6_mining"]
+[ext_resource type="Script" path="res://game/survey/scanner.gd" id="7_scanner"]
+[ext_resource type="Script" path="res://game/stations/docking.gd" id="8_docking"]
+[ext_resource type="Script" path="res://game/fuel/fuel.gd" id="9_fuel"]
+[ext_resource type="Script" path="res://game/combat/combat_ship.gd" id="10_combat"]
+
+[node name="MiningShip" type="Node3D"]
+
+[node name="Locomotion" type="Node" parent="."]
+script = ExtResource("1_locomotion")
+
+[node name="RouteFollower" type="Node" parent="."]
+script = ExtResource("2_follower")
+
+[node name="Avoidance" type="Node" parent="."]
+script = ExtResource("3_avoidance")
+
+[node name="Cargo" type="Node" parent="."]
+script = ExtResource("4_cargo")
+
+[node name="Extractor" type="Node" parent="."]
+script = ExtResource("5_extractor")
+
+[node name="Mining" type="Node" parent="."]
+script = ExtResource("6_mining")
+
+[node name="Scanner" type="Node" parent="."]
+script = ExtResource("7_scanner")
+
+[node name="Docking" type="Node" parent="."]
+script = ExtResource("8_docking")
+
+[node name="Fuel" type="Node" parent="."]
+script = ExtResource("9_fuel")
+
+[node name="Weapons" type="Node3D" parent="."]
+
+[node name="Combat" type="Node" parent="."]
+script = ExtResource("10_combat")

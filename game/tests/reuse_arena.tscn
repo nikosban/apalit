@@ -1,0 +1,131 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://game/camera/camera_rig.tscn" id="1_rig"]
+[ext_resource type="Script" path="res://game/resources/asteroid_field.gd" id="2_field"]
+[ext_resource type="Script" path="res://game/navigation/static_navigation.gd" id="3_navigation"]
+[ext_resource type="Script" path="res://game/collision/planar_collision.gd" id="4_collision"]
+[ext_resource type="Script" path="res://game/survey/survey.gd" id="5_survey"]
+[ext_resource type="Script" path="res://game/selection/ship_selection.gd" id="6_selection"]
+[ext_resource type="PackedScene" path="res://game/stations/refinery_station.tscn" id="7_refinery_station"]
+[ext_resource type="PackedScene" path="res://game/stations/shipyard_station.tscn" id="8_shipyard_station"]
+[ext_resource type="PackedScene" path="res://game/tests/docking/tri_station.tscn" id="9_tri_station"]
+[ext_resource type="PackedScene" path="res://game/ships/frigate_unit.tscn" id="10_frigate"]
+[ext_resource type="PackedScene" path="res://game/ships/gunship_unit.tscn" id="11_gunship"]
+[ext_resource type="PackedScene" path="res://game/ships/destroyer_unit.tscn" id="12_destroyer"]
+[ext_resource type="PackedScene" path="res://game/ships/miner_unit.tscn" id="13_miner"]
+[ext_resource type="PackedScene" path="res://game/ships/transporter_unit.tscn" id="14_transporter"]
+[ext_resource type="Script" path="res://game/time/sim_clock.gd" id="90_clock"]
+[ext_resource type="Script" path="res://game/sensors/contact_board.gd" id="91_contacts"]
+[ext_resource type="Script" path="res://game/combat/projectile_system.gd" id="92_projectiles"]
+[ext_resource type="Script" path="res://game/combat/combat_effects.gd" id="93_effects"]
+[ext_resource type="Script" path="res://game/combat/ordnance_trails.gd" id="94_trails"]
+
+[sub_resource type="SphereMesh" id="SphereMesh_asteroid"]
+radial_segments = 24
+rings = 12
+
+[node name="ReuseArena" type="Node3D"]
+
+[node name="SimClock" type="Node" parent="."]
+script = ExtResource("90_clock")
+
+[node name="CameraRig" parent="." instance=ExtResource("1_rig")]
+zoom_distance = 30.0
+
+[node name="Asteroids" type="Node3D" parent="."]
+script = ExtResource("2_field")
+session_seed = 20261017
+
+[node name="Asteroid1" type="MeshInstance3D" parent="Asteroids"]
+transform = Transform3D(6, 0, 0, 0, 6, 0, 0, 0, 6, 50, 1.5, 55)
+mesh = SubResource("SphereMesh_asteroid")
+metadata/asteroid_id = 1
+
+[node name="Asteroid2" type="MeshInstance3D" parent="Asteroids"]
+transform = Transform3D(8, 0, 0, 0, 8, 0, 0, 0, 8, -50, 1.5, 55)
+mesh = SubResource("SphereMesh_asteroid")
+metadata/asteroid_id = 2
+
+[node name="Asteroid3" type="MeshInstance3D" parent="Asteroids"]
+transform = Transform3D(5, 0, 0, 0, 5, 0, 0, 0, 5, 60, 1.5, -55)
+mesh = SubResource("SphereMesh_asteroid")
+metadata/asteroid_id = 3
+
+[node name="Asteroid4" type="MeshInstance3D" parent="Asteroids"]
+transform = Transform3D(7, 0, 0, 0, 7, 0, 0, 0, 7, -60, 1.5, -55)
+mesh = SubResource("SphereMesh_asteroid")
+metadata/asteroid_id = 4
+
+[node name="Asteroid5" type="MeshInstance3D" parent="Asteroids"]
+transform = Transform3D(6, 0, 0, 0, 6, 0, 0, 0, 6, 110, 1.5, 70)
+mesh = SubResource("SphereMesh_asteroid")
+metadata/asteroid_id = 5
+
+[node name="Asteroid6" type="MeshInstance3D" parent="Asteroids"]
+transform = Transform3D(6, 0, 0, 0, 6, 0, 0, 0, 6, -110, 1.5, 70)
+mesh = SubResource("SphereMesh_asteroid")
+metadata/asteroid_id = 6
+
+[node name="Stations" type="Node3D" parent="."]
+
+[node name="RefineryA" parent="Stations" instance=ExtResource("7_refinery_station")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -90, 1.5, 0)
+
+[node name="RefineryB" parent="Stations" instance=ExtResource("7_refinery_station")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 90, 1.5, 0)
+
+[node name="Yard" parent="Stations" instance=ExtResource("8_shipyard_station")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -100)
+
+[node name="TriDepot" parent="Stations" instance=ExtResource("9_tri_station")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 100)
+show_berths = false
+
+[node name="StaticNavigation" type="Node" parent="."]
+script = ExtResource("3_navigation")
+obstacles_path = NodePath("../Asteroids")
+
+[node name="PlanarCollision" type="Node" parent="."]
+script = ExtResource("4_collision")
+obstacles_path = NodePath("../Asteroids")
+
+[node name="Survey" type="Node" parent="."]
+script = ExtResource("5_survey")
+
+[node name="Ships" type="Node3D" parent="."]
+
+[node name="Frigate" parent="Ships" instance=ExtResource("10_frigate")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, 1.5, -20)
+
+[node name="Gunship" parent="Ships" instance=ExtResource("11_gunship")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -25)
+
+[node name="Destroyer" parent="Ships" instance=ExtResource("12_destroyer")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25, 1.5, -25)
+
+[node name="Miner1" parent="Ships" instance=ExtResource("13_miner")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15, 1.5, 10)
+
+[node name="Miner2" parent="Ships" instance=ExtResource("13_miner")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 1.5, 10)
+
+[node name="Transporter1" parent="Ships" instance=ExtResource("14_transporter")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -35, 1.5, 30)
+
+[node name="Transporter2" parent="Ships" instance=ExtResource("14_transporter")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 1.5, 30)
+
+[node name="Contacts" type="Node" parent="."]
+script = ExtResource("91_contacts")
+
+[node name="Projectiles" type="Node3D" parent="."]
+script = ExtResource("92_projectiles")
+
+[node name="Effects" type="Node3D" parent="."]
+script = ExtResource("93_effects")
+
+[node name="OrdnanceTrails" type="MeshInstance3D" parent="."]
+script = ExtResource("94_trails")
+
+[node name="Selection" type="Node3D" parent="."]
+script = ExtResource("6_selection")

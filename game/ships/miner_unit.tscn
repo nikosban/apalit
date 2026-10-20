@@ -1,0 +1,30 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://game/ships/archetypes/mining_ship.tscn" id="1_archetype"]
+[ext_resource type="PackedScene" path="res://game/ships/miner.tscn" id="2_model"]
+
+[node name="Miner" instance=ExtResource("1_archetype")]
+metadata/display_class = "Mining Ship"
+
+[node name="Locomotion" parent="." index="0"]
+max_speed = 5.0
+max_reverse_speed = 4.0
+max_lateral_speed = 3.0
+forward_accel = 6.0
+reverse_accel = 3.0
+lateral_accel = 2.5
+max_turn_rate_deg = 120.0
+turn_accel_deg = 240.0
+
+[node name="RouteFollower" parent="." index="1"]
+ship_radius = 1.6
+clearance_margin = 1.0
+
+[node name="Avoidance" parent="." index="2"]
+size_class = 1
+separation_margin = 1.0
+
+[node name="Scanner" parent="." index="6"]
+kind = 1
+
+[node name="Model" parent="." instance=ExtResource("2_model")]

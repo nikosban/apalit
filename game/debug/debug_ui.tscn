@@ -1,0 +1,36 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/debug/debug_ui.gd" id="1_debug"]
+
+[node name="DebugUI" type="CanvasLayer"]
+script = ExtResource("1_debug")
+
+[node name="Panel" type="VBoxContainer" parent="."]
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 16.0
+offset_bottom = 16.0
+mouse_filter = 2
+
+[node name="DebugToggle" type="CheckBox" parent="Panel"]
+layout_mode = 2
+size_flags_horizontal = 0
+focus_mode = 0
+text = "Movement Debug"
+
+[node name="NavigationDebugToggle" type="CheckBox" parent="Panel"]
+layout_mode = 2
+size_flags_horizontal = 0
+focus_mode = 0
+text = "Navigation Debug"
+
+[node name="AvoidanceDebugToggle" type="CheckBox" parent="Panel"]
+layout_mode = 2
+size_flags_horizontal = 0
+focus_mode = 0
+text = "Avoidance Debug"
+
+[node name="DebugHud" type="Label" parent="Panel"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 0

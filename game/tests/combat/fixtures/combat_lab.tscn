@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/tests/combat/fixtures/combat_lab.gd" id="1_lab"]
+
+[node name="CombatLab" type="Node"]
+script = ExtResource("1_lab")

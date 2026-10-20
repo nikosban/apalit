@@ -1,0 +1,23 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://game/weapons/weapon_config.gd" id="1_config"]
+
+[resource]
+script = ExtResource("1_config")
+display_name = "Gatling"
+family = &"gatling"
+size = 0
+damage = 1.0
+cooldown = 0.08
+weapon_range = 25.0
+travel_factor = 1.25
+projectile_speed = 70.0
+projectile_lifetime = 0.45
+projectile_style = &"tracer"
+alignment_tolerance_deg = 3.0
+yaw_speed_deg = 140.0
+pitch_speed_deg = 120.0
+ammunition = 400
+magazine_size = 40
+reload_time = 3.0
+idle_reload_delay = 0.25

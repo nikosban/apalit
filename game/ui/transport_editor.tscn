@@ -1,0 +1,92 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://game/ui/transport_editor.gd" id="1_editor"]
+[ext_resource type="PackedScene" path="res://game/ui/components/panel_shell.tscn" id="2_shell"]
+[ext_resource type="PackedScene" path="res://game/ui/components/segmented_control.tscn" id="3_segmented"]
+
+[node name="TransportEditor" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_editor")
+
+[node name="Panel" parent="." instance=ExtResource("2_shell")]
+layout_mode = 1
+width = 470.0
+right_offset = 348.0
+
+[node name="Title" type="Label" parent="Panel/Layout/Header"]
+layout_mode = 2
+theme_type_variation = &"HeaderLabel"
+clip_text = true
+
+[node name="Tabs" parent="Panel/Layout/Header" instance=ExtResource("3_segmented")]
+layout_mode = 2
+
+[node name="Columns" type="HBoxContainer" parent="Panel/Layout/Header"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Resource" type="Label" parent="Panel/Layout/Header/Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"MutedLabel"
+text = "Resource"
+
+[node name="Aboard" type="Label" parent="Panel/Layout/Header/Columns"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Aboard  Requested load"
+
+[node name="Ore" type="VBoxContainer" parent="Panel/Layout/Scroll/Body"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Ingots" type="VBoxContainer" parent="Panel/Layout/Scroll/Body"]
+visible = false
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Components" type="Label" parent="Panel/Layout/Scroll/Body"]
+visible = false
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Components are not implemented yet."
+autowrap_mode = 3
+
+[node name="Footer" parent="Panel/Layout" index="2"]
+visible = true
+
+[node name="Total" type="Label" parent="Panel/Layout/Footer"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="Unloading" type="Label" parent="Panel/Layout/Footer"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Unloading is not configured: the whole cargo aboard is unloaded at the destination."
+autowrap_mode = 3
+
+[node name="Message" type="Label" parent="Panel/Layout/Footer"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="Buttons" type="HBoxContainer" parent="Panel/Layout/Footer"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Apply" type="Button" parent="Panel/Layout/Footer/Buttons"]
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "Apply"
+
+[node name="Cancel" type="Button" parent="Panel/Layout/Footer/Buttons"]
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "Cancel"
