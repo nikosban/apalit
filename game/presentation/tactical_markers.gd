@@ -1,11 +1,15 @@
 extends CanvasLayer
-## Strategic zoom representation (node `TacticalMarkers`, added by the scene's combat
-## layer, always processing; migrated from the combat prototype v0.4). Above `enter_zoom`
-## (camera rig zoom distance) the ships' 3D models are hidden and every ship is drawn as a
-## screen-space tactical marker; below `exit_zoom` the models return (hysteresis: no
-## flicker around one threshold). Markers are the ships themselves (no second entity):
-## picking (Selection) and commands use the same ship nodes, and selection is a set of
-## ships, so it persists across the switch.
+## Tactical presentation of the Local / Tactical camera (node `TacticalMarkers`, added by
+## the scene's combat layer, always processing; migrated from the combat prototype v0.4).
+## Phase B: one continuous value, `emphasis()` (0 Local, 1 Tactical), derived from the
+## camera rig's zoom_level() with a smoothstep between `emphasis_start_distance` and
+## `emphasis_end_distance` (camera zoom distances). The 3D models stay visible at every
+## zoom; the screen-space tactical markers fade in over them with the emphasis, and the
+## other presentation systems (selection ring, hull bars, object markers, grid) read the
+## same value. Markers are the ships themselves (no second entity): picking (Selection)
+## and commands use the same ship nodes, and selection is a set of ships, so zooming
+## never changes it. A ship's marker takes clicks only while its opacity (the emphasis)
+## is at least `interactive_emphasis`; below it the hull pick is the only ship pick.
 ##
 ## Symbols (constant screen size), in the production marker language (ObjectMarkers):
 ##   category shape: combat ship triangle, logistics ship octagon;
@@ -13,23 +17,37 @@ extends CanvasLayer
 ##   combat ships: one bar inside, two for the Destroyer class (larger marker);
 ##   selected: corner brackets;  manual target of a selected ship: four crosshair ticks;
 ##   movement order of a selected ship: dashed line to its destination and a small ring;
-##   destroyed (hulk): a small grey cross.
+##   destroyed (hulk): a small grey cross;
+##   station (B2): a pale square with a centre dot, never in a faction tint (stations
+##   have no faction yet);
+##   asteroid (B2): one small, quiet diamond per individual asteroid, in the survey's
+##   colour (SurveyView.marker_of(): grey not scanned, amber minerals, blue ice).
+## Stations and asteroids keep their own picking (ray against their models; the station
+## marker lies inside the station's projected body at every zoom), so their markers are
+## presentation only. An object that is hovered or selected (WorldHighlight) is marked by
+## ObjectMarkers instead, so it is never drawn twice. Off-screen objects are not drawn.
 ## Visibility (A5): the arena decides which hostile ships the player may see
 ## (`player_sees()`), and where lost contacts were last seen (`last_known()`); nothing else
-## is drawn for hostile ships.
+## is drawn for hostile ships. Lost-contact memory is drawn at every zoom.
 
 const CombatShip := preload("res://game/combat/combat_ship.gd")
+const CameraRig := preload("res://game/camera/camera_rig.gd")
 const ObjectMarkers := preload("res://game/presentation/object_markers.gd")
+const SurveyView := preload("res://game/survey/survey_view.gd")
 const SELECT_COLOR := Color(0.35, 0.9, 0.45)
 const ORDER_COLOR := Color(0.85, 0.6, 0.25)
 const TARGET_COLOR := Color(1.0, 0.85, 0.55)
 const HULK_COLOR := Color(0.55, 0.55, 0.58)
 const BASE_SIZE := 11.0 # px half-extent of a Gunship frame at 1080 lines
+const STATION_SIZE := 9.0 # px centre to corner of a station square at 1080 lines
+const STATION_COLOR := Color(0.78, 0.8, 0.84)
+const ASTEROID_SIZE := 4.0 # px centre to corner of an asteroid diamond at 1080 lines
+const ASTEROID_ALPHA := 0.6 # asteroid markers stay quieter than ships and stations
 
-@export var enter_zoom := 65.0 # zoom distance above which markers replace the models
-@export var exit_zoom := 55.0 # zoom distance below which the models return
+@export var emphasis_start_distance := 30.0 # zoom distance where the Tactical emphasis starts (0)
+@export var emphasis_end_distance := 100.0 # zoom distance where it is complete (1)
+@export var interactive_emphasis := 0.5 # marker opacity from which a marker takes clicks
 
-var strategic := false
 var _canvas: Control
 
 @onready var _arena := get_parent()
@@ -45,18 +63,25 @@ func _ready() -> void:
 	add_child(_canvas)
 
 
-## Applies the zoom thresholds to the current camera zoom (idempotent; called by readers
-## that process before this node, so model and effects switch in the same frame).
-func refresh() -> void:
-	var zoom: float = _arena.get_node("CameraRig").zoom_distance
-	if not strategic and zoom > enter_zoom:
-		strategic = true
-	elif strategic and zoom < exit_zoom:
-		strategic = false
+## Tactical emphasis now, 0 (Local) to 1 (Tactical): continuous in the rendered zoom, so
+## it follows the camera while the zoom is still interpolating.
+func emphasis() -> float:
+	return emphasis_at(_arena.get_node("CameraRig").zoom_level(), level_of(emphasis_start_distance), level_of(emphasis_end_distance))
+
+
+## Smoothstep of a zoom level (CameraRig.zoom_level()) between two levels.
+static func emphasis_at(level: float, start_level: float, end_level: float) -> float:
+	return smoothstep(start_level, end_level, level)
+
+
+## CameraRig.zoom_level() for a zoom distance (its log scale on its reference range).
+static func level_of(distance: float) -> float:
+	var low := CameraRig.REFERENCE_MIN_ZOOM
+	var high := CameraRig.REFERENCE_MAX_ZOOM
+	return log(clampf(distance, low, high) / low) / log(high / low)
 
 
 func _process(_delta: float) -> void:
-	refresh()
 	for ship: Node3D in _arena.get_node("Ships").get_children():
 		ship.visible = _arena.model_shown(ship)
 	_canvas.queue_redraw()
@@ -73,10 +98,12 @@ func half_size(ship: Node3D) -> float:
 	return BASE_SIZE * scale_factor() * (1.35 if big else 1.0)
 
 
-## The ship whose marker contains a screen point (strategic zoom only), or null. Only
-## ships the player may see have a marker.
+## The ship whose marker contains a screen point, or null: only while the markers are
+## interactive (emphasis at least `interactive_emphasis`), and only ships the player may
+## see have a marker. Overlapping markers: the marker centre nearest the point wins; at
+## equal distance the earlier ship under Ships.
 func marker_at(screen: Vector2) -> Node3D:
-	if not strategic:
+	if emphasis() < interactive_emphasis:
 		return null
 	var camera := get_viewport().get_camera_3d()
 	var best: Node3D = null
@@ -97,8 +124,11 @@ func _draw_markers() -> void:
 	if camera == null:
 		return
 	_arena.draw_contact_memory(_canvas, camera, 1.6 * scale_factor())
-	if not strategic:
+	var alpha := emphasis() # Markers fade in with the Tactical emphasis.
+	if alpha <= 0.0:
 		return
+	_draw_objects(alpha) # Under the ship markers.
+	var view := _canvas.get_viewport_rect().grow(BASE_SIZE * 4.0 * scale_factor())
 	var selected: Array = _arena.selection().selected
 	var targets := {}
 	for ship: Node3D in selected:
@@ -113,8 +143,8 @@ func _draw_markers() -> void:
 			continue
 		var from := camera.unproject_position(ship.global_position)
 		var to := camera.unproject_position(Vector3(locomotion.destination.x, 0.0, locomotion.destination.y))
-		_canvas.draw_dashed_line(from, to, Color(ORDER_COLOR, 0.8), width, 6.0 * scale_factor())
-		_canvas.draw_arc(to, 4.0 * scale_factor(), 0.0, TAU, 16, Color(ORDER_COLOR, 0.9), width)
+		_canvas.draw_dashed_line(from, to, Color(ORDER_COLOR, 0.8 * alpha), width, 6.0 * scale_factor())
+		_canvas.draw_arc(to, 4.0 * scale_factor(), 0.0, TAU, 16, Color(ORDER_COLOR, 0.9 * alpha), width)
 	for ship: Node3D in _arena.get_node("Ships").get_children():
 		var combat = CombatShip.of(ship)
 		if combat == null or combat.removed_from_play or camera.is_position_behind(ship.global_position):
@@ -122,9 +152,11 @@ func _draw_markers() -> void:
 		if not _arena.player_sees(ship):
 			continue
 		var center := camera.unproject_position(ship.global_position)
+		if not view.has_point(center):
+			continue # Off screen: nothing to draw.
 		var h := half_size(ship)
 		if not combat.alive:
-			var c := Color(HULK_COLOR, 0.8)
+			var c := Color(HULK_COLOR, 0.8 * alpha)
 			_canvas.draw_line(center + Vector2(-h, -h) * 0.6, center + Vector2(h, h) * 0.6, c, width)
 			_canvas.draw_line(center + Vector2(-h, h) * 0.6, center + Vector2(h, -h) * 0.6, c, width)
 			continue
@@ -136,8 +168,8 @@ func _draw_markers() -> void:
 		var shape: int = ObjectMarkers.ship_shape(ship)
 		var size := h * (1.45 if shape == ObjectMarkers.Shape.TRIANGLE else 1.2)
 		var frame := ObjectMarkers.shape_points(shape, center, size)
-		var line := Color(tint.lerp(Color.WHITE, 0.55), 0.95)
-		_canvas.draw_colored_polygon(frame, Color(tint.darkened(0.45), 0.55))
+		var line := Color(tint.lerp(Color.WHITE, 0.55), 0.95 * alpha)
+		_canvas.draw_colored_polygon(frame, Color(tint.darkened(0.45), 0.55 * alpha))
 		_canvas.draw_polyline(frame + PackedVector2Array([frame[0]]), line, width + 0.6)
 		if combat.faction != _arena.PLAYER_FACTION:
 			var outer := ObjectMarkers.shape_points(shape, center, size + 4.0 * scale_factor())
@@ -146,11 +178,78 @@ func _draw_markers() -> void:
 			var bars := 2 if h > BASE_SIZE * scale_factor() * 1.1 else 1
 			for i in bars:
 				var y := h * 0.18 + (float(i) - (bars - 1) * 0.5) * h * 0.3
-				_canvas.draw_line(center + Vector2(-h * 0.38, y), center + Vector2(h * 0.38, y), Color(0.95, 0.95, 0.95, 0.9), width)
+				_canvas.draw_line(center + Vector2(-h * 0.38, y), center + Vector2(h * 0.38, y), Color(0.95, 0.95, 0.95, 0.9 * alpha), width)
 		if selected.has(ship):
-			_brackets(center, h * 1.45, Color(SELECT_COLOR, 0.95), width)
+			_brackets(center, h * 1.45, Color(SELECT_COLOR, 0.95 * alpha), width)
 		if targets.has(ship):
-			_crosshair(center, h, Color(TARGET_COLOR, 0.95), width)
+			_crosshair(center, h, Color(TARGET_COLOR, 0.95 * alpha), width)
+
+
+## The station and asteroid markers to draw now: {target, asteroid (id, or -1 for a
+## station), position (screen), color}: the asteroids in ascending id order, then the
+## stations (drawn in this order, stations over asteroids); only objects shown, in front
+## of the camera and on screen, and none for an object ObjectMarkers marks (hovered or
+## selected: WorldHighlight). Built from the live nodes every call, so a removed object
+## has no entry.
+func object_entries() -> Array:
+	var result := []
+	var camera := get_viewport().get_camera_3d()
+	if camera == null:
+		return result
+	var view := _canvas.get_viewport_rect().grow(BASE_SIZE * 4.0 * scale_factor())
+	var highlight := _arena.get_node_or_null("WorldHighlight")
+	var marked: Dictionary = highlight.highlighted() if highlight != null else {}
+	var field := _arena.get_node_or_null("Asteroids")
+	if field != null and field.has_method("ids") and field.is_visible_in_tree():
+		var survey_view := _arena.get_node_or_null("SurveyView")
+		for id: int in field.ids():
+			var asteroid: Node3D = field.node_of(id) # Asteroids are direct children of the field.
+			if not asteroid.visible or marked.has(asteroid) or camera.is_position_behind(asteroid.global_position):
+				continue
+			var center := camera.unproject_position(asteroid.global_position)
+			if view.has_point(center):
+				var color: Color = ObjectMarkers.SURVEY_COLORS[survey_view.marker_of(id)] if survey_view != null else SurveyView.UNKNOWN_COLOR
+				result.append({"target": asteroid, "asteroid": id, "position": center, "color": color})
+	var stations := _arena.get_node_or_null("Stations")
+	if stations != null:
+		for station: Node3D in stations.get_children():
+			if station.is_visible_in_tree() and not marked.has(station) and not camera.is_position_behind(station.global_position):
+				var center := camera.unproject_position(station.global_position)
+				if view.has_point(center):
+					result.append({"target": station, "asteroid": -1, "position": center, "color": STATION_COLOR})
+	return result
+
+
+# Asteroids: one small quiet diamond each, all in one batched triangle array (one canvas
+# command however many asteroids); stations: a square with a centre dot.
+func _draw_objects(alpha: float) -> void:
+	var width := 1.6 * scale_factor()
+	var size := ASTEROID_SIZE * scale_factor()
+	var points := PackedVector2Array()
+	var colors := PackedColorArray()
+	var indices := PackedInt32Array()
+	var faded := {} # survey colour -> its four vertex colours at the asteroid alpha
+	for entry: Dictionary in object_entries():
+		var color: Color = entry.color
+		var at: Vector2 = entry.position
+		if entry.asteroid >= 0:
+			var first := points.size()
+			points.append_array([at + Vector2(size, 0), at + Vector2(0, size), at + Vector2(-size, 0), at + Vector2(0, -size)])
+			if not faded.has(color):
+				var c := Color(color, ASTEROID_ALPHA * alpha)
+				faded[color] = PackedColorArray([c, c, c, c])
+			colors.append_array(faded[color])
+			indices.append_array([first, first + 1, first + 2, first, first + 2, first + 3])
+			continue
+		if not indices.is_empty(): # Asteroids first (they come first): under the stations.
+			RenderingServer.canvas_item_add_triangle_array(_canvas.get_canvas_item(), indices, points, colors)
+			indices.clear()
+		var frame := ObjectMarkers.shape_points(ObjectMarkers.Shape.SQUARE, at, STATION_SIZE * scale_factor())
+		_canvas.draw_colored_polygon(frame, Color(color.darkened(0.6), 0.55 * alpha))
+		_canvas.draw_polyline(frame + PackedVector2Array([frame[0]]), Color(color, 0.95 * alpha), width + 0.6)
+		_canvas.draw_circle(at, width, Color(color, 0.95 * alpha))
+	if not indices.is_empty():
+		RenderingServer.canvas_item_add_triangle_array(_canvas.get_canvas_item(), indices, points, colors)
 
 
 func _brackets(center: Vector2, h: float, color: Color, width: float) -> void:

@@ -2,7 +2,8 @@ extends CanvasLayer
 ## Combat screen feedback (node `CombatHUD`, combat migration; the per-ship information is
 ## in the ship panel, not here):
 ##   - a hull bar over every ship the player may see (faction colour; "DESTROYED" over a
-##     hulk; none at strategic zoom, where the markers stand for the ships);
+##     hulk; they fade out as the tactical markers fade in (1 - emphasis), so none at
+##     full Tactical emphasis, where the markers carry the ships);
 ##   - top right, the simulation speed (TimeControl: "Speed: 1x", "PAUSED", ...) and, while
 ##     attack-target selection is open, its hint;
 ##   - during target selection, beside the cursor, the hostile under it with each selected
@@ -194,8 +195,9 @@ func _draw_bars() -> void:
 	if camera == null:
 		return
 	var markers = _arena.get("markers")
-	if markers != null and markers.strategic:
-		return # The tactical markers carry the ships at strategic zoom.
+	var alpha: float = 1.0 if markers == null else 1.0 - markers.emphasis()
+	if alpha <= 0.0:
+		return # The tactical markers carry the ships at full Tactical emphasis.
 	for ship: Node3D in _arena.get_node("Ships").get_children():
 		var combat = CombatShip.of(ship)
 		if combat == null or combat.removed_from_play:
@@ -208,9 +210,9 @@ func _draw_bars() -> void:
 		var screen := camera.unproject_position(point)
 		var origin := screen - Vector2(BAR_SIZE.x * 0.5, 0)
 		if not combat.alive:
-			_bars.draw_string(ThemeDB.fallback_font, origin, "DESTROYED", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 0.6, 0.3))
+			_bars.draw_string(ThemeDB.fallback_font, origin, "DESTROYED", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 0.6, 0.3, alpha))
 			continue
 		var share: float = clampf(combat.health / combat.rules.hull_health, 0.0, 1.0)
-		_bars.draw_rect(Rect2(origin, BAR_SIZE), Color(0, 0, 0, 0.6))
-		_bars.draw_rect(Rect2(origin, Vector2(BAR_SIZE.x * share, BAR_SIZE.y)), CombatShip.FACTION_COLORS[combat.faction].lerp(Color.WHITE, 0.2))
-		_bars.draw_rect(Rect2(origin, BAR_SIZE), Color(1, 1, 1, 0.5), false, 1.0)
+		_bars.draw_rect(Rect2(origin, BAR_SIZE), Color(0, 0, 0, 0.6 * alpha))
+		_bars.draw_rect(Rect2(origin, Vector2(BAR_SIZE.x * share, BAR_SIZE.y)), Color(CombatShip.FACTION_COLORS[combat.faction].lerp(Color.WHITE, 0.2), alpha))
+		_bars.draw_rect(Rect2(origin, BAR_SIZE), Color(1, 1, 1, 0.5 * alpha), false, 1.0)

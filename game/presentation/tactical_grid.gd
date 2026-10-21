@@ -3,7 +3,8 @@ extends MeshInstance3D
 ## processing). A world-aligned grid on the X/Z plane just above the ground: minor lines
 ## every `minor` u, major every `major` u (provisional 10 / 50). Visual only: no collision,
 ## not pickable, no snapping. Its strength follows the camera zoom: suppressed close in,
-## minor lines faint at tactical zoom, major lines clearer at strategic zoom. Lines are
+## minor lines faint from mid zoom, major lines clearer with the Tactical emphasis (the
+## tactical markers' emphasis(), Phase B). Lines are
 ## anti-aliased in the shader (constant screen width), one quad, no per-frame rebuild.
 
 const SHADER := """
@@ -52,16 +53,17 @@ func _ready() -> void:
 	material_override = _material
 
 
-## Line strengths for a camera zoom distance: [minor alpha, major alpha].
-static func strengths(zoom: float) -> Vector2:
+## Line strengths for a camera zoom distance and Tactical emphasis (0-1): [minor alpha,
+## major alpha].
+static func strengths(zoom: float, emphasis: float) -> Vector2:
 	var minor_alpha := 0.07 * clampf((zoom - 22.0) / 20.0, 0.0, 1.0)
-	var major_alpha := 0.06 * clampf((zoom - 16.0) / 14.0, 0.0, 1.0) + 0.1 * clampf((zoom - 50.0) / 40.0, 0.0, 1.0)
+	var major_alpha := 0.06 * clampf((zoom - 16.0) / 14.0, 0.0, 1.0) + 0.1 * clampf(emphasis, 0.0, 1.0)
 	return Vector2(minor_alpha, major_alpha)
 
 
 func _process(_delta: float) -> void:
 	if not visible:
 		return
-	var s := strengths(_arena.get_node("CameraRig").zoom_distance)
+	var s := strengths(_arena.get_node("CameraRig").zoom_distance, _arena.markers.emphasis())
 	_material.set_shader_parameter("minor_alpha", s.x)
 	_material.set_shader_parameter("major_alpha", s.y)

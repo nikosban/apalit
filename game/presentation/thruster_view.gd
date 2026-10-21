@@ -92,8 +92,7 @@ func _process(delta: float) -> void:
 			continue
 		var ship: Node3D = record.ship
 		# Combat migration: nothing is drawn for a ship whose 3D presentation the scene does
-		# not show (strategic zoom, or a hostile ship hidden by the fog of war); its effect
-		# state is kept.
+		# not show (a hostile ship hidden by the fog of war); its effect state is kept.
 		var scene := get_parent()
 		if scene.has_method("model_shown") and not scene.model_shown(ship):
 			if record.get("plume") != null:

@@ -7,7 +7,9 @@ extends Node
 ## an octagon, stations a square, asteroids a diamond. Ships and stations are drawn in
 ## the highlight's colour (selected cyan, hover pale); an asteroid's diamond shows what
 ## the survey knows (grey not scanned, amber minerals, blue ice; SurveyView.marker_of()).
-## Placeholder graphics. Below the panels (canvas layer 0).
+## Placeholder graphics. Below the panels (canvas layer 0). Phase B: in a scene with
+## tactical markers a ship's icon fades out as its tactical marker fades in (alpha
+## 1 - emphasis), so the two never show at full strength together.
 
 enum Shape { TRIANGLE, OCTAGON, SQUARE, DIAMOND }
 
@@ -50,7 +52,7 @@ func _process(_delta: float) -> void:
 	_overlay.queue_redraw()
 
 
-## The markers to draw now: {target, shape, position (screen), color}, one per
+## The markers to draw now: {target, shape, position (screen), color, alpha}, one per
 ## highlighted object in front of the camera and on screen (off-screen objects are not
 ## marked: their projected positions can be far outside the view).
 func entries() -> Array:
@@ -60,8 +62,8 @@ func entries() -> Array:
 		return result
 	var view := get_viewport().get_visible_rect().grow(SIZE * 2.0)
 	var styles := _highlight.highlighted()
-	var tactical = get_parent().get("markers") # Combat: at strategic zoom ships have tactical markers.
-	var strategic: bool = tactical != null and tactical.strategic
+	var tactical = get_parent().get("markers") # Combat: ships also have tactical markers.
+	var ship_alpha: float = 1.0 if tactical == null else 1.0 - tactical.emphasis()
 	for target: Node3D in styles:
 		if not is_instance_valid(target) or camera.is_position_behind(target.global_position):
 			continue
@@ -69,28 +71,30 @@ func entries() -> Array:
 			continue
 		var color := SELECTED_COLOR if styles[target] == WorldHighlight.Style.SELECTED else HOVER_COLOR
 		var shape := Shape.SQUARE
+		var alpha := 1.0
 		var parent := target.get_parent()
 		if parent == _ships:
-			if strategic:
+			if ship_alpha <= 0.0:
 				continue
 			shape = ship_shape(target)
+			alpha = ship_alpha
 		elif parent == _field:
 			shape = Shape.DIAMOND
 			if _survey_view != null:
 				color = SURVEY_COLORS[_survey_view.marker_of(int(target.get_meta("asteroid_id")))]
 		elif parent != _stations:
 			continue
-		result.append({"target": target, "shape": shape, "position": camera.unproject_position(target.global_position), "color": color})
+		result.append({"target": target, "shape": shape, "position": camera.unproject_position(target.global_position), "color": color, "alpha": alpha})
 	return result
 
 
 func _draw_markers() -> void:
 	for entry: Dictionary in entries():
 		var points := _points(entry.shape, entry.position)
-		_overlay.draw_colored_polygon(points, entry.color)
+		_overlay.draw_colored_polygon(points, Color(entry.color, entry.color.a * entry.alpha))
 		var outline := points.duplicate()
 		outline.append(points[0])
-		_overlay.draw_polyline(outline, OUTLINE, 1.5, true)
+		_overlay.draw_polyline(outline, Color(OUTLINE, OUTLINE.a * entry.alpha), 1.5, true)
 
 
 ## Corner points of a marker shape around a screen point.
@@ -98,7 +102,7 @@ static func _points(shape: Shape, at: Vector2) -> PackedVector2Array:
 	return shape_points(shape, at, SIZE)
 
 
-## Corner points of a marker shape of any size (shared with the strategic-zoom markers).
+## Corner points of a marker shape of any size (shared with the tactical markers).
 static func shape_points(shape: Shape, at: Vector2, size: float) -> PackedVector2Array:
 	var points := PackedVector2Array()
 	match shape:

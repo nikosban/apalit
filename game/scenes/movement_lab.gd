@@ -172,7 +172,7 @@ func ensure_behavior_view() -> void:
 
 
 # Combat layer: process modes (simulation pauses, input / camera / UI do not), the time
-# authority, envelopes, strategic markers, grid and (with Sensors) the fog of war.
+# authority, envelopes, tactical markers, grid and (with Sensors) the fog of war.
 func _setup_combat_layer() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	for child in get_children():
@@ -701,12 +701,11 @@ func player_sees(other: Node3D) -> bool:
 	return sensors.detected(PLAYER_FACTION, other)
 
 
-## Whether the ship's 3D presentation (model, propulsion effects) is drawn now: not at
-## strategic zoom (its marker stands for it) and only while the player may see it.
+## Whether the ship's 3D presentation (model, propulsion effects) is drawn now: while the
+## player may see it, at every zoom (Phase B: the tactical markers are drawn over the
+## models, never instead of them).
 func model_shown(other: Node3D) -> bool:
-	if markers != null:
-		markers.refresh()
-	return not (markers != null and markers.strategic) and player_sees(other)
+	return player_sees(other)
 
 
 ## Whether the player knows of this ship at all (live, or a lost contact still marked).

@@ -10,8 +10,10 @@ extends Node3D
 ## ship or a hulk is never selected; pick_any() still finds it, for targeting), and a ship
 ## the scene says the player cannot see (its `player_sees()`, fog of war) is never picked.
 ## A destroyed ship is dropped from the selection; a ship leaving the scene is
-## unregistered (pick boxes and ring). At strategic zoom (the scene's `markers`) picking
-## goes through the tactical markers and the hull rings are hidden.
+## unregistered (pick boxes and ring). Phase B, with the scene's tactical markers
+## (`markers`): a click on an interactive marker picks its ship, elsewhere the hull pick
+## applies (both resolve to the same ship node); the ring fades out as the markers'
+## brackets fade in (1 - emphasis), so a selected ship stays marked at every zoom.
 
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 
@@ -46,6 +48,7 @@ var _box: Panel
 func _ready() -> void:
 	_ring_material = StandardMaterial3D.new()
 	_ring_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_ring_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA # Fades with the Tactical emphasis.
 	_ring_material.albedo_color = RING_COLOR
 	for ship: Node3D in _ships.get_children():
 		register_ship(ship)
@@ -93,7 +96,8 @@ func register_ship(ship: Node3D) -> void:
 
 func _process(_delta: float) -> void:
 	var markers = get_parent().get("markers")
-	var strategic: bool = markers != null and markers.strategic # The markers' brackets show it.
+	var ring_alpha: float = 1.0 if markers == null else 1.0 - markers.emphasis() # The markers' brackets take over.
+	_ring_material.albedo_color = Color(RING_COLOR, ring_alpha)
 	for key: Variant in _rings.keys():
 		if not is_instance_valid(key): # Freed without being unregistered: its ring goes.
 			(_rings[key] as Node).queue_free()
@@ -102,7 +106,7 @@ func _process(_delta: float) -> void:
 			continue
 		var ship := key as Node3D
 		var ring: MeshInstance3D = _rings[ship]
-		ring.visible = selected.has(ship) and not strategic
+		ring.visible = selected.has(ship) and ring_alpha > 0.0
 		if ring.visible:
 			ring.global_position = Vector3(ship.global_position.x, RING_HEIGHT, ship.global_position.z)
 
@@ -181,14 +185,16 @@ func pick(screen_position: Vector2) -> Node3D:
 	return ship if ship != null and selectable(ship) else null
 
 
-## Any ship under a screen point that the player can see: the nearest hull hit, or at
-## strategic zoom the tactical marker under the point. A hidden ship never shadows a
-## visible one.
+## Any ship under a screen point that the player can see: the ship of an interactive
+## tactical marker under the point (TacticalMarkers.marker_at()), else the nearest hull
+## hit. A hidden ship never shadows a visible one.
 func pick_any(screen_position: Vector2) -> Node3D:
 	var arena := get_parent()
 	var markers = arena.get("markers")
-	if markers != null and markers.strategic:
-		return markers.marker_at(screen_position)
+	if markers != null:
+		var marked: Node3D = markers.marker_at(screen_position)
+		if marked != null:
+			return marked
 	var camera := get_viewport().get_camera_3d()
 	var origin := camera.project_ray_origin(screen_position)
 	var direction := camera.project_ray_normal(screen_position)

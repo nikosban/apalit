@@ -3,6 +3,10 @@
 Project history, newest first. One to two sentences per task; details are
 in `HANDOFF.md`. Entries are not edited after they are written.
 
+## 2026-10-21 — Phase B: Local / Tactical semantic zoom
+
+Ship models now stay visible at every zoom while tactical markers fade in over them with one continuous Tactical emphasis (zoom distance 30–100), joined by station and individual asteroid markers; picking checks interactive ship markers then hulls, and the ring, hull bars, object icons and grid follow the same value (new `tactical_view_test`, adapted strategic and combat scene checks); accepted by the owner.
+
 ## 2026-10-20 — Camera Phase A: continuous zoom
 
 Wheel zoom is now smooth and cursor-anchored, the camera pitch follows the rendered zoom (45° to 80° between 20 and 100 u), and the wheel no longer zooms over UI panels (`camera_rig.gd`, new `camera_test`, adapted strategic, time and selection checks); accepted by the owner.

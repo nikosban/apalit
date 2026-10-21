@@ -8,7 +8,7 @@ extends SceneTree
 ##   S2 the full battle with the player's warships Aggressive (as the E05 passive runs):
 ##      detection, fire, 4-missile salvos, point-defense interceptions, kills, a result;
 ##      nothing in flight, no stale reference and no orphan node afterwards
-##   S5 controls: a right-click on a visible hostile targets it (no MOVE); at strategic zoom
+##   S5 controls: a right-click on a visible hostile targets it (no MOVE); at Tactical zoom
 ##      the markers pick own ships and never select a hostile; the ship panel shows the hull
 ##      and, for armed ships only, tactic, the loadout's profiles and weapons
 ## On main.tscn (the economy running):
@@ -201,19 +201,19 @@ func _s5_controls() -> void:
 	await _click(MOUSE_BUTTON_RIGHT, _screen(hostile.global_position))
 	_check("right-click on a visible hostile: it becomes the selected ship's manual target; no MOVE given ('%s')" % scene._notice.text,
 		CombatShip.of(gunship).manual_target == hostile and gunship.get_node("Locomotion").has_destination == destination_before and scene._notice.text.begins_with("Target: "))
-	# Strategic zoom: markers stand for the ships and pick them.
+	# Tactical zoom (Phase B): the markers are drawn over the visible models and pick them.
 	var rig := scene.get_node("CameraRig")
 	rig.zoom_distance = 120.0
 	rig._apply_zoom()
 	await _look_at(gunship.global_position)
-	var strategic: bool = scene.markers.strategic and not gunship.visible
+	var tactical: bool = scene.markers.emphasis() >= scene.markers.interactive_emphasis and gunship.visible
 	scene.selection().set_selection([])
 	await _click(MOUSE_BUTTON_LEFT, _screen(gunship.global_position))
 	var picked_own: bool = scene.selection().selected == [gunship]
 	await _click(MOUSE_BUTTON_LEFT, _screen(hostile.global_position))
 	var hostile_selected: bool = scene.selection().selected.has(hostile)
-	_check("strategic zoom: models replaced by markers; a click on the Gunship's marker selects it; a hostile marker is never selected",
-		strategic and picked_own and not hostile_selected)
+	_check("Tactical zoom: models kept, markers interactive; a click on the Gunship's marker selects it; a hostile marker is never selected",
+		tactical and picked_own and not hostile_selected)
 	rig.zoom_distance = 20.0
 	rig._apply_zoom()
 	await process_frame

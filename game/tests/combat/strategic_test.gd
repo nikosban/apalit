@@ -1,5 +1,6 @@
 extends SceneTree
-## Combat prototype v0.4 (A4): strategic zoom, tactical markers and the tactical grid on
+## Combat prototype v0.4 (A4), adapted to Phase B (Local / Tactical semantic zoom): the
+## zoom range, tactical markers drawn over the kept 3D models, and the tactical grid on
 ## E05, through real wheel, click and key input. Run with a fixed step:
 ##   <godot console> --headless --path . --fixed-fps 60 -s res://game/tests/combat/strategic_test.gd
 
@@ -106,13 +107,13 @@ func _footprint() -> Array:
 	return [points, absf(area) * 0.5]
 
 
-## Zoom range and the model / marker switch with hysteresis. Phase A (continuous zoom):
+## Zoom range and the Tactical emphasis (Phase B: no model / marker switch). Phase A (continuous zoom):
 ## the wheel sets the target at once and the rendered zoom follows it smoothly; at the
 ## maximum the camera is at its Tactical pitch. Tactical view inspects a region of the
 ## battlefield; seeing the whole battlefield is the later Global view's requirement (the
 ## former check that all four E05 corners are on screen at zoom 150 no longer applies).
 func _case_zoom() -> void:
-	print("\n=== S1 zoom range, Tactical camera and representation switch")
+	print("\n=== S1 zoom range, Tactical camera and Tactical emphasis")
 	root.size = Vector2i(1920, 1080) # the headless window is square; judge at 16:9
 	await process_frame
 	_rig().global_position = Vector3.ZERO
@@ -126,7 +127,7 @@ func _case_zoom() -> void:
 		await process_frame
 		frames += 1
 	var reached: float = _rig().zoom_distance
-	_check("the wheel takes the requested zoom to the strategic maximum and no further (target %.1f); the rendered zoom converges on it %d frames later (%.3f)" % [target, frames, reached],
+	_check("the wheel takes the requested zoom to the maximum and no further (target %.1f); the rendered zoom converges on it %d frames later (%.3f)" % [target, frames, reached],
 		is_equal_approx(target, 150.0) and absf(reached - 150.0) <= 0.01 and frames < 120)
 	var pitch := -rad_to_deg(_camera().rotation.x)
 	var pivot := _rig().global_position
@@ -144,26 +145,32 @@ func _case_zoom() -> void:
 	var ground: Vector3 = Plane(Vector3.UP, 0.0).intersects_ray(_camera().project_ray_origin(at), _camera().project_ray_normal(at))
 	var command: Dictionary = scene.resolve_command(at)
 	scene.selection().set_selection([])
-	_check("interaction at the maximum: the Gunship's marker is picked under it; a right-click resolves to a MOVE at the ground point under the cursor (%s)" % str(command.get("point")),
-		scene.markers.strategic and picked == gunship and command.get("kind") == scene.CommandKind.MOVE and (command.point as Vector2).distance_to(Vector2(ground.x, ground.z)) < 0.01)
+	_check("interaction at the maximum: full emphasis, the Gunship's marker is picked under it; a right-click resolves to a MOVE at the ground point under the cursor (%s)" % str(command.get("point")),
+		scene.markers.emphasis() == 1.0 and picked == gunship and command.get("kind") == scene.CommandKind.MOVE and (command.point as Vector2).distance_to(Vector2(ground.x, ground.z)) < 0.01)
 	var markers = scene.markers
 	var ship: Node3D = scene.ship("Destroyer")
 	var states := []
 	for zoom in [40.0, 60.0, 66.0, 60.0, 56.0, 54.0, 40.0]:
 		await _set_zoom(zoom)
 		await process_frame
-		states.append([zoom, markers.strategic, ship.visible])
-	print("  [zoom, markers, model visible]: " + str(states))
-	var expected := [false, false, true, true, true, false, false]
+		states.append([zoom, markers.emphasis(), ship.visible])
+	print("  [zoom, emphasis, model visible]: " + str(states))
 	var ok := true
 	for i in states.size():
-		ok = ok and states[i][1] == expected[i] and states[i][2] == not expected[i]
-	_check("markers above zoom 65, models again only below 55 (hysteresis); never both: a model is hidden exactly while markers show", ok)
+		ok = ok and states[i][2] and is_equal_approx(states[i][1], _emphasis_for(states[i][0]))
+	ok = ok and states[0][1] == states[6][1] and states[1][1] == states[3][1] and states[1][1] < states[2][1]
+	_check("no hysteresis or switch: the emphasis is a function of the zoom alone (same value both ways), and the model is shown at every zoom", ok)
 
 
-## Propulsion effects follow the model: none at strategic zoom, back at tactical zoom.
+## The Tactical emphasis the markers give at a zoom distance.
+func _emphasis_for(zoom: float) -> float:
+	var markers = scene.markers
+	return markers.emphasis_at(markers.level_of(zoom), markers.level_of(markers.emphasis_start_distance), markers.level_of(markers.emphasis_end_distance))
+
+
+## Propulsion effects follow the model, which is kept at every zoom (Phase B).
 func _case_thrusters() -> void:
-	print("\n=== S1b propulsion effects and the representation switch")
+	print("\n=== S1b propulsion effects at every zoom")
 	var view: Node = scene.get_node("ThrusterView")
 	var ships: Array = scene.get_node("Ships").get_children()
 	scene.orders.move([scene.ship("Destroyer")], Vector2(-20, 30))
@@ -179,8 +186,8 @@ func _case_thrusters() -> void:
 	await _set_zoom(40.0)
 	await process_frame
 	var lit_close := ships.filter(func(s: Node3D) -> bool: return view.plume_of(s) != null and view.plume_of(s).visible).size()
-	_check("zoom 150 (markers) with ships under thrust: %d plumes shown, %d jet surfaces; zoom 40: %d plumes shown again" % [lit_far, jets_far, lit_close],
-		lit_far == 0 and jets_far == 0 and lit_close > 0)
+	_check("zoom 150 (full Tactical emphasis) with ships under thrust: %d plumes shown, %d jet surfaces; zoom 40: %d plumes shown" % [lit_far, jets_far, lit_close],
+		lit_far > 0 and jets_far > 0 and lit_close > 0)
 
 
 ## Selection, orders and targeting through the markers; markers follow the real ships.
@@ -200,7 +207,7 @@ func _case_markers() -> void:
 	_rig().global_position = Vector3.ZERO
 	await _set_zoom(150.0)
 	await process_frame
-	_check("a ship selected with models stays selected after switching to markers", scene.markers.strategic and scene.selection().selected == before and before == [destroyer])
+	_check("a ship selected at zoom 40 stays selected at full Tactical emphasis", scene.markers.emphasis() == 1.0 and scene.selection().selected == before and before == [destroyer])
 	await _click(_screen(gunship.global_position))
 	var one: bool = scene.selection().selected == [gunship]
 	await _click(_screen(destroyer.global_position), MOUSE_BUTTON_LEFT, true)
@@ -237,12 +244,12 @@ func _case_grid() -> void:
 	print("\n=== S3 tactical grid")
 	var grid: MeshInstance3D = scene.grid
 	var aligned := grid.global_transform.basis.is_equal_approx(Basis.IDENTITY) and is_equal_approx(grid.global_position.x, 0.0) and is_equal_approx(grid.global_position.z, 0.0)
-	var close := TacticalGrid.strengths(8.0)
-	var tactical := TacticalGrid.strengths(40.0)
-	var far := TacticalGrid.strengths(150.0)
+	var close := TacticalGrid.strengths(8.0, _emphasis_for(8.0))
+	var tactical := TacticalGrid.strengths(40.0, _emphasis_for(40.0))
+	var far := TacticalGrid.strengths(150.0, _emphasis_for(150.0))
 	print("  [minor, major] alpha at zoom 8 / 40 / 150: %s / %s / %s" % [close, tactical, far])
 	_check("the grid is on by default, world-aligned (identity basis at the origin, lines at world multiples of 10 / 50 u)", grid.visible and aligned)
-	_check("strength follows zoom: suppressed close in, faint at tactical zoom, major lines strongest at strategic zoom (all below 0.2 alpha)",
+	_check("strength follows zoom: suppressed close in, faint at zoom 40, major lines strongest at full Tactical emphasis (all below 0.2 alpha)",
 		close == Vector2.ZERO and tactical.x > 0.0 and far.y > tactical.y and far.y <= 0.2 and far.x <= 0.1)
 	var key := InputEventKey.new()
 	key.physical_keycode = KEY_G

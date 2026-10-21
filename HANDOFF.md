@@ -1,9 +1,10 @@
 # HANDOFF.md
 
-Last updated: 2026-10-20, after the production combat migration (accepted by the
+Last updated: 2026-10-21, after the production combat migration (accepted by the
 owner after gameplay testing), the M8 repository cleanup, the Git / GitHub
-setup, the removal of the defended-area ring and camera Phase A (continuous,
-cursor-anchored zoom with pitch following zoom). The movement baseline
+setup, the removal of the defended-area ring, camera Phase A (continuous,
+cursor-anchored zoom with pitch following zoom) and Phase B (Local / Tactical
+semantic zoom: models kept, markers fading in). The movement baseline
 is still cause C with the 2026-10-18 direct-move prediction horizon correction.
 History: `CHANGELOG.md`. The original game (before Movement V3) and its full
 documentation are preserved in the archive (see Archive); the retired experiments
@@ -103,7 +104,7 @@ rig are "reusable scenes" (own `.tscn`, instanced into other scenes).
   `Sensors` (100 u, every 0.2 s, 8 s contact memory), `CombatOverlay` and `CombatHUD`;
   `movement_lab.gd` adds `TimeControl`, `WeaponEnvelopes`, `TacticalMarkers`,
   `TacticalGrid`, `FogView` and `BehaviorView` at start; the camera rig's
-  `max_zoom` is 150 (strategic zoom). All starting ships are player faction; there
+  `max_zoom` is 150 (full Tactical emphasis). All starting ships are player faction; there
   are no hostiles.
 - `game/scenes/combat_test.tscn` (inherits `main.tscn`): the integrated combat scene
   for play and `combat_scene_test`: a second player Gunship (`Gunship2`, (2, −12)) and
@@ -385,8 +386,8 @@ see Production combat below.
   45° up to 20 u, smoothstep in log distance to 80° at 100 u (all exported); the
   wheel is ignored while a UI control is hovered (`gui_get_hovered_control()`).
   Snap: write `zoom_distance` and call `_apply_zoom()` (a write alone snaps on the
-  next frame). `zoom_level()`: 0–1, log on the fixed 5–150 reference range; not
-  yet read by any presentation system (Phase B).
+  next frame). `zoom_level()`: 0–1, log on the fixed 5–150 reference range; read by
+  `TacticalMarkers.emphasis()` (Phase B).
 - `ships/`: `frigate.tscn` (3 u), `gunship.tscn` (6 u), `destroyer.tscn`
   (12 u), `miner.tscn` (2.4 × 1.6 u: dark hull, wider mid-grey rear cargo
   section, light-grey flat-fronted mining block; farthest corner 1.44 u),
@@ -1032,10 +1033,22 @@ each system:
   visible ships, speed / pause line, target-selection readout, scenario result);
   ship panel Combat section (armed ships only): Tactic and Weapon Profile selectors
   (the loadout's profiles), command and effective profile, target, weapons with
-  ammunition; `presentation/tactical_markers.gd` (strategic zoom above 65, back
-  below 55: models hidden, ships drawn in the ObjectMarkers category shapes, triangle
+  ammunition; `presentation/tactical_markers.gd` (Phase B, accepted 2026-10-21:
+  `emphasis()` 0 Local – 1 Tactical, smoothstep on `zoom_level()` between zoom
+  distances 30 and 100 (exported); models are never hidden for zoom
+  (`model_shown()` is the fog of war only); screen-space markers fade in with the
+  emphasis at constant size: ships in the ObjectMarkers category shapes, triangle
   combat / octagon logistics, in the faction tint, hostile with a second outer
-  outline; picking through the markers), `tactical_grid.gd` (G), `weapon_envelopes.gd`
+  outline, brackets when selected; stations a pale square with a centre dot; every
+  individual asteroid a small 0.6-alpha diamond in the survey colour, batched in one
+  triangle array; off-screen objects and hovered / selected ones (drawn by
+  ObjectMarkers) are skipped; `object_entries()` lists the station and asteroid
+  markers. Picking: an interactive ship marker (emphasis ≥ `interactive_emphasis`
+  0.5, about distance 55; nearest centre, ties by Ships order), else the hull;
+  stations and asteroids keep their model picks (their markers lie inside them, so
+  station selection, DOCK, hover and MINE are unchanged). The selection ring, hull
+  bars and ships' ObjectMarkers icons fade with 1 − emphasis; the grid's major-line
+  boost is 0.1 × emphasis), `tactical_grid.gd` (G), `weapon_envelopes.gd`
   (Alt, target selection), `combat_overlay.gd` (target lines; F10 debug arcs),
   `behavior_view.gd` (guard positions, waypoint and Attack-Move lines; the Defensive
   defended area is not drawn).
@@ -1097,7 +1110,8 @@ each system:
   Attack-Move; Shift + right-click the ground: add a waypoint; X cancel the command;
   P next weapon profile; F1 / F2 / F3 Passive / Defensive / Aggressive; Backspace
   clear the manual target; hold Alt weapon ranges; G tactical grid; F10 combat debug
-  overlay; Space pause; - / = speed 0.25x / 1x / 2x; wheel out for strategic zoom.
+  overlay; Space pause; - / = speed 0.25x / 1x / 2x; wheel out for Tactical view
+  (markers fade in over the models).
 - Test arena only: keys 4–9, 0, − set up the avoidance scenarios.
 
 ### Archive
@@ -1309,7 +1323,31 @@ Berth nodes the only source of docking geometry (legacy calculations and
 `DockEast` / `DockWest` removed). Requirements met: no RouteFollower order reaches
 a guided ship (counters 0 in every suite); handover only with the ship at rest.
 
-## Latest verification (2026-10-20, camera Phase A)
+## Latest verification (2026-10-21, Phase B: Local / Tactical semantic zoom)
+
+- Baseline once on the committed Phase A tree (53 suites: 51 pass, known failures
+  navigation and obstruction); B1 relevant set 16/16 before B2; full set after B2:
+  52 of 54 pass, the two known failures have identical output, no script errors;
+  `main.tscn` ran 600 frames headless without errors. Not the full protocol under
+  Environment notes (one baseline run; one scene run).
+- New `tactical_view_test` (`--fixed-fps 60`) 26/26: continuous emphasis both ways
+  and on rapid reversal (largest per-frame step 0.022 for one notch), models shown
+  every frame, marker vs hull picking, overlap order, selection kept and ring +
+  emphasis = 1 every frame, box select and commands at zoom 150, UI panel priority;
+  station and asteroid markers one per object, alignment under yaw / zoom / pan and
+  paused (0.0000 px), station marker inside its pick at 70 / 100 / 150, DOCK and
+  MINE through markers, ship priority beside an asteroid, no stale markers.
+- Changed checks: `strategic_test` S1 (emphasis instead of the 65 / 55 switch),
+  S1b (plumes at zoom 150), S2 wording, S3 `strengths(zoom, emphasis)` 17/17;
+  `combat_scene_test` S5 (models kept at Tactical zoom) 25/25.
+- Performance (Ryzen 5 7600X, RTX 4070 SUPER, D3D12, 1920 × 1080 window, same
+  poses before / after): main zoom 150 frame 2.40 / 2.41 ms; with 400 extra
+  asteroids 3.03 / 3.04 ms, marker drawing 0.16 / 1.34 ms CPU (about 3 µs per
+  asteroid marker), draw calls 30 / 169 (models no longer hidden). No LOD added: all
+  geometry is primitive meshes (Godot generates LODs only for imported meshes).
+- Owner acceptance 2026-10-21. No rendered or visual check was run by the agent.
+
+## Earlier verification (2026-10-20, camera Phase A)
 
 - Baseline once before the change (52 suites: 50 pass, known failures navigation
   35/36 and obstruction 9/12), then the full set after it, twice (the second after
@@ -1829,11 +1867,15 @@ Open movement issues (owner, 2026-10-15: unresolved, not accepted):
 - Camera Phase A: near the bounds the clamp lets the cursor point drift (the pivot
   stays inside); a large wheel burst can tilt up to about 8° per frame (one notch
   at most 0.6°); hover updates on mouse motion, so a panel opening under a still
-  cursor may not block the first wheel step (inferred, not observed); models still
-  switch to markers at zoom 65 / 55 mid-zoom and the grid ramps on raw distance
-  until Phase B; scenes that zoom to 40 now show about 59° instead of 45°; in
+  cursor may not block the first wheel step (inferred, not observed); scenes that zoom to 40 now show about 59° instead of 45°; in
   headless runs the visible rect is 1152 × 648 (project stretch), whatever
   `root.size` is set to.
+- Phase B: hull bars are hidden at full Tactical emphasis; asteroids under about
+  1 u radius can be smaller than their marker at zoom 150 (a click on the marker's
+  edge misses); asteroid diamonds overlap below about 1.8 u spacing at zoom 150;
+  marker sizes are nominal × 0.75 of a 648-line canvas (about 1.25 × nominal on a
+  1080p screen; the code comments say "at 1080 lines"); the hull-bar and ObjectMarkers
+  ship-icon fades have no automated check.
 - Not available: camera focus / follow trigger (the rig's `follow()` exists);
   stall or "stuck" notices for the player; camera start zoom shows the Destroyer
   only partly in the test arena.
@@ -2010,7 +2052,7 @@ stations added later); stations cannot be under `Ships` (GroupOrders requires
   `C:\Users\Nikos\Downloads\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe`
   (4.7.2.stable).
 - Tests: `<godot console> --headless --path . -s res://game/tests/<name>.gd`;
-  `shipyard_runtime_test`, `reuse_test` and `camera_test` with `--fixed-fps 60`
+  `shipyard_runtime_test`, `reuse_test`, `camera_test` and `tactical_view_test` with `--fixed-fps 60`
   (the first two: uninterrupted loop as fast as possible). Combat suites, every one with `--fixed-fps 60`:
   `res://game/tests/combat/<name>.gd` (`acquisition_test`, `behavior_test` (P01–P03),
   `command_test`, `e05_behavior_test`, `fleet_test` (E05), `fog_test`, `hull_test`,
@@ -2027,7 +2069,7 @@ stations added later); stations cannot be under `Ships` (GroupOrders requires
   lines that also differ between the two baseline runs; known failures navigation
   35/36, obstruction 9/12. No runner script is kept in the project (the commands are
   run directly).
-- Playable: `main.tscn` (F5: economy, production, docking, pause, strategic zoom; no
+- Playable: `main.tscn` (F5: economy, production, docking, pause, Tactical view; no
   hostiles), `game/scenes/combat_test.tscn` (F6: integrated fleet combat),
   `game/tests/combat/fixtures/combat_lab.tscn` (F6: E01–E05, P01–P03 on the
   production code).
@@ -2054,7 +2096,7 @@ movement or docking refinements are authorized (durations and the Destroyer's
 footprint wait for the owner). The movement baseline is fixed at cause C with the
 direct-move prediction horizon correction; cause B, planned rejoin
 (`experiments/planned_rejoin/`, paused) and parked navigation are not to be reopened
-without the owner. Camera Phase A is accepted; Phase B (semantic presentation:
-models, tactical markers and grid driven by `zoom_level()`) and a Global view are
-anticipated but not authorized or planned. All work follows the AGENTS.md workflow
+without the owner. Camera Phase A and Phase B (Local / Tactical semantic zoom) are
+accepted; Phase C (a separate marker-only Sector View with its own picking) and
+the Solar Map are anticipated but not authorized or planned. All work follows the AGENTS.md workflow
 (replace this section after every task).
