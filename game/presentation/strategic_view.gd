@@ -30,6 +30,10 @@ extends Node3D
 ##     the field is baked once into a texture, the shader does the rest;
 ##   - the fog: FogView's own material on a second quad above the geometry, so space
 ##     outside current sensor coverage (static geography included) is dimmed;
+## Environmental prototype: the overlay's shadows take the sector profile's shadow colour
+## and strength and it adds a faint dust tint over the density field (thinner in the
+## shadows); the fog quad reaches far past the sector (no square edge) at the profile's
+## Strategic fog strength; the handoff dip uses the profile's background.
 ##   - screen space: selected ships' routes, waypoint legs and Attack-Move lines, then one
 ##     environmental marker per asteroid cluster (screen-space single linkage at the
 ##     Strategic scale) and one resource marker per known resource family in it; the ship
@@ -66,6 +70,9 @@ uniform vec4 rect; // world x, z of the texture's corner; its size
 uniform vec2 light_dir = vec2(0.0, 1.0); // planar direction the light travels
 uniform float shadow_length = 26.0;
 uniform float shadow_alpha = 0.22;
+uniform vec4 shadow_color : source_color = vec4(0.0, 0.0, 0.0, 1.0);
+uniform vec4 dust_color : source_color = vec4(0.9, 0.66, 0.45, 1.0);
+uniform float dust_alpha = 0.0;
 uniform float contour_alpha = 0.07;
 uniform vec3 levels = vec3(0.15, 0.5, 1.2);
 varying vec2 world;
@@ -84,10 +91,16 @@ void fragment() {
 		occlusion = max(occlusion, sample_field(world - light_dir * shadow_length * t).g * (1.0 - t));
 	}
 	occlusion *= 1.0 - here.g;
+	// Back to front: the shadow (tinted attenuation), dust (thinned where shaded), contours.
+	vec3 color = shadow_color.rgb;
+	float alpha = shadow_alpha * occlusion;
+	float a_dust = dust_alpha * smoothstep(0.02, 0.9, here.r) * (1.0 - 0.7 * occlusion);
+	color = mix(color * alpha, dust_color.rgb, a_dust) / max(a_dust + alpha * (1.0 - a_dust), 1e-5);
+	alpha = a_dust + alpha * (1.0 - a_dust);
 	float a_line = contour_alpha * line;
-	float a_shadow = shadow_alpha * occlusion;
-	ALBEDO = vec3(0.75, 0.78, 0.82) * a_line / max(a_line + a_shadow, 1e-5);
-	ALPHA = a_line + a_shadow * (1.0 - a_line);
+	color = mix(color * alpha, vec3(0.75, 0.78, 0.82), a_line) / max(a_line + alpha * (1.0 - a_line), 1e-5);
+	ALBEDO = color;
+	ALPHA = a_line + alpha * (1.0 - a_line);
 }
 """
 
@@ -113,6 +126,8 @@ var progress := 0.0 # 0 Tactical camera, 1 Strategic framing
 var auto_hover := true # Off in tests, which give the cursor to update_hover().
 var builds := 0 # Field bakes (expected once per scene).
 var light_direction := Vector2.ZERO # Planar shadow direction in use (zero: no shadows).
+var profile: Resource = null # The sector profile (SectorEnvironment's), when the scene has one.
+var background := BACKGROUND
 
 var _camera: Camera3D
 var _saved := {} # The rig's pose at entry: transform, zoom_distance, zoom_target.
@@ -141,6 +156,11 @@ var _field_image: Image # The baked field (R density, G shadow casters).
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	var environment = _arena.get("environment")
+	if environment != null:
+		profile = environment.profile
+		shadow_alpha = profile.shadow_strength
+		background = profile.background_color
 	_camera = Camera3D.new()
 	_camera.fov = (_rig.get_node("Camera3D") as Camera3D).fov
 	_camera.cull_mask = DETAIL_MASK
@@ -148,7 +168,7 @@ func _ready() -> void:
 	var dim_layer := CanvasLayer.new()
 	dim_layer.layer = -1 # Over the 3D view, under every marker.
 	_dim = ColorRect.new()
-	_dim.color = Color(BACKGROUND, 0.0)
+	_dim.color = Color(background, 0.0)
 	_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dim_layer.add_child(_dim)
@@ -384,16 +404,21 @@ func _build() -> void:
 	var field := _arena.get_node_or_null("Asteroids")
 	if _arena.fog_view != null:
 		_fog = MeshInstance3D.new()
-		_fog.mesh = (_arena.fog_view as MeshInstance3D).mesh
+		_fog.mesh = (_arena.fog_view as MeshInstance3D).mesh # Far past the sector: no edge.
 		_fog.material_override = (_arena.fog_view as MeshInstance3D).material_override # FogView's live uniforms.
 		_fog.layers = LAYER
 		_fog.position = Vector3(0, 6.0, 0) # Above the simplified asteroids, so they dim too.
+		if profile != null:
+			_fog.set_instance_shader_parameter("view_strength", profile.strategic_fog_strength / maxf(profile.fog_strength, 0.001))
 		_fog.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_fog.visible = false
 		add_child(_fog)
 	if field == null or not field.has_method("ids"):
 		return
 	var ids: Array = field.ids()
+	if _fog != null: # Above the tallest simplified asteroid, so none shows through.
+		for id: int in ids:
+			_fog.position.y = maxf(_fog.position.y, field.center(id).y + field.radius(id) + 0.5)
 	var sphere := SphereMesh.new()
 	sphere.radial_segments = 12
 	sphere.rings = 6
@@ -484,6 +509,10 @@ func _bake_field(field: Node, ids: Array) -> void:
 	_overlay_material.set_shader_parameter("light_dir", light_direction)
 	_overlay_material.set_shader_parameter("shadow_length", shadow_length)
 	_overlay_material.set_shader_parameter("shadow_alpha", shadow_alpha if light_direction != Vector2.ZERO else 0.0)
+	if profile != null:
+		_overlay_material.set_shader_parameter("shadow_color", profile.shadow_color)
+		_overlay_material.set_shader_parameter("dust_color", profile.dust_color)
+		_overlay_material.set_shader_parameter("dust_alpha", profile.strategic_dust_strength)
 	_overlay_material.set_shader_parameter("contour_alpha", contour_alpha)
 	_overlay.material_override = _overlay_material
 	add_child(_overlay)
@@ -881,7 +910,7 @@ func _draw_over() -> void:
 		return
 	var field := _arena.get_node("Asteroids")
 	var color: Color = FAMILY_COLORS[resource.family]
-	_over.draw_circle(resource.at, ring_radius + keep_margin * 0.5, Color(BACKGROUND, 0.55))
+	_over.draw_circle(resource.at, ring_radius + keep_margin * 0.5, Color(background, 0.55))
 	for entry: Dictionary in expansion():
 		if entry.kind == "subgroup":
 			_over.draw_circle(entry.at, 6.0, Color(color.darkened(0.5), 0.9))

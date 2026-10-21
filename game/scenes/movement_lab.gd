@@ -77,6 +77,7 @@ const WeaponEnvelopes := preload("res://game/presentation/weapon_envelopes.gd")
 const TacticalMarkers := preload("res://game/presentation/tactical_markers.gd")
 const TacticalGrid := preload("res://game/presentation/tactical_grid.gd")
 const StrategicView := preload("res://game/presentation/strategic_view.gd")
+const SectorEnvironment := preload("res://game/presentation/sector_environment.gd")
 const BehaviorView := preload("res://game/presentation/behavior_view.gd")
 const Profiles := preload("res://game/behavior/weapon_profiles.gd")
 const PLAYER_FACTION := 0
@@ -85,7 +86,7 @@ const PLAYER_FACTION := 0
 const ALWAYS_NODES := ["CameraRig", "Selection", "NoticeUI", "DebugUI", "NavigationDebug", "AvoidanceDebug",
 	"DestinationLines", "DestinationMarker", "RequestLine", "TimeControl", "WeaponEnvelopes", "TacticalMarkers",
 	"TacticalGrid", "FogView", "CombatOverlay", "BehaviorView", "CombatHUD", "ShipPanel", "StationPanel",
-	"AsteroidHover", "WorldHighlight", "ObjectMarkers", "CommandCursor", "StrategicView"]
+	"AsteroidHover", "WorldHighlight", "ObjectMarkers", "CommandCursor", "StrategicView", "SectorEnvironment"]
 const SCENARIO_KEYS := [KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS]
 const SCENARIO_ZOOM := 40.0
 const GROUND_HALF_SIZE := 150.0
@@ -114,6 +115,7 @@ var time_control: Node = null
 var envelopes: Node3D = null # Weapon envelopes (Alt, target selection).
 var markers: CanvasLayer = null # Tactical markers (Phase B).
 var strategic: Node3D = null # Strategic View (Phase C prototype).
+var environment: Node3D = null # Sector lighting, dust and debris (environmental prototype).
 var grid: MeshInstance3D = null # Tactical grid (G).
 var sensors: Node = null # The scene's Sensors, else null (no fog: every ship seen).
 var fog_view: MeshInstance3D = null
@@ -173,7 +175,8 @@ func ensure_behavior_view() -> void:
 
 
 # Combat layer: process modes (simulation pauses, input / camera / UI do not), the time
-# authority, envelopes, tactical markers, grid and (with Sensors) the fog of war.
+# authority, envelopes, sector environment, tactical markers, grid and (with Sensors) the
+# fog of war.
 func _setup_combat_layer() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	for child in get_children():
@@ -184,6 +187,9 @@ func _setup_combat_layer() -> void:
 	envelopes = WeaponEnvelopes.new()
 	envelopes.name = "WeaponEnvelopes"
 	add_child(envelopes)
+	environment = SectorEnvironment.new()
+	environment.name = "SectorEnvironment"
+	add_child(environment)
 	strategic = StrategicView.new() # Before the markers: its under-layer draws beneath theirs.
 	strategic.name = "StrategicView"
 	add_child(strategic)
