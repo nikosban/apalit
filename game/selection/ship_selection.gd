@@ -14,6 +14,8 @@ extends Node3D
 ## (`markers`): a click on an interactive marker picks its ship, elsewhere the hull pick
 ## applies (both resolve to the same ship node); the ring fades out as the markers'
 ## brackets fade in (1 - emphasis), so a selected ship stays marked at every zoom.
+## Phase C: in Strategic View (the scene's `strategic`) only markers pick (the hidden
+## hulls never do), and nothing picks during the Tactical / Strategic handoff.
 
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 
@@ -190,10 +192,14 @@ func pick(screen_position: Vector2) -> Node3D:
 ## hit. A hidden ship never shadows a visible one.
 func pick_any(screen_position: Vector2) -> Node3D:
 	var arena := get_parent()
+	var strategic = arena.get("strategic")
+	var abstract: bool = strategic != null and strategic.in_strategic()
+	if abstract and strategic.transitioning():
+		return null
 	var markers = arena.get("markers")
 	if markers != null:
 		var marked: Node3D = markers.marker_at(screen_position)
-		if marked != null:
+		if marked != null or abstract:
 			return marked
 	var camera := get_viewport().get_camera_3d()
 	var origin := camera.project_ray_origin(screen_position)
@@ -226,6 +232,13 @@ func select_box(rect: Rect2, add: bool) -> void:
 		if rect.has_point(camera.unproject_position(ship.global_position)):
 			inside.append(ship)
 	set_selection(inside)
+
+
+## Drops a press in progress (no click or box completes from it; Phase C handoff).
+func cancel_press() -> void:
+	_pressing = false
+	_dragging = false
+	_box.visible = false
 
 
 func set_selection(ships: Array) -> void:

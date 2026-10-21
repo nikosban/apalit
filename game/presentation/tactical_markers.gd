@@ -26,6 +26,9 @@ extends CanvasLayer
 ## marker lies inside the station's projected body at every zoom), so their markers are
 ## presentation only. An object that is hovered or selected (WorldHighlight) is marked by
 ## ObjectMarkers instead, so it is never drawn twice. Off-screen objects are not drawn.
+## Phase C: in Strategic View (the scene's `strategic`), whose asteroid clusters and order
+## lines replace them, the asteroid diamonds and the straight order lines fade out with
+## its handoff progress.
 ## Visibility (A5): the arena decides which hostile ships the player may see
 ## (`player_sees()`), and where lost contacts were last seen (`last_known()`); nothing else
 ## is drawn for hostile ships. Lost-contact memory is drawn at every zoom.
@@ -127,7 +130,9 @@ func _draw_markers() -> void:
 	var alpha := emphasis() # Markers fade in with the Tactical emphasis.
 	if alpha <= 0.0:
 		return
-	_draw_objects(alpha) # Under the ship markers.
+	var strategic = _arena.get("strategic")
+	var handoff: float = strategic.progress if strategic != null else 0.0
+	_draw_objects(alpha, alpha * (1.0 - handoff)) # Under the ship markers.
 	var view := _canvas.get_viewport_rect().grow(BASE_SIZE * 4.0 * scale_factor())
 	var selected: Array = _arena.selection().selected
 	var targets := {}
@@ -143,8 +148,8 @@ func _draw_markers() -> void:
 			continue
 		var from := camera.unproject_position(ship.global_position)
 		var to := camera.unproject_position(Vector3(locomotion.destination.x, 0.0, locomotion.destination.y))
-		_canvas.draw_dashed_line(from, to, Color(ORDER_COLOR, 0.8 * alpha), width, 6.0 * scale_factor())
-		_canvas.draw_arc(to, 4.0 * scale_factor(), 0.0, TAU, 16, Color(ORDER_COLOR, 0.9 * alpha), width)
+		_canvas.draw_dashed_line(from, to, Color(ORDER_COLOR, 0.8 * alpha * (1.0 - handoff)), width, 6.0 * scale_factor())
+		_canvas.draw_arc(to, 4.0 * scale_factor(), 0.0, TAU, 16, Color(ORDER_COLOR, 0.9 * alpha * (1.0 - handoff)), width)
 	for ship: Node3D in _arena.get_node("Ships").get_children():
 		var combat = CombatShip.of(ship)
 		if combat == null or combat.removed_from_play or camera.is_position_behind(ship.global_position):
@@ -222,7 +227,7 @@ func object_entries() -> Array:
 
 # Asteroids: one small quiet diamond each, all in one batched triangle array (one canvas
 # command however many asteroids); stations: a square with a centre dot.
-func _draw_objects(alpha: float) -> void:
+func _draw_objects(alpha: float, asteroid_alpha: float) -> void:
 	var width := 1.6 * scale_factor()
 	var size := ASTEROID_SIZE * scale_factor()
 	var points := PackedVector2Array()
@@ -233,10 +238,12 @@ func _draw_objects(alpha: float) -> void:
 		var color: Color = entry.color
 		var at: Vector2 = entry.position
 		if entry.asteroid >= 0:
+			if asteroid_alpha <= 0.0:
+				continue
 			var first := points.size()
 			points.append_array([at + Vector2(size, 0), at + Vector2(0, size), at + Vector2(-size, 0), at + Vector2(0, -size)])
 			if not faded.has(color):
-				var c := Color(color, ASTEROID_ALPHA * alpha)
+				var c := Color(color, ASTEROID_ALPHA * asteroid_alpha)
 				faded[color] = PackedColorArray([c, c, c, c])
 			colors.append_array(faded[color])
 			indices.append_array([first, first + 1, first + 2, first, first + 2, first + 3])

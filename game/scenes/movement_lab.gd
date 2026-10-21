@@ -76,6 +76,7 @@ const FogView := preload("res://game/presentation/fog_view.gd")
 const WeaponEnvelopes := preload("res://game/presentation/weapon_envelopes.gd")
 const TacticalMarkers := preload("res://game/presentation/tactical_markers.gd")
 const TacticalGrid := preload("res://game/presentation/tactical_grid.gd")
+const StrategicView := preload("res://game/presentation/strategic_view.gd")
 const BehaviorView := preload("res://game/presentation/behavior_view.gd")
 const Profiles := preload("res://game/behavior/weapon_profiles.gd")
 const PLAYER_FACTION := 0
@@ -84,7 +85,7 @@ const PLAYER_FACTION := 0
 const ALWAYS_NODES := ["CameraRig", "Selection", "NoticeUI", "DebugUI", "NavigationDebug", "AvoidanceDebug",
 	"DestinationLines", "DestinationMarker", "RequestLine", "TimeControl", "WeaponEnvelopes", "TacticalMarkers",
 	"TacticalGrid", "FogView", "CombatOverlay", "BehaviorView", "CombatHUD", "ShipPanel", "StationPanel",
-	"AsteroidHover", "WorldHighlight", "ObjectMarkers", "CommandCursor"]
+	"AsteroidHover", "WorldHighlight", "ObjectMarkers", "CommandCursor", "StrategicView"]
 const SCENARIO_KEYS := [KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS]
 const SCENARIO_ZOOM := 40.0
 const GROUND_HALF_SIZE := 150.0
@@ -111,14 +112,14 @@ var debug_visible := false # Combat debug overlay (F10).
 var target_selection := false # Attack-target selection open (T).
 var time_control: Node = null
 var envelopes: Node3D = null # Weapon envelopes (Alt, target selection).
-var markers: CanvasLayer = null # Strategic-zoom ship markers.
+var markers: CanvasLayer = null # Tactical markers (Phase B).
+var strategic: Node3D = null # Strategic View (Phase C prototype).
 var grid: MeshInstance3D = null # Tactical grid (G).
 var sensors: Node = null # The scene's Sensors, else null (no fog: every ship seen).
 var fog_view: MeshInstance3D = null
 var fog_reveal := false # DEBUG override: show every ship despite the fog (tests only).
 var pointer := Vector2(-1, -1) # Last mouse-motion position (hover readouts).
 
-@onready var _camera: Camera3D = $CameraRig/Camera3D
 @onready var _notice: Label = $NoticeUI/Notice
 @onready var _selection := $Selection as ShipSelection
 @onready var _group_orders := $GroupOrders as GroupOrders
@@ -183,6 +184,9 @@ func _setup_combat_layer() -> void:
 	envelopes = WeaponEnvelopes.new()
 	envelopes.name = "WeaponEnvelopes"
 	add_child(envelopes)
+	strategic = StrategicView.new() # Before the markers: its under-layer draws beneath theirs.
+	strategic.name = "StrategicView"
+	add_child(strategic)
 	markers = TacticalMarkers.new()
 	markers.name = "TacticalMarkers"
 	add_child(markers)
@@ -314,14 +318,18 @@ func resolve_command(screen_position: Vector2) -> Dictionary:
 		var combat = CombatShip.of(picked)
 		if combat != null and combat.faction != PLAYER_FACTION and combat.alive:
 			return {"kind": CommandKind.TARGET, "ship": picked}
-	var origin := _camera.project_ray_origin(screen_position)
-	var direction := _camera.project_ray_normal(screen_position)
+	# Phase C: the active camera (Strategic or the rig's); in Strategic, stations and
+	# asteroids are reached through their markers, never through hidden geometry.
+	var camera := get_viewport().get_camera_3d()
+	var abstract: bool = strategic != null and strategic.in_strategic()
+	var origin := camera.project_ray_origin(screen_position)
+	var direction := camera.project_ray_normal(screen_position)
 	if ships.size() == 1:
-		var station := _station_at(origin, direction)
+		var station: Node3D = strategic.station_at(screen_position) if abstract else _station_at(origin, direction)
 		if station != null and _docking_of(ships[0]) != null:
 			return {"kind": CommandKind.DOCK, "station": station}
 	if ships.size() == 1 and _mining_of(ships[0]) != null and _asteroids != null:
-		var asteroid := _asteroids.pick(origin, direction)
+		var asteroid: int = strategic.asteroid_at(screen_position) if abstract else _asteroids.pick(origin, direction)
 		if asteroid >= 0:
 			return {"kind": CommandKind.MINE, "asteroid": asteroid}
 	var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(origin, direction)
@@ -910,8 +918,8 @@ func _behavior_command(screen_position: Vector2, waypoint: bool) -> void:
 		# gives no point); over a hostile, the ground under it.
 		var command := resolve_command(screen_position)
 		if command.get("kind", -1) == CommandKind.TARGET:
-			var origin := _camera.project_ray_origin(screen_position)
-			var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(origin, _camera.project_ray_normal(screen_position))
+			var camera := get_viewport().get_camera_3d() # Strategic or the rig's (Phase C).
+			var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(camera.project_ray_origin(screen_position), camera.project_ray_normal(screen_position))
 			command = {} if hit == null else {"point": Vector2(hit.x, hit.z)}
 		if not command.has("point"):
 			return

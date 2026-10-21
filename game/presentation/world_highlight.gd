@@ -74,7 +74,16 @@ func highlighted() -> Dictionary:
 
 
 # The ship under the cursor, else the station, else the asteroid (the hover text's order).
+# Phase C, Strategic View: an expanded asteroid marker first, then ships and stations by
+# their markers.
 func _object_at(mouse: Vector2) -> Node3D:
+	var strategic = get_parent().get("strategic")
+	if strategic != null and strategic.in_strategic():
+		var id: int = strategic.asteroid_at(mouse)
+		if id >= 0 and _field != null:
+			return _field.node_of(id)
+		var marked: Node3D = _selection.pick(mouse)
+		return marked if marked != null else strategic.station_at(mouse)
 	var ship: Node3D = _selection.pick(mouse)
 	if ship != null:
 		return ship

@@ -121,6 +121,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		_press_position = button.position
 
 
+## Drops a press in progress (it selects no station; Phase C handoff).
+func cancel_press() -> void:
+	_pressing = false
+
+
 func _input(event: InputEvent) -> void:
 	var button := event as InputEventMouseButton
 	if not _pressing or button == null or button.button_index != MOUSE_BUTTON_LEFT or button.pressed:

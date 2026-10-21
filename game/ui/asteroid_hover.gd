@@ -52,20 +52,28 @@ func _process(_delta: float) -> void:
 	_panel.position = (mouse + CURSOR_OFFSET).clamp(Vector2.ZERO, limit.max(Vector2.ZERO))
 
 
-## Asteroid under a screen point, or -1 (also when a ship is under it).
+## Asteroid under a screen point, or -1 (also when a ship is under it). Phase C: in
+## Strategic View, an expanded resource marker's asteroid (it comes first there).
 func asteroid_at(screen_position: Vector2) -> int:
+	var strategic = get_parent().get("strategic")
+	if strategic != null and strategic.in_strategic():
+		return strategic.asteroid_at(screen_position)
 	var camera := get_viewport().get_camera_3d()
 	if camera == null or _selection.pick(screen_position) != null:
 		return -1
 	return _field.pick(camera.project_ray_origin(screen_position), camera.project_ray_normal(screen_position))
 
 
-## Station under a screen point, or null (also when a ship is under it).
+## Station under a screen point, or null (also when a ship is under it). Phase C: in
+## Strategic View, the station whose marker contains the point.
 func station_at(screen_position: Vector2) -> Node3D:
 	var camera := get_viewport().get_camera_3d()
 	var stations := get_node_or_null(stations_path)
 	if camera == null or stations == null or _selection.pick(screen_position) != null:
 		return null
+	var strategic = get_parent().get("strategic")
+	if strategic != null and strategic.in_strategic():
+		return strategic.station_at(screen_position)
 	var best: Node3D = null
 	var best_distance := INF
 	for station in stations.get_children():
