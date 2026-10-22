@@ -1,10 +1,13 @@
 # HANDOFF.md
 
-Last updated: 2026-10-21, after the production combat migration (accepted by the
+Last updated: 2026-10-22, after the production combat migration (accepted by the
 owner after gameplay testing), the M8 repository cleanup, the Git / GitHub
 setup, the removal of the defended-area ring, camera Phase A (continuous,
-cursor-anchored zoom with pitch following zoom) and Phase B (Local / Tactical
-semantic zoom: models kept, markers fading in). The movement baseline
+cursor-anchored zoom with pitch following zoom), Phase B (Local / Tactical
+semantic zoom: models kept, markers fading in), Phase C (Strategic View), the
+environmental lighting and fog prototype and the Sector Showcase round (Showcase
+scene, UI scaling, grid withdrawn, HDR sky, environment lighting, Strategic depth,
+god rays; merged to `main` by the owner 2026-10-22). The movement baseline
 is still cause C with the 2026-10-18 direct-move prediction horizon correction.
 History: `CHANGELOG.md`. The original game (before Movement V3) and its full
 documentation are preserved in the archive (see Archive); the retired experiments
@@ -47,7 +50,13 @@ manufacturing, station construction or strategic AI.
 
 - `project.godot`: main scene `res://main.tscn`. Template defaults (not owner
   decisions): Forward Plus, Jolt Physics (3D, unused by movement), D3D12 on
-  Windows, stretch `canvas_items` / `expand`. Window maximized.
+  Windows, stretch `canvas_items` / `expand`. Window maximized. Base canvas
+  1920 × 1080 (Sector Showcase round): 2D sizes are px at 1080p and scale with the
+  window height.
+- `assets/textures/skybox/HDR_galactic_plane_1.hdr` (+ `.import`): the owner's
+  10000 × 5000 Radiance panorama (86 MB), the Showcase sky. Local only: not in Git
+  (owner decision 2026-10-22; listed in `.git/info/exclude`), so a fresh clone has
+  no Showcase sky until it is added (Git LFS was offered).
 - `main.tscn`: the playable scene (see Scenes).
 - `game/`: all production code and scenes (see Code).
 - `icon.svg`, `icon.svg.import`: project icon.
@@ -102,10 +111,26 @@ rig are "reusable scenes" (own `.tscn`, instanced into other scenes).
   Mining (temporary testing configuration). Combat migration: `SimClock` (first
   child), `Contacts`, `Projectiles`, `Effects`, `OrdnanceTrails`, `CombatOrders`,
   `Sensors` (100 u, every 0.2 s, 8 s contact memory), `CombatOverlay` and `CombatHUD`;
-  `movement_lab.gd` adds `TimeControl`, `WeaponEnvelopes`, `TacticalMarkers`,
-  `TacticalGrid`, `FogView` and `BehaviorView` at start; the camera rig's
-  `max_zoom` is 150 (full Tactical emphasis). All starting ships are player faction; there
-  are no hostiles.
+  `movement_lab.gd` adds `TimeControl`, `WeaponEnvelopes`, `SectorEnvironment`,
+  `StrategicView`, `TacticalMarkers`, `FogView` and `BehaviorView` at start (no
+  tactical grid: withdrawn); the camera rig's `max_zoom` is 150 (full Tactical
+  emphasis). All starting ships are player faction; there are no hostiles. It is the
+  Test Arena: development, regression and stress tests (about 35 suites load it); its
+  sector stays 300 × 300, its environment the flat background (A), sun 60° up, no
+  environment lighting, Strategic depth or god rays, local fuel scale 1.
+- `game/scenes/sector_showcase.tscn` (root `SectorShowcase`, the same script and
+  node layout as `main.tscn`, generated from it with the world replaced): the Sector
+  Showcase for visual and scale evaluation. `StaticNavigation.map_half_size` 380
+  (760 × 760 sector), `local_fuel_scale` 0.1, no ground, resource seed 2026; west
+  station group (Station, Station2, Shipyard), the six player ships, a major
+  formation (dominant r 16, three secondaries, 13 smaller, a corridor), a mixed
+  resource formation (6 ice, 2 minerals) and outliers (33 asteroids), a hostile
+  Destroyer and two Gunships behind the major formation under a HostileCommander,
+  and a `Backdrop` (sector_backdrop.gd). Root exports: `environment_experiment` 1
+  (HDR sky), `lighting_experiment_d`, `strategic_experiment_e`, `god_rays_enabled`
+  true; its own DirectionalLight3D 30° up (same azimuth as main). Measured crossings
+  (720 u, 1x): Frigate 147 s, Gunship / Transporter 165–167 s, Destroyer 251–256 s,
+  about 18% of a tank each. Run with F6; not the startup scene.
 - `game/scenes/combat_test.tscn` (inherits `main.tscn`): the integrated combat scene
   for play and `combat_scene_test`: a second player Gunship (`Gunship2`, (2, −12)) and
   a hostile fleet in the east, beyond the player's sensor range (`HostileDestroyer`
@@ -600,7 +625,8 @@ Locomotion's `propulsion` above):
 
 - `fuel/fuel.gd` (`Fuel`, per ship, physics priority 1, after Locomotion):
   `capacity`, `consumption` (per u), `start_level` (share filled at start).
-  Uses `consumption` × the length of Locomotion's `committed_motion` each tick
+  Uses `consumption` × the scene's `local_fuel_scale` (1 in the Test Arena, 0.1 in
+  the Showcase; prototype value) × the length of Locomotion's `committed_motion` each tick
   (after collision), so every kind of movement follows one rule; standing,
   blocked and rotating ships use none; never below 0. At 0 it switches
   `propulsion` off (notice "out of fuel - stopped"); any fuel switches it back
@@ -1004,8 +1030,12 @@ each system:
   contact keeps a last-known position for 8 s. `contact_board.gd` (node `Contacts`):
   contact = detection (and not removed by hand). Weapon line of fire is separate.
   Fog of war: `movement_lab.player_sees()` decides what of a hostile ship is drawn,
-  picked, targeted and inspected; `presentation/fog_view.gd` shades the uncovered
-  ground and hides hostile rounds, ordnance, trails and effects outside coverage.
+  picked, targeted and inspected; `presentation/fog_view.gd` tints the uncovered
+  space toward the profile's cool fog colour on a 3000 u quad (no edge), softened
+  only on the covered side, and hides hostile rounds, ordnance, trails and effects
+  outside coverage. Its coverage shader code (`COVERAGE`) is shared with Strategic
+  View; up to 128 asteroid occluders and 16 sensors (beyond them it records
+  `overflow` and warns).
 - Commands, Tactics, Weapon Profiles (`game/behavior/`): `ship_behavior.gd` (node
   `Behavior`, on the armed Gunship and Destroyer variants, friendly and hostile
   alike; physics priority −3). Precedence: a command (Move, Attack, Guard,
@@ -1037,7 +1067,9 @@ each system:
   `emphasis()` 0 Local – 1 Tactical, smoothstep on `zoom_level()` between zoom
   distances 30 and 100 (exported); models are never hidden for zoom
   (`model_shown()` is the fog of war only); screen-space markers fade in with the
-  emphasis at constant size: ships in the ObjectMarkers category shapes, triangle
+  emphasis at constant size (Sector Showcase round: px at 1080 lines, ship half-size
+  6.5, station 6, asteroid 2.5, 1 px strokes, fills 0.15; `marker_scale` and a
+  separate `hit_radius` 14 px): ships in the ObjectMarkers category shapes, triangle
   combat / octagon logistics, in the faction tint, hostile with a second outer
   outline, brackets when selected; stations a pale square with a centre dot; every
   individual asteroid a small 0.6-alpha diamond in the survey colour, batched in one
@@ -1047,8 +1079,9 @@ each system:
   0.5, about distance 55; nearest centre, ties by Ships order), else the hull;
   stations and asteroids keep their model picks (their markers lie inside them, so
   station selection, DOCK, hover and MINE are unchanged). The selection ring, hull
-  bars and ships' ObjectMarkers icons fade with 1 − emphasis; the grid's major-line
-  boost is 0.1 × emphasis), `tactical_grid.gd` (G), `weapon_envelopes.gd`
+  bars and ships' ObjectMarkers icons fade with 1 − emphasis), `tactical_grid.gd`
+  (withdrawn from play: created only with the scene's `tactical_grid_available`; kept
+  for a later return), `weapon_envelopes.gd`
   (Alt, target selection), `combat_overlay.gd` (target lines; F10 debug arcs),
   `behavior_view.gd` (guard positions, waypoint and Attack-Move lines; the Defensive
   defended area is not drawn).
@@ -1056,6 +1089,37 @@ each system:
   faction are selectable; `pick_any()` finds hostiles for targeting.
 - Not migrated (by decision): the prototype's heading lock and fixed forward cannon,
   and its v0.2 scenarios.
+- Sector size (Sector Showcase round): `StaticNavigation.map_half_size` (default 150)
+  is the scene's sector; `movement_lab.sector_half_size()` reads it for MOVE
+  validity, the camera rig's pan bounds (set at start), the grid and Strategic View.
+- Strategic View (`presentation/strategic_view.gd`, Phase C, accepted 2026-10-21):
+  one more outward wheel notch at the rig's maximum hands over (0.45 s, dip to the
+  background) to a fixed top-down camera framing the sector on render layer 20; an
+  inward notch returns to the exact saved pose. Layer 20 holds simplified asteroid
+  spheres (lit: the sun is put on layer 20 too, since a camera's cull mask also culls
+  lights), an overlay (contours, directional shadow bands, dust; experiment E adds a
+  coarse formation-density layer lit on the sunward side and a faint radial haze, kept
+  at 55% and desaturated where obscured) and FogView's material on a quad above them
+  (E: it skips sky pixels and dims geometry at half strength). Screen space: selected
+  routes, cluster and per-family resource markers with radial expansion (groups of
+  at most 6), the refused-command boundary. Picking in Strategic: markers only; no
+  input completes during a handoff.
+- Environment (`presentation/sector_environment.gd`, node `SectorEnvironment`;
+  profile `sector_profile.gd` / `warm_sector.tres`): applies the profile (key light
+  colour and energy, cool ambient, background, ground) and builds rocks, fine debris
+  and formation dust pockets around asteroid formations (surfaces within 28 u). Sky
+  (`environment_experiment`): A flat background, B the HDR panorama, C sky-sampled
+  lighting (comparison only; the panorama is too dark, mean luminance 0.0018).
+  Environment lighting (`lighting_experiment_d`, with B): a sky shader that draws the
+  panorama but bakes a designed radiance for ambient light and reflections (cool fill
+  0.45, halved away from the star, warm lobe 0.6 toward the sun). God rays
+  (`god_rays_enabled`, `presentation/god_rays.gd`): built once from the largest
+  formations, up to 8 light shafts through gaps and past large limbs (at most 3 per
+  formation, at least 45% of the best score) and up to 4 shadow bands behind the
+  largest asteroids, all along the sun's travel and cut short at rock; camera-facing
+  tapered quads in two MultiMeshes, fainter at Tactical, not drawn in Strategic
+  (about 0.04 ms GPU at 4K). `presentation/sector_backdrop.gd`: distant hazed rock
+  silhouettes below the plane, never gameplay objects.
 
 ### Controls
 
@@ -1109,9 +1173,12 @@ each system:
   Ctrl + right-click a hostile: Attack, a friendly ship: Guard it, the ground:
   Attack-Move; Shift + right-click the ground: add a waypoint; X cancel the command;
   P next weapon profile; F1 / F2 / F3 Passive / Defensive / Aggressive; Backspace
-  clear the manual target; hold Alt weapon ranges; G tactical grid; F10 combat debug
+  clear the manual target; hold Alt weapon ranges; F10 combat debug
   overlay; Space pause; - / = speed 0.25x / 1x / 2x; wheel out for Tactical view
-  (markers fade in over the models).
+  (markers fade in over the models), one more notch at the maximum for Strategic View
+  (wheel in to return).
+- Development switches (troubleshooting, no settings menu): F8 cycles the sky A / B /
+  C, F7 environment lighting, F6 Strategic depth, F9 god rays.
 - Test arena only: keys 4–9, 0, − set up the avoidance scenarios.
 
 ### Archive
@@ -1323,7 +1390,24 @@ Berth nodes the only source of docking geometry (legacy calculations and
 `DockEast` / `DockWest` removed). Requirements met: no RouteFollower order reaches
 a guided ship (counters 0 in every suite); handover only with the ship at rest.
 
-## Latest verification (2026-10-21, Phase B: Local / Tactical semantic zoom)
+## Latest verification (2026-10-22, Sector Showcase and environment rendering)
+
+- Full suite on the final tree: 54 of 56 pass; the two known failures
+  (`navigation_test`, `obstruction_test`) have unchanged output; no script errors.
+- `sector_environment_test` 39/39 (`--fixed-fps 60`): profile, debris and dust
+  placement, Tactical reduction, fog rule = Sensors, Test Arena defaults unchanged,
+  Showcase sector / fuel / no ground / backdrop, fog overflow report, sky A / B / C,
+  environment lighting and Strategic depth switching and restoring, god-ray count,
+  alignment, clearance, determinism and freeing, and with everything on a hidden
+  hostile stays hidden. `strategic_test` S3 checks the withdrawn grid;
+  `tactical_view_test` uses the new click radius.
+- Performance (Ryzen 5 7600X, RTX 4070 SUPER, D3D12): the HDR sky about +0.1 ms GPU
+  and +230 MB texture memory (65 ms first load); environment lighting and Strategic
+  depth within noise; god rays +0.04 ms GPU at 4K Local (target < 0.5 ms).
+- Captures were checked by the agent at 1080p and 4K; the owner merged the work to
+  `main` on 2026-10-22.
+
+## Earlier verification (2026-10-21, Phase B: Local / Tactical semantic zoom)
 
 - Baseline once on the committed Phase A tree (53 suites: 51 pass, known failures
   navigation and obstruction); B1 relevant set 16/16 before B2; full set after B2:
@@ -2031,6 +2115,18 @@ Open movement issues (owner, 2026-10-15: unresolved, not accepted):
 	caches) still names files of the retired experiments; the editor may report once
 	that it cannot reopen them (headless `--import` logs "Cannot load shader:
 	res://experiments/movement_v3/…"); project files are unaffected.
+- Sector Showcase round (merged 2026-10-22):
+  - God rays are restrained: in Local usually one or two shafts are in view; the
+    shadow bands are faint (shade `opacity` 0.4) and rely on formation dust behind
+    them. The shafts are a stylized stand-in, not volumetric light.
+  - Local / Tactical fog still tints the starfield seen through the gameplay plane in
+    the Showcase (only Strategic's fog skips sky pixels).
+  - The Strategic sun-layer fix also lights the Test Arena's Strategic spheres.
+  - Without the local HDR file (fresh clones) the Showcase sky cannot load.
+  - The Strategic framing fits the sector square rotated by the rig's 45° yaw, so the
+    Showcase content fills the middle of the Strategic screen.
+  - Environment lighting is subtle (+4–6% on the brightest object pixels); its
+    energies are exposed on SectorEnvironment.
 
 ## Unresolved
 
@@ -2084,7 +2180,10 @@ stations added later); stations cannot be under `Ships` (GroupOrders requires
 
 ## Next task
 
-None assigned: await the owner's next task. The project is under Git and pushed
+None assigned: await the owner's next task. Open owner decisions from the Sector
+Showcase round: whether the Showcase becomes the startup scene, a permanent sector
+size and fuel balance (local scale 0.1 is a prototype value), whether the HDR panorama
+goes into Git (LFS) and renaming the experiment-era exports. The project is under Git and pushed
 to GitHub (2026-10-20); no commit or push conventions are decided beyond the
 initial setup. The production combat migration and the M8 repository cleanup
 (2026-10-20) are the latest accepted game work and the baseline; combat behaviour is frozen as accepted (no tuning, new mechanics, Frigate
@@ -2096,7 +2195,8 @@ movement or docking refinements are authorized (durations and the Destroyer's
 footprint wait for the owner). The movement baseline is fixed at cause C with the
 direct-move prediction horizon correction; cause B, planned rejoin
 (`experiments/planned_rejoin/`, paused) and parked navigation are not to be reopened
-without the owner. Camera Phase A and Phase B (Local / Tactical semantic zoom) are
-accepted; Phase C (a separate marker-only Sector View with its own picking) and
-the Solar Map are anticipated but not authorized or planned. All work follows the AGENTS.md workflow
+without the owner. Camera Phase A, Phase B (Local / Tactical semantic zoom) and
+Phase C (Strategic View) are accepted, and the Sector Showcase round is merged; the
+Solar Map and multi-sector architecture are anticipated but not authorized or
+planned. All work follows the AGENTS.md workflow
 (replace this section after every task).

@@ -3,6 +3,18 @@
 Project history, newest first. One to two sentences per task; details are
 in `HANDOFF.md`. Entries are not edited after they are written.
 
+## 2026-10-22 — Sector Showcase and environment rendering
+
+New `sector_showcase.tscn` (760 u sector shared by navigation, commands, camera and Strategic View; local fuel scale 0.1; no ground; authored formations, hostiles and a depth backdrop), a 1080-line UI canvas with smaller markers and a separate click radius, the tactical grid withdrawn, and in the Showcase the HDR sky, designed sky lighting, Strategic formation depth with sky-safe fog, a lit Strategic layer and lightweight god rays with shadow bands (`sector_environment_test` 39 checks); merged to `main` by the owner, the HDR panorama kept local only.
+
+## 2026-10-21 — Environmental lighting and fog prototype
+
+A warm sector profile (`warm_sector.tres`) now sets the light, ambient fill, background and fog colour, with per-formation dust and debris (`SectorEnvironment`), a tinted, edgeless fog softened only on the covered side, and Strategic tinted shadows (new `sector_environment_test`); merged to `main` by the owner.
+
+## 2026-10-21 — Phase C: Strategic View
+
+A separate top-down Strategic View entered past the Tactical zoom limit (exact Tactical pose restored on return), with simplified asteroids, contours, directional shadows, cluster and resource markers with radial expansion, Strategic fog and marker-only picking (`strategic_view.gd`, new `strategic_view_test`); accepted by the owner.
+
 ## 2026-10-21 — Phase B: Local / Tactical semantic zoom
 
 Ship models now stay visible at every zoom while tactical markers fade in over them with one continuous Tactical emphasis (zoom distance 30–100), joined by station and individual asteroid markers; picking checks interactive ship markers then hulls, and the ring, hull bars, object icons and grid follow the same value (new `tactical_view_test`, adapted strategic and combat scene checks); accepted by the owner.
