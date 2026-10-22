@@ -41,15 +41,24 @@ const SELECT_COLOR := Color(0.35, 0.9, 0.45)
 const ORDER_COLOR := Color(0.85, 0.6, 0.25)
 const TARGET_COLOR := Color(1.0, 0.85, 0.55)
 const HULK_COLOR := Color(0.55, 0.55, 0.58)
-const BASE_SIZE := 11.0 # px half-extent of a Gunship frame at 1080 lines
-const STATION_SIZE := 9.0 # px centre to corner of a station square at 1080 lines
+# Sector Showcase round: the canvas is 1080 lines tall (project base size), so these are
+# real px at 1080p; smaller, finer and less filled than before, so hulls show through.
+const BASE_SIZE := 6.5 # px half-extent of a Gunship frame at 1080 lines
+const STATION_SIZE := 6.0 # px centre to corner of a station square at 1080 lines
 const STATION_COLOR := Color(0.78, 0.8, 0.84)
-const ASTEROID_SIZE := 4.0 # px centre to corner of an asteroid diamond at 1080 lines
+const ASTEROID_SIZE := 2.5 # px centre to corner of an asteroid diamond at 1080 lines
+const LINE_WIDTH := 1.0 # px stroke at 1080 lines
+const FILL_ALPHA := 0.15 # marker fills stay light: the model under them stays visible
 const ASTEROID_ALPHA := 0.6 # asteroid markers stay quieter than ships and stations
 
 @export var emphasis_start_distance := 30.0 # zoom distance where the Tactical emphasis starts (0)
 @export var emphasis_end_distance := 100.0 # zoom distance where it is complete (1)
 @export var interactive_emphasis := 0.5 # marker opacity from which a marker takes clicks
+## Independent scales (Sector Showcase round): `marker_scale` sizes the drawn markers only;
+## `hit_radius` is the click radius around a ship marker's centre (px at 1080 lines), never
+## smaller than the drawn marker, so smaller artwork keeps a comfortable target.
+@export var marker_scale := 1.0
+@export var hit_radius := 14.0
 
 var _canvas: Control
 
@@ -90,9 +99,16 @@ func _process(_delta: float) -> void:
 	_canvas.queue_redraw()
 
 
-## Screen scale of the markers (constant apparent size at any resolution).
+## Screen scale of the markers (constant apparent size at any resolution), times
+## `marker_scale`.
 func scale_factor() -> float:
-	return maxf(0.75, _canvas.get_viewport_rect().size.y / 1080.0)
+	return maxf(0.75, _canvas.get_viewport_rect().size.y / 1080.0) * marker_scale
+
+
+## Click radius around a ship marker's centre (canvas units): `hit_radius`, or the drawn
+## marker when that is larger.
+func hit_size(ship: Node3D) -> float:
+	return maxf(hit_radius * maxf(0.75, _canvas.get_viewport_rect().size.y / 1080.0), half_size(ship) * 1.6)
 
 
 func half_size(ship: Node3D) -> float:
@@ -116,7 +132,7 @@ func marker_at(screen: Vector2) -> Node3D:
 		if combat == null or combat.removed_from_play or not _arena.player_sees(ship) or camera.is_position_behind(ship.global_position):
 			continue
 		var distance := camera.unproject_position(ship.global_position).distance_to(screen)
-		if distance <= half_size(ship) * 1.6 and distance < best_distance:
+		if distance <= hit_size(ship) and distance < best_distance:
 			best = ship
 			best_distance = distance
 	return best
@@ -126,7 +142,7 @@ func _draw_markers() -> void:
 	var camera := get_viewport().get_camera_3d()
 	if camera == null:
 		return
-	_arena.draw_contact_memory(_canvas, camera, 1.6 * scale_factor())
+	_arena.draw_contact_memory(_canvas, camera, LINE_WIDTH * scale_factor())
 	var alpha := emphasis() # Markers fade in with the Tactical emphasis.
 	if alpha <= 0.0:
 		return
@@ -140,7 +156,7 @@ func _draw_markers() -> void:
 		var combat = CombatShip.of(ship)
 		if combat != null and combat.manual_target != null and is_instance_valid(combat.manual_target):
 			targets[combat.manual_target] = true
-	var width := 1.6 * scale_factor()
+	var width := LINE_WIDTH * scale_factor()
 	# Movement orders of the selected ships first (under the markers).
 	for ship: Node3D in selected:
 		var locomotion = ship.get_node_or_null("Locomotion")
@@ -174,10 +190,10 @@ func _draw_markers() -> void:
 		var size := h * (1.45 if shape == ObjectMarkers.Shape.TRIANGLE else 1.2)
 		var frame := ObjectMarkers.shape_points(shape, center, size)
 		var line := Color(tint.lerp(Color.WHITE, 0.55), 0.95 * alpha)
-		_canvas.draw_colored_polygon(frame, Color(tint.darkened(0.45), 0.55 * alpha))
-		_canvas.draw_polyline(frame + PackedVector2Array([frame[0]]), line, width + 0.6)
+		_canvas.draw_colored_polygon(frame, Color(tint.darkened(0.45), FILL_ALPHA * alpha))
+		_canvas.draw_polyline(frame + PackedVector2Array([frame[0]]), line, width + 0.3 * scale_factor(), true)
 		if combat.faction != _arena.PLAYER_FACTION:
-			var outer := ObjectMarkers.shape_points(shape, center, size + 4.0 * scale_factor())
+			var outer := ObjectMarkers.shape_points(shape, center, size + 2.5 * scale_factor())
 			_canvas.draw_polyline(outer + PackedVector2Array([outer[0]]), line, width)
 		if shape == ObjectMarkers.Shape.TRIANGLE:
 			var bars := 2 if h > BASE_SIZE * scale_factor() * 1.1 else 1
@@ -185,7 +201,7 @@ func _draw_markers() -> void:
 				var y := h * 0.18 + (float(i) - (bars - 1) * 0.5) * h * 0.3
 				_canvas.draw_line(center + Vector2(-h * 0.38, y), center + Vector2(h * 0.38, y), Color(0.95, 0.95, 0.95, 0.9 * alpha), width)
 		if selected.has(ship):
-			_brackets(center, h * 1.45, Color(SELECT_COLOR, 0.95 * alpha), width)
+			_brackets(center, h * 1.75, Color(SELECT_COLOR, 0.95 * alpha), width)
 		if targets.has(ship):
 			_crosshair(center, h, Color(TARGET_COLOR, 0.95 * alpha), width)
 
@@ -228,7 +244,7 @@ func object_entries() -> Array:
 # Asteroids: one small quiet diamond each, all in one batched triangle array (one canvas
 # command however many asteroids); stations: a square with a centre dot.
 func _draw_objects(alpha: float, asteroid_alpha: float) -> void:
-	var width := 1.6 * scale_factor()
+	var width := LINE_WIDTH * scale_factor()
 	var size := ASTEROID_SIZE * scale_factor()
 	var points := PackedVector2Array()
 	var colors := PackedColorArray()
@@ -252,15 +268,15 @@ func _draw_objects(alpha: float, asteroid_alpha: float) -> void:
 			RenderingServer.canvas_item_add_triangle_array(_canvas.get_canvas_item(), indices, points, colors)
 			indices.clear()
 		var frame := ObjectMarkers.shape_points(ObjectMarkers.Shape.SQUARE, at, STATION_SIZE * scale_factor())
-		_canvas.draw_colored_polygon(frame, Color(color.darkened(0.6), 0.55 * alpha))
-		_canvas.draw_polyline(frame + PackedVector2Array([frame[0]]), Color(color, 0.95 * alpha), width + 0.6)
+		_canvas.draw_colored_polygon(frame, Color(color.darkened(0.6), FILL_ALPHA * alpha))
+		_canvas.draw_polyline(frame + PackedVector2Array([frame[0]]), Color(color, 0.95 * alpha), width + 0.3 * scale_factor(), true)
 		_canvas.draw_circle(at, width, Color(color, 0.95 * alpha))
 	if not indices.is_empty():
 		RenderingServer.canvas_item_add_triangle_array(_canvas.get_canvas_item(), indices, points, colors)
 
 
 func _brackets(center: Vector2, h: float, color: Color, width: float) -> void:
-	var l := h * 0.45
+	var l := h * 0.3
 	for sx in [-1.0, 1.0]:
 		for sy in [-1.0, 1.0]:
 			var corner := center + Vector2(sx * h, sy * h)

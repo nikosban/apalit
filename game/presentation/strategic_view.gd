@@ -17,8 +17,8 @@ extends Node3D
 ## handoff every mouse button is consumed and pending presses (selection, station panel)
 ## are cancelled, so nothing completes as a command.
 ##
-## The sector is the prototype arena: the rig's `bounds` for framing and the scene's
-## command square (`GROUND_HALF_SIZE`, the existing MOVE validity rule) for the boundary,
+## The sector is the scene's: the rig's `bounds` for framing (set from the sector) and the
+## scene's command square (`sector_half_size()`, the existing MOVE validity rule) for the boundary,
 ## which is drawn only for a moment after a right-click the command rules refuse outside it.
 ##
 ## Strategic presentation (from back to front):
@@ -55,6 +55,7 @@ const Behavior := preload("res://game/behavior/ship_behavior.gd")
 const LAYER := 1 << 19 # Render layer 20: Strategic-only geometry.
 const DETAIL_MASK := 0xFFFFF & ~LAYER # Every other render layer (the detailed 3D scene).
 const BACKGROUND := Color(0.05, 0.055, 0.06) # The scenes' environment background.
+const FogView := preload("res://game/presentation/fog_view.gd")
 const ROUTE_COLOR := Color(0.85, 0.6, 0.25)
 const WAYPOINT_COLOR := Color(0.55, 0.7, 1.0)
 const ATTACK_MOVE_COLOR := Color(1.0, 0.45, 0.35)
@@ -75,6 +76,17 @@ uniform vec4 dust_color : source_color = vec4(0.9, 0.66, 0.45, 1.0);
 uniform float dust_alpha = 0.0;
 uniform float contour_alpha = 0.07;
 uniform vec3 levels = vec3(0.15, 0.5, 1.2);
+// Experiment E: formation-scale environment under the shadows, subdued where obscured.
+uniform float e_enabled = 0.0;
+uniform sampler2D formation : filter_linear, repeat_disable; // R: coarse formation density
+uniform vec4 formation_rect;
+uniform sampler2D structure : filter_linear, repeat_enable; // low-frequency noise
+uniform vec4 cool_color : source_color = vec4(0.42, 0.5, 0.66, 1.0);
+uniform float formation_alpha = 0.2;
+uniform float haze_alpha = 0.02;
+uniform vec3 sector = vec3(0.0, 0.0, 150.0); // centre x, z and half-size
+uniform float obscured_keep = 0.55; // share of the environment kept where obscured
+""" + FogView.COVERAGE + """
 varying vec2 world;
 void vertex() { world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xz; }
 vec2 sample_field(vec2 p) { return texture(field, (p - rect.xy) / rect.zw).rg; }
@@ -94,10 +106,37 @@ void fragment() {
 	// Back to front: the shadow (tinted attenuation), dust (thinned where shaded), contours.
 	vec3 color = shadow_color.rgb;
 	float alpha = shadow_alpha * occlusion;
-	float a_dust = dust_alpha * smoothstep(0.02, 0.9, here.r) * (1.0 - 0.7 * occlusion);
+	float keep = 1.0;
+	if (e_enabled > 0.5) {
+		// E: sector haze and formation dust behind the shadow. Formation dust is lit on the
+		// side facing the star (density falls toward the sun) and cool on the far side.
+		vec2 uv = (world - formation_rect.xy) / formation_rect.zw;
+		float big = texture(formation, uv).r;
+		float toward = texture(formation, uv - light_dir * 18.0 / formation_rect.zw).r;
+		float away = texture(formation, uv + light_dir * 18.0 / formation_rect.zw).r;
+		float lit = clamp(0.6 - 1.4 * (toward - away), 0.0, 1.0) * (1.0 - 0.6 * occlusion);
+		float coarse = texture(structure, world / 520.0).r;
+		float fine = texture(structure, world / 95.0 + vec2(0.37, 0.61)).r;
+		float a_form = formation_alpha * smoothstep(0.03, 0.8, big) * (0.5 + 0.5 * fine);
+		vec3 c_form = mix(cool_color.rgb * 0.5, dust_color.rgb, lit);
+		// Radial fade well inside the sector: no edge that follows the sector square.
+		float reach = length(world - sector.xy) / sector.z;
+		float a_haze = haze_alpha * smoothstep(0.3, 0.9, coarse) * (1.0 - smoothstep(0.55, 1.25, reach));
+		vec3 env = mix(cool_color.rgb * a_haze, c_form, a_form) / max(a_form + a_haze * (1.0 - a_form), 1e-5);
+		float a_env = a_form + a_haze * (1.0 - a_form);
+		// Fog of war on the environment: obscured space keeps less of it, desaturated; it is
+		// never brightened, and the sky behind is not touched.
+		float hidden = 1.0 - coverage(world);
+		keep = mix(1.0, obscured_keep, hidden);
+		env = mix(env, vec3(dot(env, vec3(0.299, 0.587, 0.114))), 0.5 * hidden);
+		a_env *= keep;
+		color = mix(env * a_env, color, alpha) / max(alpha + a_env * (1.0 - alpha), 1e-5);
+		alpha = alpha + a_env * (1.0 - alpha);
+	}
+	float a_dust = dust_alpha * smoothstep(0.02, 0.9, here.r) * (1.0 - 0.7 * occlusion) * keep;
 	color = mix(color * alpha, dust_color.rgb, a_dust) / max(a_dust + alpha * (1.0 - a_dust), 1e-5);
 	alpha = a_dust + alpha * (1.0 - a_dust);
-	float a_line = contour_alpha * line;
+	float a_line = contour_alpha * line * keep;
 	color = mix(color * alpha, vec3(0.75, 0.78, 0.82), a_line) / max(a_line + alpha * (1.0 - a_line), 1e-5);
 	ALBEDO = color;
 	ALPHA = a_line + alpha * (1.0 - a_line);
@@ -118,7 +157,8 @@ void fragment() {
 @export var shadow_length := 26.0 # u
 @export var shadow_min_radius := 3.0 # u: a formation's equivalent radius needed for a shadow
 @export var shadow_min_pixels := 5.0 # canvas units: the same radius on screen at the Strategic scale
-@export var field_resolution := 256 # texels per side of the baked field
+@export var field_resolution := 256 # least texels per side of the baked field
+@export var field_texel := 1.5 # u: largest texel; a larger sector gets a finer texture
 @export var boundary_time := 1.6 # s the refused-command boundary stays visible
 
 var state := State.TACTICAL
@@ -149,6 +189,10 @@ var _boundary_left := 0.0
 var _boundary_layer: CanvasLayer
 var _casters := {} # asteroid id -> true: members of shadow-casting formations
 var _field_image: Image # The baked field (R density, G shadow casters).
+var _field_size := 0 # Its texels per side.
+var e_enabled := false # Experiment E: Strategic environment depth and sky-safe fog.
+var formation_texel := 6.0 # u: the coarse formation-density texture (E)
+var obscured_keep := 0.55 # E: share of the environment layer kept where obscured
 
 @onready var _arena := get_parent()
 @onready var _rig: Node3D = _arena.get_node("CameraRig")
@@ -156,6 +200,7 @@ var _field_image: Image # The baked field (R density, G shadow casters).
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	e_enabled = bool(_arena.get("strategic_experiment_e")) if _arena.get("strategic_experiment_e") != null else false
 	var environment = _arena.get("environment")
 	if environment != null:
 		profile = environment.profile
@@ -349,7 +394,7 @@ func _check_boundary(screen: Vector2) -> void:
 	var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(_camera.project_ray_origin(screen), _camera.project_ray_normal(screen))
 	if hit == null:
 		return
-	var half: float = _arena.GROUND_HALF_SIZE
+	var half: float = _arena.sector_half_size()
 	if (absf(hit.x) > half or absf(hit.z) > half) and _arena.resolve_command(screen).is_empty():
 		_boundary_left = boundary_time
 
@@ -386,6 +431,11 @@ func _process(delta: float) -> void:
 			node.visible = shown
 	if _fog != null:
 		_fog.visible = shown and (_arena.fog_view as Node3D).visible
+	if e_enabled and shown and _arena.fog_view != null: # The live sensor positions, as FogView has them.
+		var fog_material := (_arena.fog_view as MeshInstance3D).material_override as ShaderMaterial
+		for key in ["sources", "source_count", "sensor_range"]:
+			_overlay_material.set_shader_parameter(key, fog_material.get_shader_parameter(key))
+		_overlay_material.set_shader_parameter("obscured_keep", 1.0 if _arena.fog_reveal else obscured_keep)
 	_boundary_left = maxf(0.0, _boundary_left - delta)
 	_layout = _compute_layout() if state != State.TACTICAL else []
 	if is_active() and auto_hover:
@@ -402,6 +452,9 @@ func _process(delta: float) -> void:
 
 func _build() -> void:
 	var field := _arena.get_node_or_null("Asteroids")
+	var light := _scene_light()
+	if light != null: # A camera's cull mask also culls lights: without this the Strategic camera drops the
+		light.layers |= LAYER # sun and its spheres show ambient light only (the dark-disc artifact).
 	if _arena.fog_view != null:
 		_fog = MeshInstance3D.new()
 		_fog.mesh = (_arena.fog_view as MeshInstance3D).mesh # Far past the sector: no edge.
@@ -423,7 +476,7 @@ func _build() -> void:
 	sphere.radial_segments = 12
 	sphere.rings = 6
 	var material := StandardMaterial3D.new()
-	material.albedo_color = Color(0.16, 0.16, 0.17)
+	material.albedo_color = Color(0.34, 0.32, 0.3) # Rock-like: a lit and a shaded side under the star.
 	material.roughness = 1.0
 	material.disable_receive_shadows = true # The hidden detailed scene still casts into the light's shadow map.
 	sphere.material = material
@@ -459,7 +512,8 @@ func _bake_field(field: Node, ids: Array) -> void:
 		if planar.length() > 0.05:
 			light_direction = planar.normalized()
 	var rect := sector_rect().grow(shadow_length + contour_spread * 2.0)
-	var n := field_resolution
+	var n := maxi(field_resolution, ceili(rect.size.x / field_texel))
+	_field_size = n
 	var texel := rect.size / float(n)
 	var values := PackedFloat32Array()
 	values.resize(n * n * 2)
@@ -516,8 +570,67 @@ func _bake_field(field: Node, ids: Array) -> void:
 	_overlay_material.set_shader_parameter("contour_alpha", contour_alpha)
 	_overlay.material_override = _overlay_material
 	add_child(_overlay)
+	_bake_formation(field, ids)
+	set_environment_depth(e_enabled)
 	_casters = casters
 	_field_image = image
+
+
+# Experiment E: a coarse, wide density of the asteroid formations (R, 6 u texels, reaching
+# about 45 u beyond each asteroid, weighted by size) and a low-frequency noise texture.
+func _bake_formation(field: Node, ids: Array) -> void:
+	var rect := sector_rect().grow(90.0)
+	var n := ceili(rect.size.x / formation_texel)
+	var values := PackedFloat32Array()
+	values.resize(n * n)
+	for id: int in ids:
+		var c: Vector3 = field.center(id)
+		var r: float = field.radius(id)
+		var reach := r * 1.5 + 45.0
+		var weight := clampf(r / 6.0, 0.3, 2.5)
+		var lo := Vector2i(floori((c.x - reach - rect.position.x) / formation_texel), floori((c.z - reach - rect.position.y) / formation_texel))
+		var hi := Vector2i(ceili((c.x + reach - rect.position.x) / formation_texel), ceili((c.z + reach - rect.position.y) / formation_texel))
+		for y in range(maxi(lo.y, 0), mini(hi.y, n - 1) + 1):
+			for x in range(maxi(lo.x, 0), mini(hi.x, n - 1) + 1):
+				var p := rect.position + (Vector2(x, y) + Vector2(0.5, 0.5)) * formation_texel
+				var d := p.distance_to(Vector2(c.x, c.z))
+				if d < reach:
+					var k := 1.0 - (d / reach) * (d / reach)
+					values[y * n + x] += k * k * weight
+	var image := Image.create_from_data(n, n, false, Image.FORMAT_RF, values.to_byte_array())
+	_overlay_material.set_shader_parameter("formation", ImageTexture.create_from_image(image))
+	_overlay_material.set_shader_parameter("formation_rect", Vector4(rect.position.x, rect.position.y, rect.size.x, rect.size.y))
+	var noise := FastNoiseLite.new()
+	noise.seed = 11
+	noise.frequency = 0.012
+	noise.fractal_octaves = 4
+	var structure := NoiseTexture2D.new()
+	structure.width = 256
+	structure.height = 256
+	structure.seamless = true
+	structure.noise = noise
+	_overlay_material.set_shader_parameter("structure", structure)
+	var half: float = _arena.sector_half_size() if _arena.has_method("sector_half_size") else sector_rect().size.x * 0.5
+	_overlay_material.set_shader_parameter("sector", Vector3(0.0, 0.0, half))
+	if profile != null:
+		_overlay_material.set_shader_parameter("cool_color", profile.ambient_color)
+
+
+## Experiment E on or off: the overlay's formation environment (subdued where obscured)
+## and a Strategic fog that leaves the sky untouched. Off restores the previous overlay
+## and fog exactly.
+func set_environment_depth(on: bool) -> void:
+	e_enabled = on
+	_overlay_material.set_shader_parameter("e_enabled", 1.0 if on else 0.0)
+	if _fog != null:
+		_fog.set_instance_shader_parameter("protect_sky", 1.0 if on else 0.0)
+		_fog.set_instance_shader_parameter("geometry_share", 0.5 if on else 1.0) # Known geography subdued, not blackened.
+	if on and _arena.fog_view != null: # The occluders are static: copied once.
+		var fog_material := (_arena.fog_view as MeshInstance3D).material_override as ShaderMaterial
+		for key in ["asteroids", "asteroid_count", "range_fade", "penumbra", "max_penumbra"]:
+			_overlay_material.set_shader_parameter(key, fog_material.get_shader_parameter(key))
+	# No fog of war in the scene: nothing is subdued.
+	_overlay_material.set_shader_parameter("obscured_keep", obscured_keep if _arena.fog_view != null else 1.0)
 
 
 ## Whether an asteroid belongs to a formation that casts a Strategic shadow.
@@ -530,8 +643,8 @@ func field_at(point: Vector2) -> Vector2:
 	if _field_image == null:
 		return Vector2.ZERO
 	var rect := sector_rect().grow(shadow_length + contour_spread * 2.0)
-	var texel := ((point - rect.position) / rect.size * float(field_resolution)).floor()
-	if texel.x < 0 or texel.y < 0 or texel.x >= field_resolution or texel.y >= field_resolution:
+	var texel := ((point - rect.position) / rect.size * float(_field_size)).floor()
+	if texel.x < 0 or texel.y < 0 or texel.x >= _field_size or texel.y >= _field_size:
 		return Vector2.ZERO
 	var pixel := _field_image.get_pixel(int(texel.x), int(texel.y))
 	return Vector2(pixel.r, pixel.g)
@@ -870,7 +983,7 @@ func _draw_under() -> void:
 	var alpha := smoothstep(0.0, 1.0, progress)
 	var width := 1.6
 	if boundary_alpha() > 0.0:
-		var half: float = _arena.GROUND_HALF_SIZE
+		var half: float = _arena.sector_half_size()
 		var corners := PackedVector2Array()
 		for corner in [Vector2(-half, -half), Vector2(half, -half), Vector2(half, half), Vector2(-half, half), Vector2(-half, -half)]:
 			corners.append(_project(corner))

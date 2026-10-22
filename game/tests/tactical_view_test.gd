@@ -272,7 +272,7 @@ func _case_overlap() -> void:
 		middle.append(markers.marker_at(a.lerp(b, 0.5)))
 	var order_first: bool = first.get_index() < second.get_index()
 	_check("markers %.1f px apart (overlapping): nearer A -> A, nearer B -> B, the midpoint -> the earlier ship under Ships, the same 5 times" % a.distance_to(b),
-		a.distance_to(b) < 2.0 * 1.6 * markers.half_size(first) and near_a == first and near_b == second
+		a.distance_to(b) < 2.0 * markers.hit_size(first) and near_a == first and near_b == second
 		and middle.all(func(s: Node3D) -> bool: return s == (first if order_first else second)))
 
 

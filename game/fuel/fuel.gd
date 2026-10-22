@@ -12,6 +12,10 @@ extends Node
 ## once per threshold as the fuel falls below it; fuel rising back above a
 ## threshold re-arms it. Docked at a station (Docking state Docked), the ship takes
 ## fuel from the station's stock at the station's rate, up to its capacity.
+## Sector Showcase round: movement inside a sector is charged at `consumption` times the
+## scene's `local_fuel_scale` (the arena's export; 1 where the scene has none, as in the
+## Test Arena), so a scene can make routine in-sector movement cheap without changing any
+## ship's tank or consumption.
 
 signal notice(text: String)
 
@@ -28,6 +32,7 @@ const WARNING_NAMES := ["Low Fuel", "Fuel Warning", "Critical Fuel"]
 var fuel := 0.0
 var warned := 0 # Thresholds notified in the current depletion cycle (0-3).
 var refueling := false # Fuel was taken from a station in the last tick.
+var local_scale := 1.0 # The scene's local_fuel_scale, read once at start.
 
 @onready var _ship := get_parent() as Node3D
 @onready var _locomotion := _ship.get_node("Locomotion") as ShipLocomotion
@@ -38,6 +43,9 @@ func _ready() -> void:
 	process_physics_priority = 1 # After Locomotion: reads this tick's committed motion.
 	fuel = capacity * start_level
 	warned = level()
+	var arena := _ship.get_parent().get_parent() if _ship.get_parent() != null else null
+	if arena != null and arena.get("local_fuel_scale") != null:
+		local_scale = arena.local_fuel_scale
 	_locomotion.propulsion = fuel > 0.0
 
 
@@ -65,7 +73,7 @@ func warning() -> String:
 func _physics_process(delta: float) -> void:
 	var traveled := _locomotion.committed_motion.length()
 	if traveled > 0.0 and fuel > 0.0:
-		_set_fuel(fuel - traveled * consumption)
+		_set_fuel(fuel - traveled * consumption * local_scale)
 	refueling = false
 	if _docking != null and _docking.state == Docking.State.DOCKED:
 		_refuel(delta)

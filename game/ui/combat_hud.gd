@@ -14,7 +14,7 @@ extends CanvasLayer
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const RouteFollower := preload("res://game/navigation/route_follower.gd")
 const DisplayName := preload("res://game/ui/display_name.gd")
-const BAR_SIZE := Vector2(54, 6)
+const BAR_SIZE := Vector2(44, 4) # px at 1080 lines
 const TARGET_HINT := "Choose a target: click a hostile ship  |  Esc or right-click elsewhere cancels"
 
 var _bars: Control

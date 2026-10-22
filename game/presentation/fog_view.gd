@@ -11,30 +11,32 @@ extends MeshInstance3D
 ##   on the covered side (a sensor-range fade and an occlusion penumbra that widens behind
 ##   each asteroid), so no uncovered point is ever drawn as covered. A
 ##   per-instance strength lets StrategicView show the same material more lightly.
+##   Experiment E (Strategic): the coverage rule's shader code is shared (`COVERAGE`) so
+##   StrategicView's overlay can subdue obscured environment itself, and a per-instance
+##   `protect_sky` (set on Strategic's quad only) leaves pixels showing the infinitely
+##   distant sky untouched, so stars never change with sensor coverage.
 ##   Information: hostile projectiles, guided ordnance and their trails are shown only while
 ##   they are inside the coverage; effects (muzzle flashes, impacts, explosions) only where
 ##   covered, so a hidden ship's shot or loss reveals nothing. Ship models, markers, bars,
 ##   picking and labels follow the arena's player_sees().
 
+# Shader array sizes. The Sensors rule has no such limit: past them the drawn fog would
+# differ from the real coverage, so FogView reports it (`overflow`, a warning) rather than
+# dropping occluders or sensors silently (Sector Showcase round: 64 -> 128 occluders).
 const MAX_SOURCES := 16
-const MAX_ASTEROIDS := 64
+const MAX_ASTEROIDS := 128
 const FOG_SIZE := 3000.0 # u: far past the arena, so the fog has no visible edge
-const SHADER := """
-shader_type spatial;
-render_mode unshaded, cull_disabled, depth_draw_never, shadows_disabled;
-uniform vec4 sources[16];
+# The drawn coverage rule (shader code shared with StrategicView's overlay): uniforms,
+# clear_line() and coverage(), 1 covered, 0 not, soft only on the covered side.
+const COVERAGE := """
+uniform vec4 sources[16]; // MAX_SOURCES
 uniform int source_count = 0;
-uniform vec3 asteroids[64];
+uniform vec3 asteroids[128]; // MAX_ASTEROIDS
 uniform int asteroid_count = 0;
 uniform float sensor_range = 100.0;
-uniform vec4 fog_color : source_color = vec4(0.1, 0.12, 0.16, 1.0);
-uniform float strength = 0.6;
 uniform float range_fade = 8.0; // u inside the range edge
 uniform float penumbra = 0.12; // occlusion softening per u behind the asteroid
 uniform float max_penumbra = 6.0; // u
-instance uniform float view_strength = 1.0;
-varying vec2 world;
-void vertex() { world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xz; }
 // 1 clear, 0 blocked (the hard rule), in between only on the clear side of an edge.
 float clear_line(vec2 a, vec2 b) {
 	vec2 ab = b - a;
@@ -54,22 +56,43 @@ float clear_line(vec2 a, vec2 b) {
 	}
 	return clear;
 }
-void fragment() {
+float coverage(vec2 p) {
 	float seen = 0.0;
 	for (int i = 0; i < source_count; i++) {
 		vec2 s = sources[i].xy;
-		float d = distance(s, world);
+		float d = distance(s, p);
 		if (d <= sensor_range) {
-			seen = max(seen, clear_line(s, world) * (1.0 - smoothstep(sensor_range - range_fade, sensor_range, d)));
+			seen = max(seen, clear_line(s, p) * (1.0 - smoothstep(sensor_range - range_fade, sensor_range, d)));
 			if (seen >= 1.0) { break; }
 		}
 	}
+	return seen;
+}
+"""
+const SHADER := """
+shader_type spatial;
+render_mode unshaded, cull_disabled, depth_draw_never, shadows_disabled;
+""" + COVERAGE + """
+uniform vec4 fog_color : source_color = vec4(0.1, 0.12, 0.16, 1.0);
+uniform float strength = 0.6;
+uniform sampler2D depth_texture : hint_depth_texture, filter_nearest;
+instance uniform float view_strength = 1.0;
+instance uniform float protect_sky = 0.0; // 1: no fog where the pixel shows the sky (E, Strategic)
+instance uniform float geometry_share = 1.0; // the fog's strength on geometry (E, Strategic: subdued, not black)
+varying vec2 world;
+void vertex() { world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xz; }
+void fragment() {
 	ALBEDO = fog_color.rgb;
-	ALPHA = strength * view_strength * (1.0 - seen);
+	if (protect_sky > 0.5 && texture(depth_texture, SCREEN_UV).r <= 1e-7) {
+		ALPHA = 0.0; // Reverse Z: nothing drawn here but the background.
+	} else {
+		ALPHA = strength * view_strength * geometry_share * (1.0 - coverage(world));
+	}
 }
 """
 
 var player_faction := 0
+var overflow := "" # Why the drawn fog may differ from the sensor coverage ("" when exact).
 var _material := ShaderMaterial.new()
 
 @onready var _arena := get_parent()
@@ -99,12 +122,21 @@ func _ready() -> void:
 			if circles.size() < MAX_ASTEROIDS:
 				var c: Vector3 = asteroids.center(id)
 				circles.append(Vector3(c.x, c.z, asteroids.radius(id)))
+	if asteroids != null and asteroids.has_method("ids") and asteroids.ids().size() > MAX_ASTEROIDS:
+		_report("%d asteroids, the fog draws the first %d as occluders" % [asteroids.ids().size(), MAX_ASTEROIDS])
 	circles.resize(MAX_ASTEROIDS)
 	_material.set_shader_parameter("asteroids", circles)
 	_material.set_shader_parameter("asteroid_count", mini(MAX_ASTEROIDS, asteroids.ids().size()) if asteroids != null else 0)
 	var trails := _arena.get_node_or_null("OrdnanceTrails")
 	if trails != null:
 		trails.reveal = func(point: Vector3, faction: int) -> bool: return faction == player_faction or covered(point)
+
+
+# Records and warns (once per reason) that the drawn fog no longer matches the coverage.
+func _report(reason: String) -> void:
+	if overflow != reason:
+		overflow = reason
+		push_warning("FogView: %s; the drawn fog may differ from the sensor coverage" % reason)
 
 
 ## Whether the player's sensors cover a point (Sensors' last evaluation).
@@ -115,6 +147,8 @@ func covered(point: Vector3) -> bool:
 func _process(_delta: float) -> void:
 	var points: Array = _sensors.sources(player_faction)
 	var packed := PackedVector4Array()
+	if points.size() > MAX_SOURCES:
+		_report("%d sensor sources, the fog draws the first %d" % [points.size(), MAX_SOURCES])
 	for p: Vector3 in points.slice(0, MAX_SOURCES):
 		packed.append(Vector4(p.x, p.z, 0, 0))
 	var count := packed.size()

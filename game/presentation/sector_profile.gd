@@ -23,7 +23,7 @@ extends Resource
 @export var strategic_fog_strength := 0.45
 
 @export_group("Dust and debris")
-@export var dust_color := Color(0.9, 0.66, 0.45) # Lit by the star
-@export var dust_strength := 0.07 # Alpha of one dust cloud (Local)
+@export var dust_color := Color(0.78, 0.64, 0.5) # Lit by the star
+@export var dust_strength := 0.045 # Alpha of one dust cloud (Local)
 @export var strategic_dust_strength := 0.16
 @export var debris_color := Color(0.33, 0.31, 0.29)

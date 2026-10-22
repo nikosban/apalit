@@ -1,6 +1,7 @@
 extends SceneTree
 ## Combat prototype v0.4 (A4), adapted to Phase B (Local / Tactical semantic zoom): the
-## zoom range, tactical markers drawn over the kept 3D models, and the tactical grid on
+## zoom range, tactical markers drawn over the kept 3D models, and the tactical grid (now
+## withdrawn: absent, G disabled, its strength rule kept) on
 ## E05, through real wheel, click and key input. Run with a fixed step:
 ##   <godot console> --headless --path . --fixed-fps 60 -s res://game/tests/combat/strategic_test.gd
 
@@ -241,15 +242,14 @@ func _case_markers() -> void:
 
 
 func _case_grid() -> void:
-	print("\n=== S3 tactical grid")
-	var grid: MeshInstance3D = scene.grid
-	var aligned := grid.global_transform.basis.is_equal_approx(Basis.IDENTITY) and is_equal_approx(grid.global_position.x, 0.0) and is_equal_approx(grid.global_position.z, 0.0)
+	print("\n=== S3 tactical grid (withdrawn from play; the implementation is kept)")
 	var close := TacticalGrid.strengths(8.0, _emphasis_for(8.0))
 	var tactical := TacticalGrid.strengths(40.0, _emphasis_for(40.0))
 	var far := TacticalGrid.strengths(150.0, _emphasis_for(150.0))
 	print("  [minor, major] alpha at zoom 8 / 40 / 150: %s / %s / %s" % [close, tactical, far])
-	_check("the grid is on by default, world-aligned (identity basis at the origin, lines at world multiples of 10 / 50 u)", grid.visible and aligned)
-	_check("strength follows zoom: suppressed close in, faint at zoom 40, major lines strongest at full Tactical emphasis (all below 0.2 alpha)",
+	_check("no tactical grid in the scene (no node, so nothing is rendered)", scene.grid == null and not scene.has_node("TacticalGrid")
+		and scene.get_children().all(func(child: Node) -> bool: return child.get_script() != TacticalGrid))
+	_check("kept implementation: strength follows zoom: suppressed close in, faint at zoom 40, major lines strongest at full Tactical emphasis (all below 0.2 alpha)",
 		close == Vector2.ZERO and tactical.x > 0.0 and far.y > tactical.y and far.y <= 0.2 and far.x <= 0.1)
 	var key := InputEventKey.new()
 	key.physical_keycode = KEY_G
@@ -257,10 +257,9 @@ func _case_grid() -> void:
 	key.pressed = true
 	root.push_input(key, true)
 	await process_frame
-	var off := not grid.visible
 	root.push_input(key, true)
 	await process_frame
-	_check("G toggles the grid off and on", off and grid.visible)
+	_check("G is disabled: still no grid after pressing it twice", scene.grid == null and not scene.has_node("TacticalGrid"))
 	await _set_zoom(40.0)
 	var gunship: Node3D = scene.ship("Gunship")
 	_rig().global_position = Vector3(gunship.global_position.x, 0, gunship.global_position.z)
@@ -269,5 +268,5 @@ func _case_grid() -> void:
 	var goal := Vector3(gunship.global_position.x + 8, 0, gunship.global_position.z - 6)
 	await _click(_screen(goal), MOUSE_BUTTON_RIGHT)
 	var destination: Vector2 = gunship.get_node("Locomotion").destination
-	_check("with the grid on, a click selects and a right-click moves to the clicked ground point (%.2f u off)" % destination.distance_to(Vector2(goal.x, goal.z)),
+	_check("without the grid, a click selects and a right-click moves to the clicked ground point (%.2f u off)" % destination.distance_to(Vector2(goal.x, goal.z)),
 		scene.selection().selected == [gunship] and destination.distance_to(Vector2(goal.x, goal.z)) < 0.5)

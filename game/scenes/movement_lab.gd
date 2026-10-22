@@ -48,7 +48,9 @@ extends Node3D
 ##     F1 / F2 / F3 tactic Passive / Defensive / Aggressive; Backspace clear the manual
 ##     target; X cancel the command; P next available weapon profile; T attack-target
 ##     selection (0.25x; left-click a hostile; Esc or right-click elsewhere cancels);
-##     hold Alt weapon ranges; G tactical grid; F10 combat debug overlay.
+##     hold Alt weapon ranges; G tactical grid (only with `tactical_grid_available`);
+##     F10 combat debug overlay; F8 cycles the HDR skybox experiment (A / B / C); F7
+##     environment lighting, F6 Strategic depth, F9 god rays (development switches).
 ##   - Time: Space pause, - / = speed 0.25x / 1x / 2x (TimeControl, the one authority).
 ##     Input, camera, selection, panels and presentation always process; the simulation
 ##     (ships, stations, survey, projectiles, the clock) pauses.
@@ -89,7 +91,7 @@ const ALWAYS_NODES := ["CameraRig", "Selection", "NoticeUI", "DebugUI", "Navigat
 	"AsteroidHover", "WorldHighlight", "ObjectMarkers", "CommandCursor", "StrategicView", "SectorEnvironment"]
 const SCENARIO_KEYS := [KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS]
 const SCENARIO_ZOOM := 40.0
-const GROUND_HALF_SIZE := 150.0
+const GROUND_HALF_SIZE := 150.0 # Sector half-size without a StaticNavigation (sector_half_size()).
 const MARKER_HEIGHT := 0.02
 const DESTINATION_LINE_HEIGHT := 0.03
 const DESTINATION_LINE_COLOR := Color(0.42, 0.31, 0.15) # Dim marker amber.
@@ -103,6 +105,22 @@ signal command_given(ship: Node3D, kind: int) # A player command executed for th
 signal target_selection_changed
 
 @export var scenario_keys := true # Keys 4-9, 0, - set up the avoidance scenarios (test arena only).
+## Prototype (Sector Showcase round, not a balance decision): share of each ship's fuel
+## consumption charged for movement inside this sector (Fuel). 1 keeps the Test Arena's
+## behaviour; the Showcase sets 0.1, so fuel mainly limits future inter-sector travel.
+@export var local_fuel_scale := 1.0
+## The tactical grid is withdrawn from play (no grid node, no G toggle, no rendering
+## cost); TacticalGrid is kept for a later return. True restores it in a scene.
+@export var tactical_grid_available := false
+## Environment rendering (SectorEnvironment, StrategicView): the sky, 0 A flat background
+## (Test Arena), 1 B the HDR panorama (Sector Showcase), 2 C for comparison (F8 cycles);
+## development switches, each independent, for troubleshooting: designed environment
+## lighting with B (F7), Strategic formation depth and sky-safe Strategic fog (F6), god
+## rays (F9). The Test Arena keeps every one off; the Sector Showcase turns them on.
+@export var environment_experiment := 0
+@export var lighting_experiment_d := false
+@export var strategic_experiment_e := false
+@export var god_rays_enabled := false
 
 var _notice_left := 0.0
 var _markers := {} # ship -> [destination ring, request line]
@@ -116,7 +134,7 @@ var envelopes: Node3D = null # Weapon envelopes (Alt, target selection).
 var markers: CanvasLayer = null # Tactical markers (Phase B).
 var strategic: Node3D = null # Strategic View (Phase C prototype).
 var environment: Node3D = null # Sector lighting, dust and debris (environmental prototype).
-var grid: MeshInstance3D = null # Tactical grid (G).
+var grid: MeshInstance3D = null # Tactical grid (G); null while it is withdrawn.
 var sensors: Node = null # The scene's Sensors, else null (no fog: every ship seen).
 var fog_view: MeshInstance3D = null
 var fog_reveal := false # DEBUG override: show every ship despite the fog (tests only).
@@ -138,6 +156,8 @@ var pointer := Vector2(-1, -1) # Last mouse-motion position (hover readouts).
 
 
 func _ready() -> void:
+	var half := sector_half_size() # The camera pans over the sector (150: the Test Arena's default bounds).
+	$CameraRig.bounds = Rect2(-half, -half, 2.0 * half, 2.0 * half)
 	if orders != null:
 		_setup_combat_layer()
 	for ship: Node3D in $Ships.get_children():
@@ -162,6 +182,14 @@ func _ready() -> void:
 			if target_selection and _selection.selected.is_empty():
 				cancel_target_selection())
 		ensure_behavior_view()
+
+
+## Half-size of the square sector, centred on the origin: the scene's navigable map
+## (StaticNavigation.map_half_size; 150 in the Test Arena). MOVE validity, the camera's
+## pan bounds, the tactical grid and Strategic View all follow it.
+func sector_half_size() -> float:
+	var navigation := get_node_or_null("StaticNavigation")
+	return navigation.map_half_size if navigation != null else GROUND_HALF_SIZE
 
 
 ## Adds the Behavior ground lines once some ship has a Behavior node.
@@ -196,9 +224,10 @@ func _setup_combat_layer() -> void:
 	markers = TacticalMarkers.new()
 	markers.name = "TacticalMarkers"
 	add_child(markers)
-	grid = TacticalGrid.new()
-	grid.name = "TacticalGrid"
-	add_child(grid)
+	if tactical_grid_available:
+		grid = TacticalGrid.new()
+		grid.name = "TacticalGrid"
+		add_child(grid)
 	sensors = get_node_or_null("Sensors")
 	if sensors != null:
 		fog_view = FogView.new()
@@ -342,7 +371,8 @@ func resolve_command(screen_position: Vector2) -> Dictionary:
 	if hit == null:
 		return {}
 	var point := Vector2(hit.x, hit.z)
-	if absf(point.x) > GROUND_HALF_SIZE or absf(point.y) > GROUND_HALF_SIZE:
+	var half := sector_half_size()
+	if absf(point.x) > half or absf(point.y) > half:
 		return {}
 	return {"kind": CommandKind.MOVE if ships.size() == 1 else CommandKind.GROUP, "point": point}
 
@@ -426,7 +456,7 @@ func _intent_valid(ship: Node3D, command: Dictionary) -> bool:
 			valid = _mining_of(ship) != null and _asteroids != null and _asteroids.ids().has(command.asteroid)
 		CommandKind.MOVE, CommandKind.GROUP_MOVE:
 			var point: Vector2 = command.point
-			valid = ship.get_node_or_null("RouteFollower") != null and absf(point.x) <= GROUND_HALF_SIZE and absf(point.y) <= GROUND_HALF_SIZE
+			valid = ship.get_node_or_null("RouteFollower") != null and absf(point.x) <= sector_half_size() and absf(point.y) <= sector_half_size()
 	if not valid:
 		_show_notice("%s: order not possible - held order kept" % DisplayName.of(ship))
 	return valid
@@ -865,6 +895,26 @@ func _combat_key(code: Key, _shift: bool = false) -> bool:
 				_show_notice("Target cleared")
 		KEY_F10:
 			debug_visible = not debug_visible
+		KEY_F8:
+			if environment == null:
+				return false
+			environment.set_sky_mode((environment.sky_mode + 1) % 3)
+			_show_notice("Environment %s" % environment.SKY_MODE_NAMES[environment.sky_mode])
+		KEY_F7:
+			if environment == null:
+				return false
+			environment.set_environment_lighting(not environment.lighting_d)
+			_show_notice("Environment lighting (with B) %s" % ("on" if environment.lighting_d else "off"))
+		KEY_F6:
+			if strategic == null:
+				return false
+			strategic.set_environment_depth(not strategic.e_enabled)
+			_show_notice("Strategic depth %s" % ("on" if strategic.e_enabled else "off"))
+		KEY_F9:
+			if environment == null:
+				return false
+			environment.set_god_rays(environment.god_rays == null)
+			_show_notice("God rays %s" % ("on" if environment.god_rays != null else "off"))
 		KEY_SPACE:
 			time_control.toggle_pause()
 		KEY_MINUS, KEY_KP_SUBTRACT:
@@ -874,6 +924,8 @@ func _combat_key(code: Key, _shift: bool = false) -> bool:
 		KEY_T:
 			begin_target_selection()
 		KEY_G:
+			if grid == null:
+				return false # Withdrawn: the key does nothing.
 			grid.visible = not grid.visible
 			_show_notice("Tactical grid %s" % ("on" if grid.visible else "off"))
 		KEY_ESCAPE:

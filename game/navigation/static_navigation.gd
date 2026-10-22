@@ -5,7 +5,7 @@ extends Node
 ## spheres as circles of their horizontal radius, boxes; X/Z plane). Plans routes
 ## and answers clearance questions; it never moves ships.
 
-const MAP_HALF_SIZE := 150.0 # Navigable square, matches the 300 × 300 ground.
+const MAP_HALF_SIZE := 150.0 # Default navigable square: the Test Arena's 300 × 300 ground.
 const CELL_SIZE := 0.25 # Navigation vertex snapping (u); map and polygons must match.
 const CIRCLE_SEGMENTS := 32 # Cylinder outlines (circumscribed, never smaller than the cylinder).
 const STRAIGHT_TOLERANCE := 0.0005 # sin of the direction change below which a route point is dropped (~0.03°).
@@ -13,6 +13,10 @@ const DUPLICATE_DISTANCE := 0.001 # u; route points closer than this to the prev
 const OBSTACLE_GROUP := &"static_obstacle" # Phase 2 Stage 3: obstacle meshes outside the Obstacles node (station bodies and arms).
 
 @export var obstacles_path := NodePath("../Obstacles")
+## Half-size of the navigable square, centred on the origin (Sector Showcase: its own
+## sector). The arena reads it as the scene's sector size (MOVE validity, camera bounds,
+## grid, Strategic View), so navigation and commands always agree.
+@export var map_half_size := MAP_HALF_SIZE
 
 var _maps := {} # planning radius -> map RID
 var _regions: Array[RID] = []
@@ -67,7 +71,7 @@ func add_radius(radius: float) -> void:
 	polygon.cell_size = CELL_SIZE
 	polygon.agent_radius = radius
 	var source := NavigationMeshSourceGeometryData2D.new()
-	var h := MAP_HALF_SIZE
+	var h := map_half_size
 	source.add_traversable_outline(PackedVector2Array([Vector2(-h, -h), Vector2(h, -h), Vector2(h, h), Vector2(-h, h)]))
 	for obstacle in _obstacles:
 		source.add_obstruction_outline(_outline(obstacle))
@@ -88,7 +92,7 @@ func add_radius(radius: float) -> void:
 func is_ready(radius: float) -> bool:
 	if not _maps.has(radius) or NavigationServer2D.map_get_iteration_id(_maps[radius]) == 0:
 		return false
-	return NavigationServer2D.map_get_closest_point(_maps[radius], Vector2(2.0 * MAP_HALF_SIZE, 0.0)).x > 0.0
+	return NavigationServer2D.map_get_closest_point(_maps[radius], Vector2(2.0 * map_half_size, 0.0)).x > 0.0
 
 
 ## Shortest route for a planning radius; the last point is the resolved destination
@@ -125,7 +129,7 @@ func boundary_segments(radius: float) -> PackedVector2Array:
 ## True if a ship of the given radius moving straight from a to b keeps clear of
 ## every obstacle and inside the map. Only obstacles near the segment are tested.
 func segment_clear(a: Vector2, b: Vector2, radius: float) -> bool:
-	var limit := MAP_HALF_SIZE - radius
+	var limit := map_half_size - radius
 	if absf(a.x) > limit or absf(a.y) > limit or absf(b.x) > limit or absf(b.y) > limit:
 		return false
 	var span := Rect2(a, Vector2.ZERO).expand(b).grow(radius)
