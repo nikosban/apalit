@@ -3,7 +3,8 @@ extends Node
 ## lookahead along it, and a route speed profile planned once per order (slow
 ## down before difficult turns, "wheel-over" style), fed to the ship's Locomotion
 ## through steer() every physics tick (before Locomotion steps). Never moves the
-## ship itself; no replanning, no recovery, no cross-track correction.
+## ship itself; no recovery or cross-track correction, and no replanning except
+## replan() after an avoidance pass that left the ship far off its path.
 
 enum RouteStatus { NONE, WAITING, DIRECT, ROUTE, NO_ROUTE } # NO_ROUTE: no longer set (Phase 2.5: a refused order changes nothing).
 
@@ -35,6 +36,7 @@ var speed_cap := INF # Route speed cap of the last step (u/s).
 # last one is the destination (speed 0).
 var restrictions := PackedVector3Array()
 var plans := 0 # Route calculations made (one per executed command).
+var replans := 0 # Re-plans of the current order after a pass (replan(); not counted in plans).
 var last_step_usec := 0 # Cost of the last route-following step (diagnostics).
 var guided_refusals := 0 # Orders refused during guided movement (Phase 2.5; should stay 0).
 
@@ -158,6 +160,31 @@ func _plan(point: Vector2) -> bool:
 		notice.emit("No route found")
 		return false
 	requested = point
+	_start(planned, position)
+	return true
+
+
+## Group MOVE collision fix step 2: the current order planned again from the ship's
+## actual position to the same resolved destination (called by Avoidance when a pass
+## ends with the ship far off its path). Not a new order: `requested` and `plans` are
+## unchanged (ShipBehavior reads a new plan as a player Move), no notice; without a
+## route, or while guided or queued, the current order goes on. Counted in `replans`.
+func replan() -> bool:
+	if _locomotion.guided or _pending or not _locomotion.has_destination or route.size() < 2 \
+			or not (status == RouteStatus.ROUTE or status == RouteStatus.DIRECT):
+		return false
+	var position := _locomotion.planar_position
+	var planned := _navigation.plan(planning_radius(), position, route[route.size() - 1])
+	if planned.size() < 2:
+		return false
+	replans += 1
+	_start(planned, position)
+	return true
+
+
+# Takes a planned route from `position`: route state, speed profile, status and the
+# Locomotion move.
+func _start(planned: PackedVector2Array, position: Vector2) -> void:
 	route = planned
 	segment = 0
 	_aim_segment = 0
@@ -172,7 +199,6 @@ func _plan(point: Vector2) -> bool:
 	var direct := route.size() == 2 and route[0].distance_to(position) <= START_TOLERANCE
 	status = RouteStatus.DIRECT if direct else RouteStatus.ROUTE
 	_locomotion.move_to(route[route.size() - 1], direct)
-	return true
 
 
 # Route speed profile, once per order. Each corner is flown as an arc spread over a

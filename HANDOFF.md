@@ -7,7 +7,10 @@ cursor-anchored zoom with pitch following zoom), Phase B (Local / Tactical
 semantic zoom: models kept, markers fading in), Phase C (Strategic View), the
 environmental lighting and fog prototype and the Sector Showcase round (Showcase
 scene, UI scaling, grid withdrawn, HDR sky, environment lighting, Strategic depth,
-god rays; merged to `main` by the owner 2026-10-22). The movement baseline
+god rays; merged to `main` by the owner 2026-10-22), the Showcase hostile
+faction fix (accepted 2026-10-22), the group MOVE collision fix steps 1-2, the command
+cursor's group check and the translated ordinary Group MOVE (all accepted 2026-10-23;
+step 3 rejected and reverted). The movement baseline
 is still cause C with the 2026-10-18 direct-move prediction horizon correction.
 History: `CHANGELOG.md`. The original game (before Movement V3) and its full
 documentation are preserved in the archive (see Archive); the retired experiments
@@ -125,12 +128,13 @@ rig are "reusable scenes" (own `.tscn`, instanced into other scenes).
   station group (Station, Station2, Shipyard), the six player ships, a major
   formation (dominant r 16, three secondaries, 13 smaller, a corridor), a mixed
   resource formation (6 ice, 2 minerals) and outliers (33 asteroids), a hostile
-  Destroyer and two Gunships behind the major formation under a HostileCommander,
+  Destroyer and two Gunships behind the major formation (their `Combat` overrides:
+  faction 1, stance Aggressive) under a HostileCommander,
   and a `Backdrop` (sector_backdrop.gd). Root exports: `environment_experiment` 1
   (HDR sky), `lighting_experiment_d`, `strategic_experiment_e`, `god_rays_enabled`
   true; its own DirectionalLight3D 30° up (same azimuth as main). Measured crossings
   (720 u, 1x): Frigate 147 s, Gunship / Transporter 165–167 s, Destroyer 251–256 s,
-  about 18% of a tank each. Run with F6; not the startup scene.
+  about 18% of a tank each. The startup scene (`run/main_scene`, owner commit 2026-10-22).
 - `game/scenes/combat_test.tscn` (inherits `main.tscn`): the integrated combat scene
   for play and `combat_scene_test`: a second player Gunship (`Gunship2`, (2, −12)) and
   a hostile fleet in the east, beyond the player's sensor range (`HostileDestroyer`
@@ -308,6 +312,11 @@ see Production combat below.
 - `navigation/route_follower.gd` (`RouteFollower`, one per ship, priority −1):
   one route per order, continuous lookahead, route speed profile planned per
   order (slowing for corners); holds `ship_radius` (read by the other systems).
+  `replan()` (group MOVE collision fix step 2, accepted 2026-10-23): the current order planned again from the ship's
+  position to the same resolved destination, called by Avoidance when a pass ends with
+  the ship more than that encounter's separation off its path; `requested` and `plans`
+  unchanged (ShipBehavior reads a new plan as a player Move), no notice, counted in
+  `replans`; without a route, guided or queued, the order goes on.
   End-of-route correction (retained by the owner, `route_end_test`): the
   destination is braked for at least the ship's straight distance to it (shifted
   by avoidance's offset) while that line is clear, so a ship pushed off its route
@@ -346,6 +355,12 @@ see Production combat below.
   destination and kept a pass against an idle ship parked beyond it: the group MOVE
   shuttling / spinning stall). Only the prediction's stop time changed; preferred
   speed, `remaining` (caps, corridors, feasibility) and routed moves are unchanged.
+  Same-course pass side (2026-10-22, group MOVE collision fix step 1): an encounter
+  with a moving ship that is neither head-on nor crossing (overtaking and converging
+  included) records its `away` side at start; `_choose()` tries only that side
+  (converging keeps its one-separation bound), else yields. Before, the away side's
+  straight-line need could be 0 (the conflict lay after this ship stopped), leaving
+  only a ~22 u pass across the other ship's track.
 - `collision/planar_collision.gd` (`PlanarCollision`): read-only service;
   bounding circles and obstacle shapes, continuous sweeps, removes only the
   velocity into a contact (no bounce, push or separation), at most 3 contacts
@@ -355,13 +370,28 @@ see Production combat below.
   `register_ship(ship)` reads a ship's hull boxes and creates its ring (idempotent);
   `_ready()` calls it for every starting ship, and a produced ship is registered in
   the call that adds it (`pick()` needs every child of `Ships` registered).
-- `orders/group_orders.gd` (`GroupOrders`): one destination per selected ship
-  once per command (largest first, rings around the click, footprint + 1 u +
-  0.5 u apart, reachable, approach-aware, departure preference for groups up
-  to 4), all or none. `resolve_occupied()` (2026-10-15): for a single-ship
-  MOVE whose point lies inside a stationary ship's clearance (both footprints
-  + 1 u + 0.5 u), the same rings and checks for that ship alone, at most
-  `resolve_margin` (5 u, provisional) beyond that clearance.
+- `orders/group_orders.gd` (`GroupOrders`): one destination per selected ship once
+  per command; no group persists after dispatch (each ship then moves with its own
+  speed, navigation and avoidance). Translated Group MOVE (accepted 2026-10-23): one
+  shared solver (`_solve()`, used by `assign()`, `can_assign()`, `command()`): every
+  ship's target is its current position + (clicked point - centroid of the ships
+  given), no rotation or reordering; per round the translated targets are checked
+  as they are (spacing footprint + 1 u + 0.5 u from reserved points and other ships'
+  occupancy, fit on the navigable area, route exists and ends there; no approach
+  check), largest first only to decide conflicts, valid ones reserved; then only the
+  invalid ones are relocated on rings around their own target (up to
+  `search_radius` 40 u, nearest the ship first, with `_approach_clear()`); a ship
+  that finds nothing is excluded (no order: it keeps its order, assignments and
+  commands) and its occupancy (`_occupancy()`) constrains a new round; at most one
+  round per ship. Returns the placed ships only (empty: none); `command()` returns the
+  ships whose RouteFollower took the order. `_find()` skips candidates more than
+  `RESOLVE_TOLERANCE` outside the sector square (provably unable to fit), after the
+  ring's sorting. `last_stats`: candidates, fit / route queries, usec, translated,
+  relocated, unplaced, rounds. The former departure-conflict search over placement
+  orders (`departure_length`, `max_reordered_ships`) is removed. `resolve_occupied()`
+  (2026-10-15): for a single-ship MOVE whose point lies inside a stationary ship's
+  clearance (both footprints + 1 u + 0.5 u), the same rings and checks for that ship
+  alone, at most `resolve_margin` (5 u, provisional) beyond that clearance.
 - `scenes/movement_lab.gd`: scene input above the systems (right-click MOVE /
   group MOVE, scenario keys when `scenario_keys`), destination rings and
   lines, notices, debug wiring; Stage 2: right-click on an asteroid with
@@ -387,9 +417,13 @@ see Production combat below.
   checked then; for a docked ship (anything but its own station) the same checks
   run first (refused: notice, nothing changes; accepted: automation paused as by
   Undock, the command held, the controlled exit started); otherwise it executes
-  as before. A group MOVE with no ship under control or docked is the unchanged
-  `GroupOrders.command()`; otherwise one `GroupOrders.assign()` (atomic) and each
-  ship gets exactly its own destination, held ships after their maneuver.
+  as before. A group MOVE with no ship under control or docked is
+  `GroupOrders.command()`; otherwise one `GroupOrders.assign()` and each placed ship
+  gets exactly its own destination, held ships after their maneuver. Only ships given
+  an order have their assignments released and `command_given` emitted; unplaced ships
+  keep everything (2026-10-23). `_order()` / `_execute()` return whether the command was
+  accepted (executed, or held for station control or the controlled exit); a partial
+  group MOVE shows "N of M ships ordered; K not ordered".
   Phase 4: `register_ship(ship)` (idempotent) connects the ship's RouteFollower,
   Mining, Docking, Fuel and Transport notices and gives it a destination marker and
   request line (the scene's own pair for the first ship, copies for the others);
@@ -937,7 +971,10 @@ Shipyard untouched). Owner decisions that stay in force:
 	same resolution and checks as the click, notices muted): Move (cross), Mine
 	(pointing hand), Dock (can-drop), Unavailable (forbidden), arrow otherwise. OS
 	cursor shapes are placeholders. Cached per target / 2 u cell, refreshed every
-	0.5 s; a group's assignment is checked after 0.25 s rest.
+	0.5 s; a group's assignment is checked after 0.25 s rest, with
+	`GroupOrders.can_assign()` (the click's solver: available when at least one ship can
+	be placed; before 2026-10-23 the full placement-order search ran here, 61 ms median,
+	up to 388 ms per check over a moving 4-ship group in the Showcase, seen as stutter).
 - Propulsion effects: `thruster_view.gd` (one node, reads every child of `Ships`
   each physics tick after the ships, never writes) and `thruster_plume.gdshader`.
   Emitters are the hull's `Thrusters` parts; jet intensity = the ship-frame
@@ -1390,7 +1427,86 @@ Berth nodes the only source of docking geometry (legacy calculations and
 `DockEast` / `DockWest` removed). Requirements met: no RouteFollower order reaches
 a guided ship (counters 0 in every suite); handover only with the ship at rest.
 
-## Latest verification (2026-10-22, Sector Showcase and environment rendering)
+## Latest verification (2026-10-23, translated ordinary Group MOVE)
+
+- Deterministic Showcase probe (outside the project), 18/18: four open-space ships
+  at their translated targets; mid-flight redirect from actual positions (not previous
+  destinations); one target on an asteroid: only that ship relocated; one target
+  inside the 16 u asteroid with a 3 u search: that ship keeps its destination, route
+  and Attack-Move command, the other three ordered, partial notice; column moved along
+  itself: no relocation; tight start and sector-edge click: spaced, reachable, inside;
+  every case clear of excluded ships' kept occupancy.
+- `can_assign()` and `assign()` agree on 704 of 704 probe points, no ship state
+  changed. Sector-boundary filter: 0 of 832 dumped results changed (704 group cases
+  ship by ship and 128 `resolve_occupied()` cases); worst edge previews 128-156 ms ->
+  17-46 ms. Windowed Showcase with four moving ships selected and the cursor resting
+  ahead: previews 0.3 ms, no recurring freezes.
+- All 56 suites (`--fixed-fps 60`): 54 pass; known failures only (`navigation_test`,
+  `obstruction_test`, output unchanged). `group_test` updated for the contract
+  (translation checks, case 6 no room for any ship, new case 10 partial order);
+  group-related outputs changed as expected (`group_rotation_test` case 4 2 contacts,
+  case 5 stall resolved; wider destination gaps in `selection_test`,
+  `combat_e05_behavior_test`, `combat_fleet_test`). `_order()` / `_execute()`
+  acceptance returns: held-command, docking, group and command suites unchanged.
+- Owner playtest: accepted 2026-10-23.
+
+## Earlier verification (2026-10-23, command cursor group check; group MOVE collision fix step 2)
+
+- Step 3 (3a), rejected by the owner and reverted (`group_orders.gd` back to its
+  option A state; no `slot_lead_time`): an experiment ordered each group MOVE ship's
+  candidates nearest its position projected `slot_lead_time` s ahead. Probe outside
+  the project, lead 0 / 1 / 2 s on identical seeds: Showcase sweep ships not arriving
+  3 / 1 / 0, slot flips 90 / 87 / 84; forward redirects fewer crossings and contacts;
+  reversals and rapid alternation about unchanged; 4-ship 90° turn stalled ships
+  (moved < 1 u in the last 20 s) Showcase 9 / 15 / 14, Test Arena 14 / 20 / 23 of 40,
+  contact time 165 → 679 s and 722 → 2046 s. That probe's numbers are not comparable
+  with the earlier step 1 / 2 sweeps: clicks placed from the group centre and mean
+  heading (not the Destroyer's), crossings and slot flips measured against other
+  axes, runs until arrival (up to 100 s, not 60 s), contacts counted per ship (twice
+  per touch); its 90° and 180° cases have one maneuver click, so their zero slot flips
+  are by construction.
+- Known open movement issue (not investigated): a 4-ship group (Gunship, Destroyer,
+  Miner1, Miner2) given one MOVE 45 u to the side of its travel stalls ships: 9–14 of
+  40 over 10 runs with steps 1–2 (Showcase / Test Arena open lane), 11–12 of 40 on
+  the code before step 2. Whether slot-side switching causes it is not established.
+
+- Step 2 (re-plan after a far pass), accepted by the owner 2026-10-23: suites as after step 1 except
+  `obstruction_test` 10/12 (check 5 now passes: staggered Destroyer 0 reversals,
+  36.1 → 27.5 s), `route_end_test` arrivals up to 1 s faster, `group_rotation_test`
+  case 5 back to the known stall (Frigate; contacts 51 → 4, still PASS);
+  `combat_scene_test` 25/25, `e05_behavior_test` 10/10. Probe sweep (40 seeds):
+  Showcase contacts 172 → 42 (runs with contact 10 → 9), Test Arena lane 195 → 53;
+  5 Gunship re-plans in 40 Showcase runs.
+- Cursor group check (`can_assign()`): equivalence probe outside the project, 704
+  points (Showcase, Test Arena, movement test scene; 2–6 ships of mixed sizes; at rest
+  and mid-flight; near the group, anywhere, on / beside asteroids, the sector edge;
+  normal and 6 u search radius): 704 agree with `not assign().is_empty()` (307
+  refused), no ship state changed. Windowed Showcase benchmark (VSync on, 40 s,
+  Gunship, Destroyer, Miner1, Miner2 selected and moving, real cursor resting ahead):
+  frames over 33 ms 74 → 0, frame p99 74.0 → 17.5 ms, max 387.5 → 19.2 ms; frames
+  with a cursor check median 61.2 → 16.7 ms. The same freezes were measured in the
+  Test Arena and in the project before 2026-10-22 (not caused by that day's commits).
+- All 56 suites (`--fixed-fps 60` for every one): 54 pass; known failures only
+  (`navigation_test` 1, `obstruction_test` 2 of 12, output as after step 2);
+  `command_cursor_test`, `selection_test`, `group_test` output identical.
+- Owner playtest: cursor change accepted 2026-10-23 (hovering a moving group smooth).
+
+## Earlier verification (2026-10-22, group MOVE collision fix step 1: same-course pass side)
+
+- Movement suites against a same-day baseline: `avoidance_test`, `obstruction_test`
+  (known 9/12), `navigation_test` (known 35/36), `collision_test`, `locomotion_test`
+  identical; `group_test`, `route_end_test`, `order_consistency_test` same checks
+  (timings / random field seed only). `group_rotation_test` case 5: the known
+  give-way stall now resolves (all five arrive in 13 s) with 51 collision contacts
+  (before 19); arrival there is not required, still PASS.
+- Probe sweep outside the project (Gunship + Destroyer group MOVE, then 10 random
+  group MOVEs 15–35 u ahead, 40 seeds): Showcase runs with contact 28 → 10, with a
+  track crossing 20 → 8, with a slot side flip 15 → 4; Test Arena open lane
+  29 → 10, 22 → 11, 17 → 8. Most remaining contacts come from two runs ending in
+  long contact streaks after a crossing (the next step's target, not traced).
+- Owner playtest: accepted 2026-10-22.
+
+## Earlier verification (2026-10-22, Sector Showcase and environment rendering)
 
 - Full suite on the final tree: 54 of 56 pass; the two known failures
   (`navigation_test`, `obstruction_test`) have unchanged output; no script errors.
@@ -1919,9 +2035,23 @@ Open movement issues (owner, 2026-10-15: unresolved, not accepted):
   6–12 lab ships: 2–4 stalled orders in three of five runs (mutual give-way,
   passes capped to 0 u/s among parked ships); identical with collision off.
   Collision prevents penetration but resolves no deadlock.
-- Group assignment cost: 2–11 ms for three ships; groups of four 20–198 ms
-  (all 24 placement orders tried whenever any departure conflict exists);
-  about 52 ms in the closed-box test case.
+- Group assignment cost (translated solver, click and cursor alike): 704-point probe
+  median 0.1-0.5 ms, p90 2-3.5 ms; worst about 59 ms (6 ships over dense asteroids,
+  937 route queries) and up to 46 ms at the sector edge (candidates between the shrunk
+  navigable area and the sector square, plus ring sorting). Windowed Showcase: 0.3 ms
+  per cursor check in open space, median 1.6 ms / max 7 ms resting near the edge.
+- Group MOVE keeps each ship's current spread, also for widely separated selections;
+  Attack-Move and Waypoint groups use the centroid of their Behavior ships only. A
+  stored destination is the route's resolved end (within 0.25 u of the target).
+- Rendering frame spikes (not caused by GroupOrders; cause unknown): once about 2.0-2.5
+  s after Showcase start (34 ms without a selection, 39-295 ms with four ships
+  selected), and occasional 40-160 ms frames with the camera near the sector edge;
+  render CPU 10-67 ms in those frames, previews 0.3-2.6 ms.
+- Group MOVE avoidance (not investigated): in `group_rotation_test` case 4 the
+  translated column makes the Gunship pass the slower Destroyer up to 10.5 u off its
+  path, past its destination; after the pass (and step 2's re-plan) it drifts into
+  the parked Miner2 (2 contacts, all arrive). A 4-ship group MOVE 45 u to the side of
+  its travel stalls ships (9-14 of 40 over 10 runs; present before step 2).
 - Movement cost (lab, all ships per tick): mean 0.21 ms with 6 ships, 0.70 ms
   with 12, p99 up to 2.05 ms; avoidance grows with the ship count (21–40 µs per
   ship per tick).
@@ -2077,22 +2207,22 @@ Open movement issues (owner, 2026-10-15: unresolved, not accepted):
   not exact amounts.
 - UX and quality-of-life round (accepted 2026-10-18):
   - Held commands: real right-clicks cannot produce an invalid intent, so the
-    intent refusal is tested through `_order()`. A group MOVE with held ships takes
-    its destinations from the unchanged `GroupOrders.assign()`, planned from every
+	intent refusal is tested through `_order()`. A group MOVE with held ships takes
+	its destinations from the unchanged `GroupOrders.assign()`, planned from every
 	ship's current position (each re-checked at release). A command given while
 	docked is still fully validated from the berth.
   - Mining: an out-of-fuel Miner cannot turn, so a misaligned one does not extract
 	until refuelled. The tolerance is to the asteroid's centre.
   - Transport: a quota that cannot complete (e.g. a refinery consuming the same
-    mineral) waits docked indefinitely, holding the berth. Congestion is not shown.
+	mineral) waits docked indefinitely, holding the berth. Congestion is not shown.
   - Inspector: at 1280×720 long names such as "Titanium Ingots" clip in editor
-    rows, and the Ingots list scrolls. A wide notice can overlap the top-left debug
-    toggles. Icons are generated placeholders.
+	rows, and the Ingots list scrolls. A wide notice can overlap the top-left debug
+	toggles. Icons are generated placeholders.
   - Outlines: two highlighted objects overlapping on screen share the stencil (no
-    outline between them). The asteroid hover fill is barely visible.
+	outline between them). The asteroid hover fill is barely visible.
   - Markers: the 7 px octagon reads almost as a circle.
   - Cursors: a cached result can be up to 0.5 s old, and a group shows Move for its
-    first 0.25 s on a cell. Not investigated: with an artificial 40 u no-route zone
+	first 0.25 s on a cell. Not investigated: with an artificial 40 u no-route zone
 	a group click gave RouteFollower's "No route found" instead of the group
 	notice.
   - Propulsion: a teleported ship (`place()`) can flash its jets for a tick.
@@ -2105,28 +2235,32 @@ Open movement issues (owner, 2026-10-15: unresolved, not accepted):
 	ignore stations (asteroids only); weapon envelopes draw asteroid shadows only.
   - Every ship's hull is 150 (the validated value; civilian ships use the same).
   - A ship destroyed during the controlled docking entry or exit stays as an inert
-    hulk where it was for 2 s; its station records are released at once and the
-    berth is granted again only when physically empty.
+	hulk where it was for 2 s; its station records are released at once and the
+	berth is granted again only when physically empty.
   - Placeholders: the Target cursor (OS four-arrow shape), the hostile marker's outer
 	outline, the weapon placeholder meshes, the hull tint.
   - `combat_test.tscn` battle: with the player's warships Aggressive and no orders the
-    hostile fleet won the headless run (an observation, no tuning).
+	hostile fleet won the headless run (an observation, no tuning).
   - The owner's editor state (`.godot/editor/editor_layout.cfg` and fold / script
 	caches) still names files of the retired experiments; the editor may report once
 	that it cannot reopen them (headless `--import` logs "Cannot load shader:
 	res://experiments/movement_v3/…"); project files are unaffected.
 - Sector Showcase round (merged 2026-10-22):
   - God rays are restrained: in Local usually one or two shafts are in view; the
-    shadow bands are faint (shade `opacity` 0.4) and rely on formation dust behind
-    them. The shafts are a stylized stand-in, not volumetric light.
+	shadow bands are faint (shade `opacity` 0.4) and rely on formation dust behind
+	them. The shafts are a stylized stand-in, not volumetric light.
   - Local / Tactical fog still tints the starfield seen through the gameplay plane in
-    the Showcase (only Strategic's fog skips sky pixels).
+	the Showcase (only Strategic's fog skips sky pixels).
   - The Strategic sun-layer fix also lights the Test Arena's Strategic spheres.
   - Without the local HDR file (fresh clones) the Showcase sky cannot load.
   - The Strategic framing fits the sector square rotated by the rig's 45° yaw, so the
-    Showcase content fills the middle of the Strategic screen.
+	Showcase content fills the middle of the Strategic screen.
   - Environment lighting is subtle (+4–6% on the brightest object pixels); its
-    energies are exposed on SectorEnvironment.
+	energies are exposed on SectorEnvironment.
+  - A 2026-10-22 editor re-save (format 4) dropped the hostile ships' `Combat`
+	overrides (they became player-faction ships, ignored by Aggressive and never
+	fogged); restored by hand. The cause of the drop is unknown; a later editor save
+	could repeat it (`sector_environment_test` catches it).
 
 ## Unresolved
 
@@ -2180,8 +2314,12 @@ stations added later); stations cannot be under `Ships` (GroupOrders requires
 
 ## Next task
 
-None assigned: await the owner's next task. Open owner decisions from the Sector
-Showcase round: whether the Showcase becomes the startup scene, a permanent sector
+None assigned: await the owner's next task. Group MOVE work of 2026-10-22/23 is
+accepted (collision fix steps 1-2, the cursor's group check, translated ordinary Group
+MOVE; step 3 rejected and reverted). Locked formations are to be designed separately;
+no leader, shared speed or formation persistence exists. Open, not investigated: the
+rendering frame spikes and the Group MOVE avoidance cases listed under Known
+limitations. Open owner decisions from the Sector Showcase round: a permanent sector
 size and fuel balance (local scale 0.1 is a prototype value), whether the HDR panorama
 goes into Git (LFS) and renaming the experiment-era exports. The project is under Git and pushed
 to GitHub (2026-10-20); no commit or push conventions are decided beyond the

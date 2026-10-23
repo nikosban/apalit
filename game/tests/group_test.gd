@@ -3,10 +3,12 @@ extends SceneTree
 ## stepped manually at 60 Hz in the game's order (per ship RouteFollower then
 ## Avoidance, then Locomotion). Run from the project folder:
 ##   <godot console> --headless --path . -s res://game/tests/group_test.gd
-## PASS/FAIL: assignment succeeds (or is refused where expected), destination
-## footprints at least the margin apart, every destination reachable (route ends
-## there) and clear of obstacles, arrival, no ship contact, no obstacle overlap,
-## locomotion limits, ships settled after arrival, plus per-scenario checks.
+## PASS/FAIL: assignment succeeds (or is refused where expected), valid destinations at
+## the ships' translated targets (current offsets kept), destination footprints at least
+## the margin apart, every destination reachable (route ends there) and clear of
+## obstacles, arrival, no ship contact, no obstacle overlap, locomotion limits, ships
+## settled after arrival, plus per-scenario checks (6: no ship placeable, refused; 10:
+## one ship unplaceable keeps its order, the others move).
 ## Reported: assignment cost (candidates, fit and route queries, time), per ship
 ## the click-to-destination distance, route length, arrival time and time waiting.
 
@@ -48,6 +50,7 @@ func _initialize() -> void:
 	_redirect()
 	_selection_change()
 	_scenario("9 narrow passage (the gap)", {"Frigate": Vector2(-8, 62), "Gunship": Vector2(5, 66), "Destroyer": Vector2(-30, 60)}, Vector2(-1, 15))
+	_partial()
 	var total := 0
 	for cost: Dictionary in _costs:
 		total += cost.usec
@@ -66,6 +69,7 @@ func _scenario(label: String, starts: Dictionary, click: Vector2) -> Dictionary:
 	_check(label, "assignment succeeds", not destinations.is_empty())
 	if destinations.is_empty():
 		return {}
+	_check_translation(label, ships, destinations, click, label.substr(0, 1) in ["1", "2", "3"])
 	_check_destinations(label, destinations, click)
 	_dispatch(destinations)
 	return _fly(label, destinations, click, label.begins_with("3"))
@@ -93,6 +97,23 @@ func _setup(starts: Dictionary, click: Vector2) -> void:
 func _dispatch(destinations: Dictionary) -> void:
 	for ship: Node in destinations:
 		(ship.get_node("RouteFollower")).order(destinations[ship])
+
+
+# Translation: a ship at its translated target sits at its current position moved by
+# (click - centroid of the ships' current positions); the count matches the solver's,
+# and every ship of `ships` has a destination; with `all`, nobody was relocated.
+func _check_translation(label: String, ships: Array, destinations: Dictionary, click: Vector2, all: bool) -> void:
+	var centroid := Vector2.ZERO
+	for ship: Node in ships:
+		centroid += ship.get_node("Locomotion").planar_position
+	var shift: Vector2 = click - centroid / ships.size()
+	var exact := 0
+	for ship: Node in destinations:
+		if (destinations[ship] as Vector2).distance_to(ship.get_node("Locomotion").planar_position + shift) < 0.01:
+			exact += 1
+	var stats: Dictionary = _orders.last_stats
+	_check(label, "%d of %d at their translated target (current offsets kept), %d relocated" % [exact, ships.size(), stats.relocated],
+		exact == stats.translated and destinations.size() == ships.size() and (not all or exact == ships.size()))
 
 
 # Separation, reachability and obstacle clearance of the assigned destinations.
@@ -219,35 +240,100 @@ func _min_gap(destinations: Dictionary) -> float:
 	return nearest
 
 
-# 6: a command with no room is refused as a whole; the existing orders stay.
+# 6: a command no ship can take (every translated target inside the closed box, search
+# radius 4 u) is refused; the existing orders stay.
 func _insufficient() -> void:
-	var label := "6 insufficient space (search radius 12 u, click inside the closed box)"
-	var starts := {"Frigate": Vector2(100, 40), "Gunship": Vector2(125, 40), "Destroyer": Vector2(112, 60)}
+	var label := "6 no room for any ship (search radius 4 u, every target inside the closed box)"
+	var starts := {"Frigate": Vector2(106, 40), "Gunship": Vector2(118, 40), "Destroyer": Vector2(112, 54)}
 	_setup(starts, Vector2(115, -40))
 	var ships := _ships(SHIPS)
 	_dispatch(_orders.assign(ships, Vector2(115, -40)))
 	_steps(60)
+	var before := _orders_of(ships)
+	var click := Vector2(60, 50) # Box centre: the targets keep the group's offsets around it.
+	_orders.search_radius = 4.0
+	var given: Dictionary = _orders.command(ships, click)
+	var ok := not given.is_empty()
+	_report_cost(label, given)
+	_orders.search_radius = 40.0
+	_check(label, "command refused", not ok)
+	_check(label, "existing orders kept (same destinations, no new route)", _kept(ships, before))
+	var notice := _lab.get_node("NoticeUI/Notice") as Label
+	_lab.get_node("Selection").set_selection(ships)
+	var camera := _lab.get_node("CameraRig/Camera3D") as Camera3D
+	_lab.get_node("CameraRig").global_position = Vector3(click.x, 0, click.y)
+	_orders.search_radius = 4.0
+	_lab._command(camera.unproject_position(Vector3(click.x, 0, click.y)))
+	_orders.search_radius = 40.0
+	_check(label, "lab shows the notice", notice.text == _lab.GROUP_NOTICE and _lab._notice_left > 0.0)
+	_check(label, "existing orders still kept after the right-click", _kept(ships, before))
+	_lab.get_node("Selection").set_selection([])
+
+
+# 10: one ship's translated target is unreachable (the closed box): only the others get
+# orders, at their translated targets clear of its kept destination; its order stays;
+# the right-click shows the partial notice.
+func _partial() -> void:
+	var label := "10 partial: one translated target inside the closed box (search radius 12 u)"
+	var starts := {"Frigate": Vector2(100, 40), "Gunship": Vector2(124, 40), "Destroyer": Vector2(112, 80)}
+	_setup(starts, Vector2(115, -40))
+	var ships := _ships(SHIPS)
+	_dispatch(_orders.assign(ships, Vector2(115, -40)))
+	_steps(30)
+	var before := _orders_of(ships)
+	var destroyer := _ship("Destroyer")
+	# The Destroyer's target lands on the box centre (60, 50).
+	var click: Vector2 = _centroid(ships) + Vector2(60, 50) - destroyer.get_node("Locomotion").planar_position
+	_orders.search_radius = 12.0
+	var destinations: Dictionary = _orders.assign(ships, click)
+	_report_cost(label, destinations)
+	_check(label, "two ships assigned, the Destroyer not", destinations.size() == 2 and not destinations.has(destroyer))
+	var shift: Vector2 = click - _centroid(ships)
+	var exact := true
+	var clear_of_kept := true
+	for ship: Node in destinations:
+		exact = exact and (destinations[ship] as Vector2).distance_to(ship.get_node("Locomotion").planar_position + shift) < 0.01
+		clear_of_kept = clear_of_kept and (destinations[ship] as Vector2).distance_to(before[destroyer][0]) \
+			>= _radius(ship) + _radius(destroyer) + 1.0 - 0.001
+	_check(label, "the others at their translated targets (centroid of all three)", exact)
+	_check(label, "their destinations clear of the Destroyer's kept destination", clear_of_kept)
+	_check_destinations(label, destinations, click)
+	var notice := _lab.get_node("NoticeUI/Notice") as Label
+	_lab.get_node("Selection").set_selection(ships)
+	var camera := _lab.get_node("CameraRig/Camera3D") as Camera3D
+	_lab.get_node("CameraRig").global_position = Vector3(click.x, 0, click.y)
+	_lab._command(camera.unproject_position(Vector3(click.x, 0, click.y)))
+	_orders.search_radius = 40.0
+	_lab.get_node("Selection").set_selection([])
+	var others_ordered := true
+	for ship: Node in destinations:
+		others_ordered = others_ordered and ship.get_node("Locomotion").destination.distance_to(destinations[ship]) < 0.01 \
+			and ship.get_node("RouteFollower").plans == before[ship][1] + 1
+	_check(label, "right-click orders the two (one new route each)", others_ordered)
+	_check(label, "the Destroyer keeps its order (same destination, no new route)", _kept([destroyer], before))
+	_check(label, "lab shows the partial notice ('%s')" % notice.text, notice.text == "2 of 3 ships ordered; 1 not ordered")
+
+
+func _orders_of(ships: Array) -> Dictionary:
 	var before := {}
 	for ship: Node in ships:
 		before[ship] = [ship.get_node("Locomotion").destination, ship.get_node("RouteFollower").plans]
-	_orders.search_radius = 12.0
-	var ok: bool = _orders.command(ships, Vector2(60, 50))
-	_report_cost(label, {} if not ok else {0: 0})
-	_orders.search_radius = 40.0
+	return before
+
+
+func _kept(ships: Array, before: Dictionary) -> bool:
 	var kept := true
 	for ship: Node in ships:
 		kept = kept and ship.get_node("Locomotion").has_destination and ship.get_node("Locomotion").destination == before[ship][0] \
 			and ship.get_node("RouteFollower").plans == before[ship][1]
-	_check(label, "command refused", not ok)
-	_check(label, "existing orders kept (same destinations, no new route)", kept)
-	var notice := _lab.get_node("NoticeUI/Notice") as Label
-	_lab.get_node("Selection").set_selection(ships)
-	var camera := _lab.get_node("CameraRig/Camera3D") as Camera3D
-	_lab.get_node("CameraRig").global_position = Vector3(60, 0, 50)
-	_orders.search_radius = 12.0
-	_lab._command(camera.unproject_position(Vector3(60, 0, 50)))
-	_orders.search_radius = 40.0
-	_check(label, "lab shows the notice", notice.text == _lab.GROUP_NOTICE and _lab._notice_left > 0.0)
+	return kept
+
+
+func _centroid(ships: Array) -> Vector2:
+	var centroid := Vector2.ZERO
+	for ship: Node in ships:
+		centroid += ship.get_node("Locomotion").planar_position
+	return centroid / ships.size()
 
 
 # 7: three moving ships redirected by one command keep their momentum.
@@ -316,9 +402,9 @@ func _selection_change() -> void:
 func _report_cost(label: String, destinations: Dictionary) -> void:
 	var stats: Dictionary = _orders.last_stats
 	_costs.append(stats)
-	print("%s: %s, %d ships, %d candidates, %d fit queries, %d route queries, %d us, %d placement orders, departure conflicts %d -> %d" % [label,
+	print("%s: %s, %d ships, %d candidates, %d fit queries, %d route queries, %d us, %d at their translated target, %d relocated, %d unplaced, %d rounds" % [label,
 		"assigned" if stats.success else "refused", destinations.size(), stats.candidates, stats.fit_queries, stats.route_queries, stats.usec,
-		stats.orders, stats.conflicts_first, stats.conflicts])
+		stats.translated, stats.relocated, stats.unplaced, stats.rounds])
 
 
 func _steps(count: int) -> void:

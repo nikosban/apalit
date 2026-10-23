@@ -3,6 +3,26 @@
 Project history, newest first. One to two sentences per task; details are
 in `HANDOFF.md`. Entries are not edited after they are written.
 
+## 2026-10-23 — Ordinary Group MOVE keeps the group's shape
+
+Group MOVE now translates every selected ship's current position by the displacement from the group's centroid to the clicked point, relocates only ships whose translated destination is invalid, and lets the others move when some ships cannot be placed (those keep their orders; notice "N of M ships ordered"); the old placement-order search is removed, the cursor uses the same solver with a sector-boundary filter, and `_order()` / `_execute()` report acceptance (step 3, projected slot ordering, was rejected and reverted); accepted by the owner.
+
+## 2026-10-23 — Group MOVE collision fix, step 2: re-plan after a far pass
+
+When an avoidance pass ends with the ship more than a separation off its path, its order is planned again from where it is (`RouteFollower.replan()`, same destination, not a new player order), so it no longer drives blind into the parked ship (Showcase probe contacts 172 → 42 of 40 runs); accepted by the owner.
+
+## 2026-10-23 — Command cursor group check without the placement-order search
+
+The command cursor now checks a group MOVE with `GroupOrders.can_assign()` (the first placement only, the same accept / refuse answer on 704 of 704 probe points) instead of the full `assign()`, removing the hover freezes over a moving group (Showcase: 74 → 0 frames over 33 ms in 40 s); clicks unchanged; accepted by the owner.
+
+## 2026-10-22 — Group MOVE collision fix, step 1: same-course pass side
+
+Avoidance now passes a ship moving the same general way only on the side away from it (else it yields), so a giving-way ship no longer swings across the other's track (`ship_avoidance.gd`; Showcase probe runs with contact 28 → 10 of 40); accepted by the owner.
+
+## 2026-10-22 — Sector Showcase hostile faction restored
+
+Restored the three hostile ships' `Combat` overrides (faction 1, Aggressive) in `sector_showcase.tscn`, lost in an editor re-save, so they are fogged and engaged again (`sector_environment_test` 39/39); accepted by the owner.
+
 ## 2026-10-22 — Sector Showcase and environment rendering
 
 New `sector_showcase.tscn` (760 u sector shared by navigation, commands, camera and Strategic View; local fuel scale 0.1; no ground; authored formations, hostiles and a depth backdrop), a 1080-line UI canvas with smaller markers and a separate click radius, the tactical grid withdrawn, and in the Showcase the HDR sky, designed sky lighting, Strategic formation depth with sky-safe fog, a lit Strategic layer and lightweight god rays with shadow bands (`sector_environment_test` 39 checks); merged to `main` by the owner, the HDR panorama kept local only.

@@ -1,36 +1,36 @@
 extends Node
-## Stage 5.3 group MOVE: turns one clicked point into one destination per selected
-## ship, once per command, and gives each ship a normal MOVE through its
-## RouteFollower. Nothing persists after dispatch: no group controller, no steering,
-## no reassignment while the ships travel.
+## Group MOVE: turns one clicked point into one destination per selected ship, once
+## per command, and gives each ship a normal MOVE through its RouteFollower. Nothing
+## persists after dispatch: no group controller, no steering, no reassignment while the
+## ships travel; each ship then moves at its own speed with its own navigation and
+## avoidance.
 ##
-## Ships are placed largest first (ties: scene order). Each tries the clicked point,
-## then rings around it (`candidate_spacing` apart, up to `search_radius`); within a
-## ring, the candidate nearest to the ship's current position first. A candidate is
-## accepted when, in this order (cheapest checks first):
-##   1. its footprint plus `separation_margin` + `destination_buffer` stays clear of the destinations already
-##      assigned in this command, of parked ships, and of the active destinations of
-##      ships outside the command (ships in the command are being reassigned);
-##   2. the ship fits there (the point is on its planning radius' navigable area);
+## Translation (2026-10-23): the group keeps its current shape. Every ship's target is
+## its current position moved by the same displacement, from the centroid of the ships
+## given to the clicked point (no rotation, scaling or reordering). A destination is
+## valid when (cheapest checks first):
+##   1. its footprint plus `separation_margin` + `destination_buffer` stays clear of the
+##      points reserved in this command and of the occupancy of ships outside it
+##      (parked: position; queued order: requested point; active order: destination);
+##   2. the ship fits there (the point is on its planning radius' navigable area, which
+##      also keeps it inside the sector);
 ##   3. a route from the ship's current position ends there (reachable);
-##   4. the resolved route end passes check 1 too;
-##   5. approach check against this command's destinations (_approach_clear): by
-##      approximate arrival order, a later ship's route does not pass an earlier
-##      ship's destination footprint. The route end becomes the destination.
-## The command is atomic: if any ship finds no destination, no ship is ordered and
-## existing orders stay.
-##
-## Departure preference: if that assignment has departure conflicts (two ships whose
-## first `departure_length` of route come closer than their footprints plus the margin,
-## and closer than they start), groups of up to `max_reordered_ships` are placed again
-## in every other placement order (same rules), and the assignment with the fewest
-## departure conflicts is kept; ties: fewer swaps of the ships' side-by-side order
-## (across the group's travel), then the smaller total click distance, then the
-## earlier order (largest first is first). A preference only, not a guarantee.
+##   4. the resolved route end passes check 1 too.
+## Each round: every translated target is checked as it is, largest ship first (ties:
+## scene order; the order only decides between two conflicting targets) and reserved
+## when valid; then only the ships whose target was invalid are relocated, on rings
+## around their own target (`candidate_spacing` apart, up to `search_radius`, nearest
+## to the ship's current position first), clear of every reservation and with the
+## approach check (_approach_clear: by approximate arrival order, a later ship's route
+## does not pass an earlier ship's destination footprint). A ship that finds nothing is
+## excluded for the rest of the command (no new order: it keeps its order and
+## assignments) and its current occupancy becomes a constraint; the round is repeated
+## for the others until none fails (at most one round per ship). Ships with a
+## destination move; none: no order.
 ##
 ## Single-ship manual MOVE onto a stationary ship: resolve_occupied() places that one
-## ship with the same candidate rings and checks 1-4 (no placement orders, no
-## departure preference), at most `resolve_margin` beyond the blocker's clearance.
+## ship with the same candidate rings and checks 1-4, at most `resolve_margin` beyond
+## the blocker's clearance.
 
 const RouteFollower := preload("res://game/navigation/route_follower.gd")
 const ShipLocomotion := preload("res://game/locomotion/ship_locomotion.gd")
@@ -38,64 +38,108 @@ const StaticNavigation := preload("res://game/navigation/static_navigation.gd")
 const ShipAvoidance := preload("res://game/avoidance/ship_avoidance.gd")
 const RESOLVE_TOLERANCE := 0.25 # u; navigation precision (the maps' cell size).
 
-@export var search_radius := 40.0 # u around the clicked point (provisional experiment value).
+@export var search_radius := 40.0 # u around a ship's target searched when it is invalid (provisional experiment value).
 @export var candidate_spacing := 1.0 # u between rings and between candidates on a ring (provisional).
 @export var separation_margin := 1.0 # u between destination footprints (as avoidance; provisional).
 @export var destination_buffer := 0.5 # u added to that margin between destinations, so they never sit
 	# exactly on the avoidance separation boundary (provisional; avoidance limits unchanged).
-@export var departure_length := 15.0 # u of each route compared for departure conflicts (provisional).
-@export var max_reordered_ships := 4 # Largest group placed in every order (4: 24 orders; provisional).
 @export var resolve_margin := 5.0 # u beyond a stationary ship's clearance a resolved single MOVE may lie (provisional).
 @export var ships_path := NodePath("../Ships")
 @export var navigation_path := NodePath("../StaticNavigation")
 
-## Cost of the last assignment: candidates looked at, fit queries (closest point),
-## route queries, microseconds; whether it succeeded; placement orders tried and the
-## departure conflicts of the first (largest first) and the chosen assignment.
+## Cost and outcome of the last assignment: candidates looked at, fit queries (closest
+## point), route queries, microseconds; whether any ship got a destination; ships at
+## their translated target, relocated, and without a destination; rounds.
 var last_stats := {}
 
 @onready var _ships := get_node(ships_path)
 @onready var _navigation := get_node(navigation_path) as StaticNavigation
 
 
-## Assigns and dispatches a group MOVE. False (nothing ordered) if any ship has no
-## valid destination.
-func command(ships: Array, point: Vector2) -> bool:
+## Assigns and dispatches a group MOVE: the ships whose RouteFollower took their
+## destination (ship -> Vector2); the others keep their orders. Empty: nothing ordered.
+func command(ships: Array, point: Vector2) -> Dictionary:
+	var ordered := {}
 	var destinations := assign(ships, point)
 	for ship: Node in destinations:
-		(ship.get_node("RouteFollower") as RouteFollower).order(destinations[ship])
-	return not destinations.is_empty()
+		if (ship.get_node("RouteFollower") as RouteFollower).order(destinations[ship]):
+			ordered[ship] = destinations[ship]
+	return ordered
 
 
-## Destination per ship (ship -> Vector2), or empty if any ship has none.
+## Destination per ship (ship -> Vector2) for the ships that can be placed, the whole
+## assignment computed before anything is ordered; empty if no ship can be. Orders
+## nothing and changes no ship (last_stats only).
 func assign(ships: Array, point: Vector2) -> Dictionary:
+	return _solve(ships, point)
+
+
+## Whether a group MOVE to the point would order any ship (the command cursor's group
+## check): the same solver as assign(), so the answer is the click's.
+func can_assign(ships: Array, point: Vector2) -> bool:
+	return not _solve(ships, point).is_empty()
+
+
+# The translated assignment (see the header). Rounds repeat until no ship fails; a
+# failed ship is excluded for good, so there are at most ships.size() + 1 rounds.
+func _solve(ships: Array, point: Vector2) -> Dictionary:
 	var start_usec := Time.get_ticks_usec()
 	last_stats = {"candidates": 0, "fit_queries": 0, "route_queries": 0, "usec": 0, "success": false,
-		"orders": 1, "conflicts_first": 0, "conflicts": 0}
+		"translated": 0, "relocated": 0, "unplaced": 0, "rounds": 0}
+	var result := {}
+	if ships.is_empty():
+		return result
+	var centroid := Vector2.ZERO
+	for ship: Node in ships:
+		centroid += (ship.get_node("Locomotion") as ShipLocomotion).planar_position
+	var shift := point - centroid / ships.size()
 	var ordered := ships.duplicate()
 	ordered.sort_custom(_placed_before)
-	var occupied := _occupied(ships)
-	var assigned := _place(ordered, point, occupied)
-	if not assigned.is_empty():
-		var best := _score(assigned, point)
-		last_stats.conflicts_first = best[0]
-		if best[0] > 0 and ships.size() <= max_reordered_ships:
-			for order: Array in _permutations(ordered).slice(1):
-				last_stats.orders += 1
-				var other := _place(order, point, occupied)
-				if other.is_empty():
-					continue
-				var score := _score(other, point)
-				if _better(score, best):
-					best = score
-					assigned = other
-		last_stats.conflicts = best[0]
-	var result := {}
-	for found: Dictionary in assigned:
+	var fixed := _occupied(ships)
+	var excluded := []
+	var placed := []
+	var translated := 0
+	while true:
+		last_stats.rounds += 1
+		var occupied := fixed.duplicate()
+		placed = []
+		var invalid := []
+		for ship: Node in ordered:
+			if excluded.has(ship):
+				continue
+			var found := _find(ship, _target(ship, shift), occupied, placed, 0.0, false)
+			if found.is_empty():
+				invalid.append(ship)
+				continue
+			placed.append(found)
+			occupied.append([found.point, found.radius])
+		translated = placed.size()
+		var failed := []
+		for ship: Node in invalid:
+			var found := _find(ship, _target(ship, shift), occupied, placed, search_radius)
+			if found.is_empty():
+				failed.append(ship)
+				continue
+			placed.append(found)
+			occupied.append([found.point, found.radius])
+		if failed.is_empty():
+			break
+		for ship: Node in failed:
+			excluded.append(ship)
+			fixed.append(_occupancy(ship))
+	for found: Dictionary in placed:
 		result[found.ship] = found.point
+	last_stats.translated = translated
+	last_stats.relocated = placed.size() - translated
+	last_stats.unplaced = excluded.size()
 	last_stats.usec = Time.get_ticks_usec() - start_usec
 	last_stats.success = not result.is_empty()
 	return result
+
+
+# The ship's current position moved by the command's displacement.
+func _target(ship: Node, shift: Vector2) -> Vector2:
+	return (ship.get_node("Locomotion") as ShipLocomotion).planar_position + shift
 
 
 ## Single-ship manual MOVE: the stationary ship (ShipAvoidance.is_stationary) whose
@@ -121,126 +165,52 @@ func resolve_occupied(ship: Node, point: Vector2) -> Dictionary:
 	if blocker == null:
 		return {}
 	last_stats = {"candidates": 0, "fit_queries": 0, "route_queries": 0, "usec": 0, "success": false,
-		"orders": 0, "conflicts_first": 0, "conflicts": 0}
+		"translated": 0, "relocated": 0, "unplaced": 0, "rounds": 0}
 	var found := _find(ship, point, _occupied([ship]), [], depth + resolve_margin)
 	last_stats.usec = Time.get_ticks_usec() - start_usec
 	last_stats.success = not found.is_empty()
 	return {"blocker": blocker} if found.is_empty() else {"blocker": blocker, "point": found.point}
 
 
-# What the ships outside `ships` hold: [point, ship radius] each (parked: its
-# position; queued order: the requested point; active order: its destination).
+# What the ships outside `ships` hold: _occupancy() of each.
 func _occupied(ships: Array) -> Array:
 	var occupied := []
 	for ship: Node in _ships.get_children():
-		if ships.has(ship):
-			continue
-		var locomotion := ship.get_node("Locomotion") as ShipLocomotion
-		var follower := ship.get_node("RouteFollower") as RouteFollower
-		var at := locomotion.planar_position # parked
-		if follower.status == RouteFollower.RouteStatus.WAITING:
-			at = follower.requested # queued order
-		elif locomotion.has_destination:
-			at = locomotion.destination # active order
-		occupied.append([at, follower.ship_radius])
+		if not ships.has(ship):
+			occupied.append(_occupancy(ship))
 	return occupied
 
 
-# One placement in the given order: {ship, point, radius, route, eta} per ship, or
-# empty if a ship finds no destination.
-func _place(order: Array, point: Vector2, parked: Array) -> Array:
-	var occupied := parked.duplicate()
-	var assigned := []
-	for ship: Node in order:
-		var found := _find(ship, point, occupied, assigned, search_radius)
-		if found.is_empty():
-			return []
-		assigned.append(found)
-		occupied.append([found.point, found.radius])
-	return assigned
+# What a ship holds: [point, ship radius] (parked: its position; queued order: the
+# requested point; active order: its destination).
+func _occupancy(ship: Node) -> Array:
+	var locomotion := ship.get_node("Locomotion") as ShipLocomotion
+	var follower := ship.get_node("RouteFollower") as RouteFollower
+	var at := locomotion.planar_position # parked
+	if follower.status == RouteFollower.RouteStatus.WAITING:
+		at = follower.requested # queued order
+	elif locomotion.has_destination:
+		at = locomotion.destination # active order
+	return [at, follower.ship_radius]
 
 
-# [departure conflicts, side-by-side order swaps, total click distance].
-func _score(assigned: Array, point: Vector2) -> Array:
-	var conflicts := 0
-	var swaps := 0
-	var spread := 0.0
-	var centre := Vector2.ZERO
-	for found: Dictionary in assigned:
-		centre += (found.route as PackedVector2Array)[0]
-		spread += (found.point as Vector2).distance_to(point)
-	centre /= assigned.size()
-	var travel := point - centre
-	var across := Vector2(-travel.y, travel.x).normalized()
-	for i in assigned.size():
-		var a: Dictionary = assigned[i]
-		var a_route: PackedVector2Array = a.route
-		for j in range(i + 1, assigned.size()):
-			var b: Dictionary = assigned[j]
-			var b_route: PackedVector2Array = b.route
-			var start_gap := a_route[0].distance_to(b_route[0])
-			var nearest := _prefix_distance(_prefix(a_route), _prefix(b_route))
-			if nearest < a.radius + b.radius + separation_margin and nearest < start_gap - RESOLVE_TOLERANCE:
-				conflicts += 1
-			if across != Vector2.ZERO and signf(across.dot(a_route[0] - b_route[0])) * signf(across.dot(a.point - b.point)) < 0.0:
-				swaps += 1
-	return [conflicts, swaps, spread]
-
-
-static func _better(score: Array, best: Array) -> bool:
-	if score[0] != best[0]:
-		return score[0] < best[0]
-	if score[1] != best[1]:
-		return score[1] < best[1]
-	return score[2] < best[2] - RESOLVE_TOLERANCE
-
-
-# The first departure_length of a route.
-func _prefix(route: PackedVector2Array) -> PackedVector2Array:
-	var prefix := PackedVector2Array([route[0]])
-	var left := departure_length
-	for i in route.size() - 1:
-		var length := route[i].distance_to(route[i + 1])
-		if length >= left:
-			prefix.append(route[i] + (route[i + 1] - route[i]) * (left / length))
-			break
-		prefix.append(route[i + 1])
-		left -= length
-	return prefix
-
-
-static func _prefix_distance(a: PackedVector2Array, b: PackedVector2Array) -> float:
-	var nearest := INF
-	for i in a.size() - 1:
-		for j in b.size() - 1:
-			var points := Geometry2D.get_closest_points_between_segments(a[i], a[i + 1], b[j], b[j + 1])
-			nearest = minf(nearest, points[0].distance_to(points[1]))
-	return nearest
-
-
-# Every order of the ships, the given order first (lexicographic by position in it).
-static func _permutations(ships: Array) -> Array:
-	if ships.size() <= 1:
-		return [ships.duplicate()]
-	var result := []
-	for i in ships.size():
-		var rest := ships.duplicate()
-		rest.remove_at(i)
-		for tail: Array in _permutations(rest):
-			result.append([ships[i]] + tail)
-	return result
-
-
-# Candidates on the rings around the point out to `limit` u.
-func _find(ship: Node, point: Vector2, occupied: Array, assigned: Array, limit: float) -> Dictionary:
+# Candidates on the rings around the point out to `limit` u (0: the point only); with
+# `approach`, also the approach check against `assigned`.
+func _find(ship: Node, point: Vector2, occupied: Array, assigned: Array, limit: float, approach := true) -> Dictionary:
 	var follower := ship.get_node("RouteFollower") as RouteFollower
 	var locomotion := ship.get_node("Locomotion") as ShipLocomotion
 	var position := locomotion.planar_position
 	var radius := follower.ship_radius
 	var planning := follower.planning_radius()
+	# The navigable area lies inside the sector square it is baked from, so a candidate
+	# farther than the fit tolerance outside it can never fit: skipped before any query
+	# (after the ring's sorting, so the order of the others is unchanged).
+	var bound := _navigation.map_half_size + RESOLVE_TOLERANCE
 	for k in int(limit / candidate_spacing) + 1:
 		for candidate: Vector2 in _ring(point, k, position):
 			last_stats.candidates += 1
+			if absf(candidate.x) > bound or absf(candidate.y) > bound:
+				continue
 			if not _clear(candidate, radius, occupied):
 				continue
 			last_stats.fit_queries += 1
@@ -255,7 +225,7 @@ func _find(ship: Node, point: Vector2, occupied: Array, assigned: Array, limit: 
 				continue
 			var found := {"ship": ship, "point": resolved, "radius": radius, "route": route,
 				"eta": _length(route) / locomotion.max_speed}
-			if _approach_clear(found, assigned):
+			if not approach or _approach_clear(found, assigned):
 				return found
 	return {}
 

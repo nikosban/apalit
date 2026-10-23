@@ -33,7 +33,7 @@ const EPSILON := 0.000001
 @export var navigation_path := NodePath("../../../StaticNavigation")
 
 var state := State.NORMAL
-var encounters := {} # other ship -> {give_way, response, side, need, shift, limited, head_on, astern, converging}
+var encounters := {} # other ship -> {give_way, response, side, need, shift, limited, head_on, astern, converging, away}
 var offset := Vector2.ZERO # Steering offset requested this tick.
 var speed_cap := INF # Speed cap requested this tick.
 var target := Vector2.ZERO # Steering point this ship is sent to (aim point + passing shift).
@@ -136,6 +136,7 @@ func _update() -> void:
 			_show_closest(ship, prediction)
 
 	# Start, keep or end encounters.
+	var replan_due := false
 	for ship: Node in predictions:
 		var prediction: Dictionary = predictions[ship]
 		var other_position := (ship.get_node("Locomotion") as ShipLocomotion).planar_position
@@ -147,6 +148,10 @@ func _update() -> void:
 			var holding: bool = encounter.response == Response.PASS and (prediction.closing or prediction.actual_conflict
 				or from.distance_to(other_position) < prediction.separation)
 			if not (prediction.conflict or holding):
+				# A pass that left the ship more than a separation off its path: the
+				# predictions (from the path) would no longer see ships near the ship itself.
+				if encounter.response == Response.PASS and position.distance_to(from) > prediction.separation:
+					replan_due = true
 				_history[ship] = encounter.side
 				encounters.erase(ship)
 				continue
@@ -170,10 +175,13 @@ func _update() -> void:
 			var converging := moving and not head_on and not crossing \
 				and absf(relative_velocity.dot(side_axis)) > absf(relative_velocity.dot(dir))
 			var away := -1 if (prediction.relative as Vector2).dot(side_axis) > 0.0 else 1
+			# Same course (moving, neither head-on nor crossing; overtaking and converging
+			# included): a pass may only go away from the other ship, never across its track.
+			var same_course := moving and not head_on and not crossing
 			var encounter := {"give_way": _gives_way(ship, own), "response": Response.NONE, "side": 0, "need": 0.0,
 				"shift": 0.0, "limited": false, "released": false, "head_on": head_on,
 				"astern": int(signf(side_axis.dot(-other_velocity))) if crossing else 0,
-				"converging": away if converging else 0}
+				"converging": away if converging else 0, "away": away if same_course else 0}
 			encounters[ship] = encounter
 			if encounter.give_way:
 				_choose(encounter, ship, own, predictions)
@@ -228,6 +236,12 @@ func _update() -> void:
 		target = shifted
 		if not routed:
 			offset = shifted - _locomotion.destination # Direct move: Locomotion steers to the destination.
+	# Group MOVE collision fix step 2: the order planned again from the ship's position
+	# (same destination); this tick's shift belonged to the old path, so it is dropped
+	# (caps kept). The encounters work from the new path from the next tick.
+	if replan_due and _follower.replan():
+		offset = Vector2.ZERO
+		target = _follower.aim_point if _locomotion.has_destination else position
 
 
 # Early release (cause B): a pass committed around a stationary ship is suspended (no
@@ -478,8 +492,9 @@ func _reserve(separation: float) -> float:
 
 
 # Pass on a feasible side (head-on: starboard first; crossing: only astern of the
-# other ship; converging: only away from it, at most one separation; otherwise the
-# smaller shift first, starboard on a tie), else yield.
+# other ship; converging: only away from it, at most one separation; other same-course
+# encounters: only away from it; otherwise the smaller shift first, starboard on a
+# tie), else yield.
 # The side is then kept for the encounter.
 func _choose(encounter: Dictionary, ship: Node, own: Dictionary, predictions: Dictionary) -> void:
 	var prediction: Dictionary = predictions[ship]
@@ -493,6 +508,10 @@ func _choose(encounter: Dictionary, ship: Node, own: Dictionary, predictions: Di
 		# separation (the encounter's own scale); otherwise slow down and let it merge.
 		sides = [encounter.converging]
 		bound = prediction.separation
+	elif encounter.away != 0:
+		# Same course: only away from the other ship (no bound: an overtaking ship from
+		# straight behind needs about one separation); otherwise slow down.
+		sides = [encounter.away]
 	elif not encounter.head_on:
 		var starboard := _need(prediction.relative, u, own, 1, prediction.separation)
 		var port := _need(prediction.relative, u, own, -1, prediction.separation)
