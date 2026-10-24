@@ -43,12 +43,17 @@ genre, gameplay loops, or requirements.
   and recommendations. Separate verified facts from assumptions. Ask only
   questions that block the current task. Wait for answers; repeat until
   resolved.
+  - **Editability:** If the result includes values judged by look or feel
+	rather than correctness, ask: expose them in the Godot editor, give a
+	manual refinement guide, or neither? If unsure, ask.
 - **C. Plan:** Present scope, files to create/modify, approach, exclusions,
   verification, acceptance criteria, and limitations in the conversation.
   STOP for explicit approval.
 - **D. Implementation:** Implement only the approved plan and files. If an
   unforeseen decision arises, stop and ask. Run available verification.
-  Report changes, results, and remaining problems.
+  Report changes, results, and remaining problems, plus where agreed
+  editable values live (scene, node, property) or the agreed refinement
+  guide.
 - **E. User validation:** Stop. The task is not complete until the owner
   explicitly accepts it. Requested changes return to A, B, or C.
 - **F. Handoff:** After acceptance, add a one-to-two-sentence `CHANGELOG.md`

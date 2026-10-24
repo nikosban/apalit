@@ -11,6 +11,10 @@ The owner turned on glow and a warm volumetric fog (anisotropy 0.9, length 12.69
 
 On the owner's redesigned Destroyer hull, mirrored the bows and two main engines (now inside `ship_radius`), set the side jets flush on the widened Spine, lowered the missile cells and cannon onto the Spine top and gave every `MainEngine*` cylinder its own plume, with `thruster_view_test` and `salvo_test` updated (`fleet_test` hostile focus now a known failure); accepted by the owner.
 
+## 2026-10-24 — Workflow: editability question
+
+`AGENTS.md` step B now asks, when a result includes values judged by look or feel, whether to expose them in the Godot editor, give a manual refinement guide, or neither, and step D reports where the agreed editable values live; accepted by the owner.
+
 ## 2026-10-24 — Repository cleanup
 
 Removed the unused `ui_palette.gd` and the empty `.claude/`, corrected HANDOFF (startup scene, Playable list, suite count) and added the missing `--fixed-fps 60` to `strategic_view_test` and `sector_environment_test` in the documented test commands (`strategic_view_test` 30/30 with it); accepted by the owner.
