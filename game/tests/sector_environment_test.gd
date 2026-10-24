@@ -147,7 +147,7 @@ func _case_showcase() -> void:
 		field.ids().size() <= FogView.MAX_ASTEROIDS and scene.fog_view.overflow == "")
 
 
-## HDR skybox experiment: B and C use the panorama as described; A restores every
+## Skybox experiment: B and C use the panorama as described; A restores every
 ## baseline value; the sun is never touched; F8 cycles A -> B -> C -> A.
 func _case_sky() -> void:
 	_unload()
@@ -167,8 +167,8 @@ func _case_sky() -> void:
 		and world.reflected_light_source == Environment.REFLECTION_SOURCE_BG and world.sky == null)
 	env.set_sky_mode(1)
 	var panorama := (world.sky.sky_material as PanoramaSkyMaterial).panorama if world.sky != null else null
-	_check("Sky B: the HDR panorama (%s) is the visible sky; ambient stays the profile colour; reflections off" % (str(panorama.get_size()) if panorama != null else "none"),
-		world.background_mode == Environment.BG_SKY and panorama != null and panorama.resource_path.ends_with("HDR_galactic_plane_1.hdr")
+	_check("Sky B: the panorama (%s) is the visible sky; ambient stays the profile colour; reflections off" % (str(panorama.get_size()) if panorama != null else "none"),
+		world.background_mode == Environment.BG_SKY and panorama != null and panorama.resource_path.ends_with("multi_nebulae_2.png")
 		and world.ambient_light_source == Environment.AMBIENT_SOURCE_COLOR and world.ambient_light_color == env.profile.ambient_color
 		and world.reflected_light_source == Environment.REFLECTION_SOURCE_DISABLED)
 	env.set_sky_mode(2)

@@ -49,7 +49,7 @@ extends Node3D
 ##     target; X cancel the command; P next available weapon profile; T attack-target
 ##     selection (0.25x; left-click a hostile; Esc or right-click elsewhere cancels);
 ##     hold Alt weapon ranges; G tactical grid (only with `tactical_grid_available`);
-##     F10 combat debug overlay; F8 cycles the HDR skybox experiment (A / B / C); F7
+##     F10 combat debug overlay; F8 cycles the skybox experiment (A / B / C); F7
 ##     environment lighting, F6 Strategic depth, F9 god rays (development switches).
 ##   - Time: Space pause, - / = speed 0.25x / 1x / 2x (TimeControl, the one authority).
 ##     Input, camera, selection, panels and presentation always process; the simulation
@@ -113,7 +113,7 @@ signal target_selection_changed
 ## cost); TacticalGrid is kept for a later return. True restores it in a scene.
 @export var tactical_grid_available := false
 ## Environment rendering (SectorEnvironment, StrategicView): the sky, 0 A flat background
-## (Test Arena), 1 B the HDR panorama (Sector Showcase), 2 C for comparison (F8 cycles);
+## (Test Arena), 1 B the panorama (Sector Showcase), 2 C for comparison (F8 cycles);
 ## development switches, each independent, for troubleshooting: designed environment
 ## lighting with B (F7), Strategic formation depth and sky-safe Strategic fog (F6), god
 ## rays (F9). The Test Arena keeps every one off; the Sector Showcase turns them on.

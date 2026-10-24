@@ -3,6 +3,10 @@
 Project history, newest first. One to two sentences per task; details are
 in `HANDOFF.md`. Entries are not edited after they are written.
 
+## 2026-10-24 — Showcase sky panorama replaced
+
+The Showcase sky (sky modes B, C and environment lighting D) now uses `multi_nebulae_2.png` (10000 × 5000, tracked in Git) instead of the local-only `HDR_galactic_plane_1.hdr`, which is deleted; rotation and brightness unchanged (`sector_environment_test` 39/39); accepted by the owner.
+
 ## 2026-10-23 — Ordinary Group MOVE keeps the group's shape
 
 Group MOVE now translates every selected ship's current position by the displacement from the group's centroid to the clicked point, relocates only ships whose translated destination is invalid, and lets the others move when some ships cannot be placed (those keep their orders; notice "N of M ships ordered"); the old placement-order search is removed, the cursor uses the same solver with a sector-boundary filter, and `_order()` / `_execute()` report acceptance (step 3, projected slot ordering, was rejected and reverted); accepted by the owner.

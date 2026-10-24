@@ -21,10 +21,9 @@ extends Node3D
 ##   it (StrategicView draws its own density and dust).
 ##   Sky (one scene-wide setting, every view; the scene's `environment_experiment`, F8 in
 ##   development): `sky_mode` A (0) the profile's flat background, colour ambient and
-##   background reflections (the Test Arena); B (1) the HDR_galactic_plane_1 panorama as
+##   background reflections (the Test Arena); B (1) the multi_nebulae_2 panorama as
 ##   the visible sky (the Sector Showcase); C (2) the same sky with ambient and reflections
-##   sampled from it (kept for comparison only: the panorama is too dark to light). The
-##   panorama (200 MB) loads on first use only.
+##   sampled from it (kept for comparison only). The panorama loads on first use only.
 ##   Environment lighting (with B; the scene's `lighting_experiment_d`, F7 to disable while
 ##   troubleshooting): the same panorama drawn by a sky shader whose lighting pass
 ##   (AT_CUBEMAP_PASS) is a designed distribution: a cool fill (the profile's ambient
@@ -63,8 +62,8 @@ var _rock_material := ShaderMaterial.new()
 var _fine_material := ShaderMaterial.new()
 var _dust_material := StandardMaterial3D.new()
 
-const SKY_PANORAMA := "res://assets/textures/skybox/HDR_galactic_plane_1.hdr"
-const SKY_MODE_NAMES := ["A baseline", "B visible HDR sky", "C HDR sky with environment lighting"]
+const SKY_PANORAMA := "res://assets/textures/skybox/multi_nebulae_2.png"
+const SKY_MODE_NAMES := ["A baseline", "B visible panorama sky", "C panorama sky with environment lighting"]
 const LIGHTING_SKY_SHADER := """
 shader_type sky;
 uniform sampler2D source_panorama : filter_linear, source_color, hint_default_black;

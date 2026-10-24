@@ -1,16 +1,17 @@
 # HANDOFF.md
 
-Last updated: 2026-10-22, after the production combat migration (accepted by the
+Last updated: 2026-10-24, after the production combat migration (accepted by the
 owner after gameplay testing), the M8 repository cleanup, the Git / GitHub
 setup, the removal of the defended-area ring, camera Phase A (continuous,
 cursor-anchored zoom with pitch following zoom), Phase B (Local / Tactical
 semantic zoom: models kept, markers fading in), Phase C (Strategic View), the
 environmental lighting and fog prototype and the Sector Showcase round (Showcase
-scene, UI scaling, grid withdrawn, HDR sky, environment lighting, Strategic depth,
+scene, UI scaling, grid withdrawn, panorama sky, environment lighting, Strategic depth,
 god rays; merged to `main` by the owner 2026-10-22), the Showcase hostile
 faction fix (accepted 2026-10-22), the group MOVE collision fix steps 1-2, the command
 cursor's group check and the translated ordinary Group MOVE (all accepted 2026-10-23;
-step 3 rejected and reverted). The movement baseline
+step 3 rejected and reverted) and the Showcase sky panorama replaced
+(`multi_nebulae_2.png`, accepted 2026-10-24). The movement baseline
 is still cause C with the 2026-10-18 direct-move prediction horizon correction.
 History: `CHANGELOG.md`. The original game (before Movement V3) and its full
 documentation are preserved in the archive (see Archive); the retired experiments
@@ -56,10 +57,10 @@ manufacturing, station construction or strategic AI.
   Windows, stretch `canvas_items` / `expand`. Window maximized. Base canvas
   1920 × 1080 (Sector Showcase round): 2D sizes are px at 1080p and scale with the
   window height.
-- `assets/textures/skybox/HDR_galactic_plane_1.hdr` (+ `.import`): the owner's
-  10000 × 5000 Radiance panorama (86 MB), the Showcase sky. Local only: not in Git
-  (owner decision 2026-10-22; listed in `.git/info/exclude`), so a fresh clone has
-  no Showcase sky until it is added (Git LFS was offered).
+- `assets/textures/skybox/multi_nebulae_2.png` (+ `.import`): the owner's
+  10000 × 5000 8-bit PNG panorama (11.8 MB, imported lossless, no mipmaps), the
+  Showcase sky. Tracked in Git (owner decision 2026-10-24); it replaced the
+  local-only `HDR_galactic_plane_1.hdr`, now deleted.
 - `main.tscn`: the playable scene (see Scenes).
 - `game/`: all production code and scenes (see Code).
 - `icon.svg`, `icon.svg.import`: project icon.
@@ -131,7 +132,7 @@ rig are "reusable scenes" (own `.tscn`, instanced into other scenes).
   Destroyer and two Gunships behind the major formation (their `Combat` overrides:
   faction 1, stance Aggressive) under a HostileCommander,
   and a `Backdrop` (sector_backdrop.gd). Root exports: `environment_experiment` 1
-  (HDR sky), `lighting_experiment_d`, `strategic_experiment_e`, `god_rays_enabled`
+  (panorama sky), `lighting_experiment_d`, `strategic_experiment_e`, `god_rays_enabled`
   true; its own DirectionalLight3D 30° up (same azimuth as main). Measured crossings
   (720 u, 1x): Frigate 147 s, Gunship / Transporter 165–167 s, Destroyer 251–256 s,
   about 18% of a tank each. The startup scene (`run/main_scene`, owner commit 2026-10-22).
@@ -1145,8 +1146,8 @@ each system:
   profile `sector_profile.gd` / `warm_sector.tres`): applies the profile (key light
   colour and energy, cool ambient, background, ground) and builds rocks, fine debris
   and formation dust pockets around asteroid formations (surfaces within 28 u). Sky
-  (`environment_experiment`): A flat background, B the HDR panorama, C sky-sampled
-  lighting (comparison only; the panorama is too dark, mean luminance 0.0018).
+  (`environment_experiment`): A flat background, B the `multi_nebulae_2.png` panorama
+  (rotation X 90°, energy 1), C sky-sampled lighting (comparison only).
   Environment lighting (`lighting_experiment_d`, with B): a sky shader that draws the
   panorama but bakes a designed radiance for ambient light and reflections (cool fill
   0.45, halved away from the star, warm lobe 0.6 toward the sun). God rays
@@ -1517,8 +1518,8 @@ a guided ship (counters 0 in every suite); handover only with the ship at rest.
   alignment, clearance, determinism and freeing, and with everything on a hidden
   hostile stays hidden. `strategic_test` S3 checks the withdrawn grid;
   `tactical_view_test` uses the new click radius.
-- Performance (Ryzen 5 7600X, RTX 4070 SUPER, D3D12): the HDR sky about +0.1 ms GPU
-  and +230 MB texture memory (65 ms first load); environment lighting and Strategic
+- Performance (Ryzen 5 7600X, RTX 4070 SUPER, D3D12): the former HDR sky about +0.1 ms GPU
+  and +230 MB texture memory (65 ms first load; not re-measured with the PNG); environment lighting and Strategic
   depth within noise; god rays +0.04 ms GPU at 4K Local (target < 0.5 ms).
 - Captures were checked by the agent at 1080p and 4K; the owner merged the work to
   `main` on 2026-10-22.
@@ -2252,7 +2253,6 @@ Open movement issues (owner, 2026-10-15: unresolved, not accepted):
   - Local / Tactical fog still tints the starfield seen through the gameplay plane in
 	the Showcase (only Strategic's fog skips sky pixels).
   - The Strategic sun-layer fix also lights the Test Arena's Strategic spheres.
-  - Without the local HDR file (fresh clones) the Showcase sky cannot load.
   - The Strategic framing fits the sector square rotated by the rig's 45° yaw, so the
 	Showcase content fills the middle of the Strategic screen.
   - Environment lighting is subtle (+4–6% on the brightest object pixels); its
@@ -2320,8 +2320,7 @@ MOVE; step 3 rejected and reverted). Locked formations are to be designed separa
 no leader, shared speed or formation persistence exists. Open, not investigated: the
 rendering frame spikes and the Group MOVE avoidance cases listed under Known
 limitations. Open owner decisions from the Sector Showcase round: a permanent sector
-size and fuel balance (local scale 0.1 is a prototype value), whether the HDR panorama
-goes into Git (LFS) and renaming the experiment-era exports. The project is under Git and pushed
+size and fuel balance (local scale 0.1 is a prototype value) and renaming the experiment-era exports. The project is under Git and pushed
 to GitHub (2026-10-20); no commit or push conventions are decided beyond the
 initial setup. The production combat migration and the M8 repository cleanup
 (2026-10-20) are the latest accepted game work and the baseline; combat behaviour is frozen as accepted (no tuning, new mechanics, Frigate
