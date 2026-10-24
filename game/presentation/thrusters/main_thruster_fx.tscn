@@ -1,0 +1,57 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/presentation/thrusters/main_thruster_fx.gd" id="1_fr33b"]
+[ext_resource type="Material" path="res://game/presentation/thrusters/main_exhaust_process.tres" id="2_i1cg4"]
+[ext_resource type="Material" path="res://game/presentation/thrusters/plasma_main.tres" id="3_myh1c"]
+[ext_resource type="Material" path="res://game/presentation/thrusters/nozzle_glow.tres" id="4_c8gpe"]
+[ext_resource type="Material" path="res://game/presentation/thrusters/main_trail_process.tres" id="5_trail"]
+[ext_resource type="Material" path="res://game/presentation/thrusters/plasma_core.tres" id="6_core"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_mnug8"]
+material = ExtResource("3_myh1c")
+size = Vector2(0.22, 0.22)
+
+[sub_resource type="QuadMesh" id="QuadMesh_trail"]
+material = ExtResource("3_myh1c")
+size = Vector2(0.16, 0.16)
+
+[sub_resource type="QuadMesh" id="QuadMesh_core"]
+material = ExtResource("6_core")
+
+[sub_resource type="QuadMesh" id="QuadMesh_tkgwu"]
+material = ExtResource("4_c8gpe")
+size = Vector2(0.6, 0.6)
+
+[node name="MainThrusterFX" type="Node3D" unique_id=1489698123]
+script = ExtResource("1_fr33b")
+
+[node name="Exhaust" type="GPUParticles3D" parent="." unique_id=1363275288]
+cast_shadow = 0
+emitting = false
+amount = 96
+lifetime = 0.32
+fixed_fps = 0
+interpolate = false
+visibility_aabb = AABB(-1.5, -1.5, -4, 3, 3, 5.5)
+process_material = ExtResource("2_i1cg4")
+draw_pass_1 = SubResource("QuadMesh_mnug8")
+
+[node name="Trail" type="GPUParticles3D" parent="." unique_id=1714093342]
+cast_shadow = 0
+emitting = false
+amount = 48
+lifetime = 0.55
+fixed_fps = 0
+interpolate = false
+visibility_aabb = AABB(-2.5, -2.5, -5.5, 5, 5, 7)
+process_material = ExtResource("5_trail")
+draw_pass_1 = SubResource("QuadMesh_trail")
+
+[node name="Core" type="MeshInstance3D" parent="." unique_id=2033311617]
+visible = false
+cast_shadow = 0
+mesh = SubResource("QuadMesh_core")
+
+[node name="Glow" type="MeshInstance3D" parent="." unique_id=1804872773]
+cast_shadow = 0
+mesh = SubResource("QuadMesh_tkgwu")

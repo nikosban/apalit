@@ -3,6 +3,10 @@
 Project history, newest first. One to two sentences per task; details are
 in `HANDOFF.md`. Entries are not edited after they are written.
 
+## 2026-10-24 — Reusable thruster VFX
+
+Replaced the cone plumes and drawn jets with two reusable GPU-particle scenes in `game/presentation/thrusters/` (main thruster: core, plume, trail and idle glow; directional: neutral continuous stream, pulses optional), driven by `ThrusterView` on ships and by the ordnance on missiles and torpedoes (ribbon trails kept), with shared Inspector-tunable resources, a preview scene and the strict reusability policy added to `AGENTS.md`; accepted by the owner.
+
 ## 2026-10-24 — Showcase glow and volumetric fog
 
 The owner turned on glow and a warm volumetric fog (anisotropy 0.9, length 12.69) in the Sector Showcase's WorldEnvironment (`sector_environment_test` 39/39); accepted by the owner.

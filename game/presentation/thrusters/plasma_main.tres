@@ -1,0 +1,13 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://game/presentation/thrusters/plasma.gdshader" id="1_stt2v"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_stt2v")
+shader_parameter/emission_color = Color(1, 0.9, 0.8, 1)
+shader_parameter/emission_energy = 1.25
+shader_parameter/softness = 1.5
+shader_parameter/streak = true
+shader_parameter/stretch = 3.0
+shader_parameter/head = 0.0

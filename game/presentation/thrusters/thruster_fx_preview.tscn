@@ -1,0 +1,58 @@
+[gd_scene format=3 uid="uid://ckvv4exsdn0cg"]
+
+[ext_resource type="Script" uid="uid://bmkmj1f6rje4a" path="res://game/presentation/thrusters/thruster_fx_preview.gd" id="1_preview"]
+[ext_resource type="PackedScene" path="res://game/presentation/thrusters/main_thruster_fx.tscn" id="2_main"]
+[ext_resource type="PackedScene" path="res://game/presentation/thrusters/directional_thruster_fx.tscn" id="3_jet"]
+
+[sub_resource type="Environment" id="Environment_preview"]
+background_mode = 1
+background_color = Color(0.05, 0.055, 0.06, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.55, 0.58, 0.62, 1)
+ambient_light_energy = 0.5
+glow_enabled = true
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_nozzle"]
+albedo_color = Color(0.02, 0.02, 0.02, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_nozzle"]
+material = SubResource("StandardMaterial3D_nozzle")
+top_radius = 0.2
+bottom_radius = 0.2
+height = 0.3
+
+[node name="ThrusterFXPreview" type="Node3D" unique_id=1351044187]
+script = ExtResource("1_preview")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=784496953]
+environment = SubResource("Environment_preview")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=696235884]
+transform = Transform3D(1, 0, 0, 0, 0.5, 0.8660254, 0, -0.8660254, 0.5, 0, 6, 0)
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1419424455]
+transform = Transform3D(1, 0, 0, 0, 0.6, 0.8, 0, -0.8, 0.6, 0, 6, 4.5)
+fov = 50.0
+
+[node name="Nozzle" type="MeshInstance3D" parent="." unique_id=1102319009]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, -2.85, 0, -1)
+mesh = SubResource("CylinderMesh_nozzle")
+
+[node name="MainThrusterFX" parent="." unique_id=917344800 instance=ExtResource("2_main")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -2.7, 0, -1)
+thrust = 0.5
+
+[node name="DirectionalThrusterFX" parent="." unique_id=1107977873 instance=ExtResource("3_jet")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -2.7, 0, 1)
+thrust = 1.0
+
+[node name="Turntable" type="Node3D" parent="." unique_id=1680567324]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 0, 0)
+
+[node name="MainThrusterFX" parent="Turntable" unique_id=363886804 instance=ExtResource("2_main")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.2)
+thrust = 1.0
+
+[node name="DirectionalThrusterFX" parent="Turntable" unique_id=1477838682 instance=ExtResource("3_jet")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.2)
+thrust = 1.0

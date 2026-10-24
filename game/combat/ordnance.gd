@@ -104,6 +104,10 @@ func begin(origin: Transform3D) -> void:
 	var parts := WeaponGeometry.build_ordnance(self, kind, config.length, config.body_radius, faction)
 	_plume = parts.plume
 	_rcs = parts.rcs
+	_plume.nozzle_scale = config.thruster_scale
+	_plume.length_multiplier = config.thruster_length
+	for jet: Node3D in _rcs:
+		jet.nozzle_scale = config.rcs_scale
 	if kind == &"torpedo":
 		phase = "arming"
 		velocity = launch_axis * config.speed
@@ -385,10 +389,10 @@ func _record_trail(delta: float) -> void:
 
 
 func _update_visuals(_delta: float) -> void:
+	# The shared thruster effects: full thrust while lit (the nozzle glow only then: an
+	# unlit engine shows nothing), off otherwise.
 	var lit := kind == &"torpedo" or thrusting
-	_plume.visible = lit
-	if lit:
-		var flicker := 0.85 + 0.15 * sin(age * 61.0) * sin(age * 23.0)
-		_plume.scale = Vector3(1.0, flicker, 1.0) # cone axis is its local Y
+	_plume.thrust = 1.0 if lit else 0.0
+	_plume.powered = lit
 	for i in _rcs.size():
-		(_rcs[i] as Node3D).visible = rcs_left[i] > 0.0
+		_rcs[i].thrust = 1.0 if rcs_left[i] > 0.0 else 0.0

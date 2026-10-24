@@ -182,12 +182,15 @@ func _case_thrusters() -> void:
 		await physics_frame
 	await process_frame
 	await process_frame
-	var lit_far := ships.filter(func(s: Node3D) -> bool: return view.plume_of(s) != null and view.plume_of(s).visible).size()
-	var jets_far: int = view._jets_mesh.get_surface_count()
+	var lit := func(s: Node3D) -> bool: return view.plume_of(s) != null and view.plume_of(s).visible and view.plume_of(s).thrust > 0.0
+	var jetting := func(s: Node3D) -> bool:
+		return view.emitters_of(s).keys().any(func(jet: String) -> bool: return jet != "Main" and view.jet_of(s, jet).visible and view.jet_of(s, jet).thrust > 0.0)
+	var lit_far := ships.filter(lit).size()
+	var jets_far := ships.filter(jetting).size()
 	await _set_zoom(40.0)
 	await process_frame
-	var lit_close := ships.filter(func(s: Node3D) -> bool: return view.plume_of(s) != null and view.plume_of(s).visible).size()
-	_check("zoom 150 (full Tactical emphasis) with ships under thrust: %d plumes shown, %d jet surfaces; zoom 40: %d plumes shown" % [lit_far, jets_far, lit_close],
+	var lit_close := ships.filter(lit).size()
+	_check("zoom 150 (full Tactical emphasis) with ships under thrust: %d plumes shown, %d ships with jets firing; zoom 40: %d plumes shown" % [lit_far, jets_far, lit_close],
 		lit_far > 0 and jets_far > 0 and lit_close > 0)
 
 

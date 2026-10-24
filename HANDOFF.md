@@ -11,7 +11,8 @@ god rays; merged to `main` by the owner 2026-10-22), the Showcase hostile
 faction fix (accepted 2026-10-22), the group MOVE collision fix steps 1-2, the command
 cursor's group check and the translated ordinary Group MOVE (all accepted 2026-10-23;
 step 3 rejected and reverted) and the Showcase sky panorama replaced
-(`multi_nebulae_2.png`, accepted 2026-10-24). The movement baseline
+(`multi_nebulae_2.png`, accepted 2026-10-24) and the reusable thruster VFX (branch
+`thruster-implementation`, accepted 2026-10-24). The movement baseline
 is still cause C with the 2026-10-18 direct-move prediction horizon correction.
 History: `CHANGELOG.md`. The original game (before Movement V3) and its full
 documentation are preserved in the archive (see Archive); the retired experiments
@@ -981,21 +982,52 @@ Shipyard untouched). Owner decisions that stay in force:
 	`GroupOrders.can_assign()` (the click's solver: available when at least one ship can
 	be placed; before 2026-10-23 the full placement-order search ran here, 61 ms median,
 	up to 388 ms per check over a moving 4-ship group in the Showcase, seen as stutter).
-- Propulsion effects: `thruster_view.gd` (one node, reads every child of `Ships`
-  each physics tick after the ships, never writes) and `thruster_plume.gdshader`.
-  Emitters are the hull's `Thrusters` parts (one plume per `MainEngine*` cylinder,
-  all in the ship's plume state); jet intensity = the ship-frame
-  acceleration (from the change of velocity / turn rate) as a share of its limit,
-  smoothed 0.08 s, zero without propulsion; main and directional effects combine
-  (e.g. main plume and turning jets while accelerating through a turn). Main plume
-  (bright core, soft orange glow, slight flow) states: BOOST while accelerating
-  forward, THRUST while cruising (forward speed > 0.2 u/s, not braking), IDLE (a flat
-  glow on the nozzle: stopped, braking, turning, sideways), NONE without propulsion;
-  sizes scale with the engine (Miner reference). Pale-blue directional jets. No
-  trail, smoke or combustion. Per type: engine radius / jet box 0.2 / 0.14 (Miner),
-  0.15 / 0.12 (Frigate, engine inset, 0.09 u protruding), 0.35 / 0.22 (Gunship),
-  0.45 / 0.25 (Transporter), 0.45 / 0.30 (Destroyer, two engines at x ±0.55, inset, 0.11 u
-  protruding; side jets flush on the Spine at x ±1.6593529).
+- Propulsion effects (reusable thruster VFX, 2026-10-24): two reusable scenes in
+  `game/presentation/thrusters/`, GPU particles in world space (exhaust stays briefly
+  where it was emitted), one shared shader `plasma.gdshader` (soft additive quad, camera
+  disc or velocity-aligned streak; per-instance brightness and size are instance
+  uniforms, so no shared material is written).
+  - `main_thruster_fx.tscn`: `Core` (stable emissive streak on the nozzle), `Exhaust`
+	(streaked plume body), `Trail` (slow short-lived residue), `Glow` (nozzle glow, also
+	at idle). Control: `thrust` 0..1 (length, density, brightness), `powered` (false: no
+	glow).
+  - `directional_thruster_fx.tscn`: `Exhaust`, neutral white-grey compressed gas.
+	Control: `thrust` 0..1 (density, brightness). Settings `continuous` on (owner
+	choice): a steady stream while commanded; off: pulses at the fixed `pulse_frequency`
+	(2.5 Hz) for `pulse_duration`, emission windows of the running emitter (never a
+	restart). Thrust 0: nothing new, residue fades.
+  - Shared look (edit once, every user follows): `main_thruster_settings.tres` /
+	`directional_thruster_settings.tres` (lifetimes, amounts, low-thrust shares, core,
+	trail, idle / active glow, pulses), `main_exhaust_process.tres`,
+	`main_trail_process.tres`, `directional_exhaust_process.tres` (direction, spread,
+	speed, fade, colour gradient), `plasma_main.tres`, `plasma_core.tres`,
+	`plasma_directional.tres`, `nozzle_glow.tres` (emission colour / energy, streak).
+	On screen colour = gradient x emission colour x energy. Per instance only
+	`nozzle_scale` and `length_multiplier`. The scripts are `@tool`: changes show in the
+	editor.
+  - `thruster_fx_preview.tscn`: the authoring scene (both effects, editable thrust; F6
+	spins a turntable to show trails).
+  - Ships: `thruster_view.gd` (one node, reads every child of `Ships` each physics tick
+	after the ships, never writes) places one main effect per `MainEngine*` cylinder and
+	one directional effect per jet box of the hull's `Thrusters`, under itself (never
+	under a ship), sized from the parts (Miner reference: engine radius 0.2, jet box
+	0.14). Jet intensity = the ship-frame acceleration (change of velocity / turn rate)
+	as a share of its limit, smoothed 0.08 s, zero without propulsion; main and
+	directional effects combine. Main state -> thrust: BOOST (accelerating forward)
+	0.5 + 0.5 x main intensity, THRUST (cruising, forward speed > 0.2 u/s, not braking)
+	0.5, IDLE (stopped, braking, turning, sideways) 0 with the glow, NONE (no propulsion)
+	0 without it; blended 0.15 s. API: `state_of`, `intensity_of`, `plume_of`,
+	`plumes_of`, `jet_of`, `emitters_of`. Per type: engine radius / jet box 0.2 / 0.14
+	(Miner), 0.15 / 0.12 (Frigate, engine inset, 0.09 u protruding), 0.35 / 0.22
+	(Gunship), 0.45 / 0.25 (Transporter), 0.45 / 0.30 (Destroyer, two engines at x ±0.55,
+	inset, 0.11 u protruding; side jets flush on the Spine at x ±1.6593529).
+  - Ordnance: `WeaponGeometry.build_ordnance()` puts a main effect on every torpedo and
+	missile nozzle and a directional effect on each missile attitude-thruster mount;
+	`ordnance.gd` drives them (main full thrust and glow while the engine is lit:
+	torpedoes always, missiles in powered flight; attitude jets while `rcs_left`). Sizes
+	in `OrdnanceConfig`: `thruster_scale` (torpedo 0.38, missile 0.25),
+	`thruster_length` 1, `rcs_scale` 0.25. The `OrdnanceTrails` ribbon is kept (owner
+	choice), so powered missiles show the ribbon and the effect's own trail.
 - Tests added: `ui_qol_test`, `held_command_test`, `mining_facing_test`,
   `transport_persistent_test`, `transport_editor_test`, `world_highlight_test`,
   `object_markers_test`, `command_cursor_test`, `thruster_view_test`. Assertions
@@ -1435,7 +1467,23 @@ Berth nodes the only source of docking geometry (legacy calculations and
 `DockEast` / `DockWest` removed). Requirements met: no RouteFollower order reaches
 a guided ship (counters 0 in every suite); handover only with the ship at rest.
 
-## Latest verification (2026-10-23, translated ordinary Group MOVE)
+## Latest verification (2026-10-24, reusable thruster VFX)
+
+- Targeted suites only (owner rule): `thruster_view_test` 20/20 (cone-plume assertions
+  migrated to the effects' thrust, glow and emission), `strategic_test` 17/17 (plume
+  and jet counts), `weapons_test` 112/112 (ordnance plume / attitude checks on the
+  effects), `salvo_test` 16/16, `time_test` 39/39, `fleet_test` 45/46 (the known
+  hostile-focus failure only).
+- Windowed probes (outside the project): shared resource changes reach every instance;
+  one instance's nozzle scale leaves the others and the shared resources unchanged;
+  idle glow without exhaust; IDLE / THRUST / BOOST thrust 0 / 0.5 / up to 1; inactive
+  jets draw nothing; pulse mode at a fixed rate, overlapping without resets; emission
+  stops in the frame thrust reaches 0, residue fades; moving / turning emitters leave
+  world-space trails; an integrated Miner and missile / torpedo flights activate,
+  modulate and stop their effects; 360 emitters firing 3.6 ms per frame.
+- Owner visual review: accepted 2026-10-24.
+
+## Earlier verification (2026-10-23, translated ordinary Group MOVE)
 
 - Deterministic Showcase probe (outside the project), 18/18: four open-space ships
   at their translated targets; mid-flight redirect from actual positions (not previous
@@ -2233,7 +2281,8 @@ Open movement issues (owner, 2026-10-15: unresolved, not accepted):
 	first 0.25 s on a cell. Not investigated: with an artificial 40 u no-route zone
 	a group click gave RouteFollower's "No route found" instead of the group
 	notice.
-  - Propulsion: a teleported ship (`place()`) can flash its jets for a tick.
+  - Propulsion: a teleported ship (`place()`) can flash its jets for a tick. Thruster
+	particles pause with the game but do not follow time dilation.
 - Production combat (accepted 2026-10-20):
   - The Shipyard builds only the Mining Ship and the Transport Ship; warship
 	production would need its own recipe (deployment and registration would apply).
@@ -2324,10 +2373,12 @@ stations added later); stations cannot be under `Ships` (GroupOrders requires
 
 ## Next task
 
-None assigned: await the owner's next task. The owner's Destroyer hull redesign is
-accepted with its fixes (2026-10-24). So are the owner's Showcase glow and volumetric fog.
-Still uncommitted and pending the owner: Godot 4.7 re-saves with unchanged loaded values (`warship.tscn`,
-`warm_sector.tres`, `apalit_theme.tres`, `missile.tres`, `torpedo.tres`). Group MOVE work of 2026-10-22/23 is
+None assigned: await the owner's next task. The reusable thruster VFX is accepted
+(2026-10-24) and committed on branch `thruster-implementation`, not merged to `main`
+(the owner decides the merge). All new work follows the strict reusability policy in
+`AGENTS.md`. The owner's Destroyer hull redesign is accepted with its fixes
+(2026-10-24), as are the owner's Showcase glow and volumetric fog; the Godot 4.7
+re-saves are committed (`2a5b895`). Group MOVE work of 2026-10-22/23 is
 accepted (collision fix steps 1-2, the cursor's group check, translated ordinary Group
 MOVE; step 3 rejected and reverted). Locked formations are to be designed separately;
 no leader, shared speed or formation persistence exists. Open, not investigated: the
