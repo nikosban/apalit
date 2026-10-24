@@ -3,6 +3,10 @@
 Project history, newest first. One to two sentences per task; details are
 in `HANDOFF.md`. Entries are not edited after they are written.
 
+## 2026-10-24 — Repository cleanup
+
+Removed the unused `ui_palette.gd` and the empty `.claude/`, corrected HANDOFF (startup scene, Playable list, suite count) and added the missing `--fixed-fps 60` to `strategic_view_test` and `sector_environment_test` in the documented test commands (`strategic_view_test` 30/30 with it); accepted by the owner.
+
 ## 2026-10-24 — Showcase sky panorama replaced
 
 The Showcase sky (sky modes B, C and environment lighting D) now uses `multi_nebulae_2.png` (10000 × 5000, tracked in Git) instead of the local-only `HDR_galactic_plane_1.hdr`, which is deleted; rotation and brightness unchanged (`sector_environment_test` 39/39); accepted by the owner.

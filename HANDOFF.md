@@ -52,7 +52,8 @@ the fog of war, global pause and time dilation for the whole simulation, the
 tactical camera and UI, and a minimal hostile commander. No component
 manufacturing, station construction or strategic AI.
 
-- `project.godot`: main scene `res://main.tscn`. Template defaults (not owner
+- `project.godot`: main scene `res://game/scenes/sector_showcase.tscn` (owner commit
+  2026-10-22; `main.tscn` stays the Test Arena the suites load). Template defaults (not owner
   decisions): Forward Plus, Jolt Physics (3D, unused by movement), D3D12 on
   Windows, stretch `canvas_items` / `expand`. Window maximized. Base canvas
   1920 × 1080 (Sector Showcase round): 2D sizes are px at 1080p and scale with the
@@ -119,7 +120,7 @@ rig are "reusable scenes" (own `.tscn`, instanced into other scenes).
   `StrategicView`, `TacticalMarkers`, `FogView` and `BehaviorView` at start (no
   tactical grid: withdrawn); the camera rig's `max_zoom` is 150 (full Tactical
   emphasis). All starting ships are player faction; there are no hostiles. It is the
-  Test Arena: development, regression and stress tests (about 35 suites load it); its
+  Test Arena: development, regression and stress tests (32 suites load it); its
   sector stays 300 × 300, its environment the flat background (A), sun 60° up, no
   environment lighting, Strategic depth or god rays, local fuel scale 1.
 - `game/scenes/sector_showcase.tscn` (root `SectorShowcase`, the same script and
@@ -926,7 +927,7 @@ Shipyard untouched). Owner decisions that stay in force:
   (Undock, MOVE, Dock elsewhere) pauses the assignment; only Resume restarts it,
   without repeating completed transfers. Fuel refuels throughout the wait.
 - UI foundation: `game/ui/theme/apalit_theme.tres` (type variations HeaderLabel,
-  SectionHeader, MutedLabel, WarningLabel, SegmentButton), `ui_palette.gd`,
+  SectionHeader, MutedLabel, WarningLabel, SegmentButton),
   `resource_icons.gd` (generated placeholder icons), components in
   `game/ui/components/` (`panel_shell`, `section`, `refinery_slot`, `resource_tile`,
   `resource_row`, `segmented_control`): display-only scenes that emit signals;
@@ -2282,8 +2283,9 @@ stations added later); stations cannot be under `Ships` (GroupOrders requires
   `C:\Users\Nikos\Downloads\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe`
   (4.7.2.stable).
 - Tests: `<godot console> --headless --path . -s res://game/tests/<name>.gd`;
-  `shipyard_runtime_test`, `reuse_test`, `camera_test` and `tactical_view_test` with `--fixed-fps 60`
-  (the first two: uninterrupted loop as fast as possible). Combat suites, every one with `--fixed-fps 60`:
+  `shipyard_runtime_test`, `reuse_test`, `camera_test`, `tactical_view_test`, `strategic_view_test`
+  and `sector_environment_test` with `--fixed-fps 60` (the first two: uninterrupted loop as fast
+  as possible; `strategic_view_test` fails its boundary-fade check without it). Combat suites, every one with `--fixed-fps 60`:
   `res://game/tests/combat/<name>.gd` (`acquisition_test`, `behavior_test` (P01–P03),
   `command_test`, `e05_behavior_test`, `fleet_test` (E05), `fog_test`, `hull_test`,
   `salvo_test`, `strategic_test`, `time_test`, `turret_pitch_test`, `weapons_test`,
@@ -2299,8 +2301,9 @@ stations added later); stations cannot be under `Ships` (GroupOrders requires
   lines that also differ between the two baseline runs; known failures navigation
   35/36, obstruction 9/12. No runner script is kept in the project (the commands are
   run directly).
-- Playable: `main.tscn` (F5: economy, production, docking, pause, Tactical view; no
-  hostiles), `game/scenes/combat_test.tscn` (F6: integrated fleet combat),
+- Playable: `game/scenes/sector_showcase.tscn` (F5, the startup scene), `main.tscn`
+  (F6: economy, production, docking, pause, Tactical view; no hostiles),
+  `game/scenes/combat_test.tscn` (F6: integrated fleet combat),
   `game/tests/combat/fixtures/combat_lab.tscn` (F6: E01–E05, P01–P03 on the
   production code).
 - Headless input injection: `push_input(event, true)` (local coordinates). In
@@ -2314,7 +2317,12 @@ stations added later); stations cannot be under `Ships` (GroupOrders requires
 
 ## Next task
 
-None assigned: await the owner's next task. Group MOVE work of 2026-10-22/23 is
+None assigned: await the owner's next task. Uncommitted owner edits are pending the
+owner (fix or revert): a Destroyer hull redesign in `destroyer.tscn` (fails
+`weapons_test` 2, `thruster_view_test` 2 and `fleet_test` 1, all of which pass on the last
+commit), Showcase environment changes in `sector_showcase.tscn` (glow and
+volumetric fog on) and Godot 4.7 re-saves with unchanged loaded values (`warship.tscn`,
+`warm_sector.tres`, `apalit_theme.tres`, `missile.tres`, `torpedo.tres`). Group MOVE work of 2026-10-22/23 is
 accepted (collision fix steps 1-2, the cursor's group check, translated ordinary Group
 MOVE; step 3 rejected and reverted). Locked formations are to be designed separately;
 no leader, shared speed or formation persistence exists. Open, not investigated: the
