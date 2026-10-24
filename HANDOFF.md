@@ -137,6 +137,8 @@ rig are "reusable scenes" (own `.tscn`, instanced into other scenes).
   true; its own DirectionalLight3D 30° up (same azimuth as main). Measured crossings
   (720 u, 1x): Frigate 147 s, Gunship / Transporter 165–167 s, Destroyer 251–256 s,
   about 18% of a tank each. The startup scene (`run/main_scene`, owner commit 2026-10-22).
+  Its WorldEnvironment (owner, 2026-10-24): glow on and volumetric fog on (albedo
+  (0.9, 0.648, 0.54), anisotropy 0.9, length 12.69); no script sets these.
 - `game/scenes/combat_test.tscn` (inherits `main.tscn`): the integrated combat scene
   for play and `combat_scene_test`: a second player Gunship (`Gunship2`, (2, −12)) and
   a hostile fleet in the east, beyond the player's sensor range (`HostileDestroyer`
@@ -2323,9 +2325,8 @@ stations added later); stations cannot be under `Ships` (GroupOrders requires
 ## Next task
 
 None assigned: await the owner's next task. The owner's Destroyer hull redesign is
-accepted with its fixes (2026-10-24). Still uncommitted and pending the owner: Showcase
-environment changes in `sector_showcase.tscn` (glow and
-volumetric fog on) and Godot 4.7 re-saves with unchanged loaded values (`warship.tscn`,
+accepted with its fixes (2026-10-24). So are the owner's Showcase glow and volumetric fog.
+Still uncommitted and pending the owner: Godot 4.7 re-saves with unchanged loaded values (`warship.tscn`,
 `warm_sector.tres`, `apalit_theme.tres`, `missile.tres`, `torpedo.tres`). Group MOVE work of 2026-10-22/23 is
 accepted (collision fix steps 1-2, the cursor's group check, translated ordinary Group
 MOVE; step 3 rejected and reverted). Locked formations are to be designed separately;

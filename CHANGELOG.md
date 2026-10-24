@@ -3,6 +3,10 @@
 Project history, newest first. One to two sentences per task; details are
 in `HANDOFF.md`. Entries are not edited after they are written.
 
+## 2026-10-24 — Showcase glow and volumetric fog
+
+The owner turned on glow and a warm volumetric fog (anisotropy 0.9, length 12.69) in the Sector Showcase's WorldEnvironment (`sector_environment_test` 39/39); accepted by the owner.
+
 ## 2026-10-24 — Destroyer hull redesign fixes
 
 On the owner's redesigned Destroyer hull, mirrored the bows and two main engines (now inside `ship_radius`), set the side jets flush on the widened Spine, lowered the missile cells and cannon onto the Spine top and gave every `MainEngine*` cylinder its own plume, with `thruster_view_test` and `salvo_test` updated (`fleet_test` hostile focus now a known failure); accepted by the owner.
