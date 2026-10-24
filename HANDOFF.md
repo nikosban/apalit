@@ -11,8 +11,8 @@ god rays; merged to `main` by the owner 2026-10-22), the Showcase hostile
 faction fix (accepted 2026-10-22), the group MOVE collision fix steps 1-2, the command
 cursor's group check and the translated ordinary Group MOVE (all accepted 2026-10-23;
 step 3 rejected and reverted) and the Showcase sky panorama replaced
-(`multi_nebulae_2.png`, accepted 2026-10-24) and the reusable thruster VFX (branch
-`thruster-implementation`, accepted 2026-10-24). The movement baseline
+(`multi_nebulae_2.png`, accepted 2026-10-24) and the reusable thruster VFX (accepted
+and merged to `main` 2026-10-24). The movement baseline
 is still cause C with the 2026-10-18 direct-move prediction horizon correction.
 History: `CHANGELOG.md`. The original game (before Movement V3) and its full
 documentation are preserved in the archive (see Archive); the retired experiments
@@ -2374,8 +2374,7 @@ stations added later); stations cannot be under `Ships` (GroupOrders requires
 ## Next task
 
 None assigned: await the owner's next task. The reusable thruster VFX is accepted
-(2026-10-24) and committed on branch `thruster-implementation`, not merged to `main`
-(the owner decides the merge). All new work follows the strict reusability policy in
+and merged to `main` (2026-10-24, merge `0a3a800`). All new work follows the strict reusability policy in
 `AGENTS.md`. The owner's Destroyer hull redesign is accepted with its fixes
 (2026-10-24), as are the owner's Showcase glow and volumetric fog; the Godot 4.7
 re-saves are committed (`2a5b895`). Group MOVE work of 2026-10-22/23 is
