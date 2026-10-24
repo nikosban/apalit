@@ -1,21 +1,6 @@
-[gd_resource type="Resource" script_class="" load_steps=2 format=3]
+[gd_resource type="Resource" format=3 uid="uid://dip1eapyupgyv"]
 
-[ext_resource type="Script" path="res://game/presentation/sector_profile.gd" id="1_profile"]
+[ext_resource type="Script" uid="uid://dqv8224lwis18" path="res://game/presentation/sector_profile.gd" id="1_profile"]
 
 [resource]
 script = ExtResource("1_profile")
-key_color = Color(1, 0.9, 0.78, 1)
-key_energy = 1.15
-ambient_color = Color(0.42, 0.5, 0.66, 1)
-ambient_energy = 0.4
-background_color = Color(0.03, 0.035, 0.048, 1)
-ground_color = Color(0.045, 0.047, 0.055, 1)
-shadow_color = Color(0.02, 0.025, 0.045, 1)
-shadow_strength = 0.5
-fog_color = Color(0.045, 0.055, 0.075, 1)
-fog_strength = 0.6
-strategic_fog_strength = 0.45
-dust_color = Color(0.78, 0.64, 0.5, 1)
-dust_strength = 0.045
-strategic_dust_strength = 0.16
-debris_color = Color(0.33, 0.31, 0.29, 1)

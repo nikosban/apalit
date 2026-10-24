@@ -1,32 +1,28 @@
-[gd_resource type="Theme" load_steps=14 format=3]
+[gd_resource type="Theme" format=3 uid="uid://c5nwd71fckfcq"]
 
-[sub_resource type="StyleBoxFlat" id="panel"]
-content_margin_left = 10.0
-content_margin_top = 8.0
-content_margin_right = 10.0
-content_margin_bottom = 8.0
-bg_color = Color(0.09, 0.1, 0.12, 0.92)
+[sub_resource type="StyleBoxFlat" id="control_disabled"]
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+bg_color = Color(0.12, 0.13, 0.15, 1)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.28, 0.31, 0.36, 1)
+border_color = Color(0.2, 0.22, 0.25, 1)
 corner_radius_top_left = 3
 corner_radius_top_right = 3
 corner_radius_bottom_right = 3
 corner_radius_bottom_left = 3
 
-[sub_resource type="StyleBoxFlat" id="control"]
-content_margin_left = 8.0
-content_margin_top = 4.0
-content_margin_right = 8.0
-content_margin_bottom = 4.0
-bg_color = Color(0.15, 0.16, 0.19, 1)
+[sub_resource type="StyleBoxFlat" id="focus"]
+draw_center = false
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.28, 0.31, 0.36, 1)
+border_color = Color(0.3, 0.75, 0.9, 1)
 corner_radius_top_left = 3
 corner_radius_top_right = 3
 corner_radius_bottom_right = 3
@@ -64,29 +60,17 @@ corner_radius_top_right = 3
 corner_radius_bottom_right = 3
 corner_radius_bottom_left = 3
 
-[sub_resource type="StyleBoxFlat" id="control_disabled"]
+[sub_resource type="StyleBoxFlat" id="control"]
 content_margin_left = 8.0
 content_margin_top = 4.0
 content_margin_right = 8.0
 content_margin_bottom = 4.0
-bg_color = Color(0.12, 0.13, 0.15, 1)
+bg_color = Color(0.15, 0.16, 0.19, 1)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.2, 0.22, 0.25, 1)
-corner_radius_top_left = 3
-corner_radius_top_right = 3
-corner_radius_bottom_right = 3
-corner_radius_bottom_left = 3
-
-[sub_resource type="StyleBoxFlat" id="focus"]
-draw_center = false
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.3, 0.75, 0.9, 1)
+border_color = Color(0.28, 0.31, 0.36, 1)
 corner_radius_top_left = 3
 corner_radius_top_right = 3
 corner_radius_bottom_right = 3
@@ -98,6 +82,8 @@ content_margin_top = 2.0
 content_margin_right = 4.0
 content_margin_bottom = 2.0
 
+[sub_resource type="StyleBoxEmpty" id="none"]
+
 [sub_resource type="StyleBoxFlat" id="flat_hover"]
 content_margin_left = 4.0
 content_margin_top = 2.0
@@ -108,6 +94,41 @@ corner_radius_top_left = 3
 corner_radius_top_right = 3
 corner_radius_bottom_right = 3
 corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="panel"]
+content_margin_left = 10.0
+content_margin_top = 8.0
+content_margin_right = 10.0
+content_margin_bottom = 8.0
+bg_color = Color(0.09, 0.1, 0.12, 0.92)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.28, 0.31, 0.36, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="popup_hover"]
+bg_color = Color(0.12, 0.3, 0.38, 1)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+
+[sub_resource type="StyleBoxFlat" id="popup"]
+content_margin_left = 4.0
+content_margin_top = 4.0
+content_margin_right = 4.0
+content_margin_bottom = 4.0
+bg_color = Color(0.11, 0.12, 0.14, 0.98)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.28, 0.31, 0.36, 1)
 
 [sub_resource type="StyleBoxFlat" id="progress_background"]
 content_margin_top = 3.0
@@ -130,86 +151,65 @@ corner_radius_top_right = 3
 corner_radius_bottom_right = 3
 corner_radius_bottom_left = 3
 
-[sub_resource type="StyleBoxFlat" id="popup"]
-content_margin_left = 4.0
-content_margin_top = 4.0
-content_margin_right = 4.0
-content_margin_bottom = 4.0
-bg_color = Color(0.11, 0.12, 0.14, 0.98)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.28, 0.31, 0.36, 1)
-
-[sub_resource type="StyleBoxFlat" id="popup_hover"]
-bg_color = Color(0.12, 0.3, 0.38, 1)
-corner_radius_top_left = 2
-corner_radius_top_right = 2
-corner_radius_bottom_right = 2
-corner_radius_bottom_left = 2
-
-[sub_resource type="StyleBoxEmpty" id="none"]
-
 [resource]
 default_font_size = 16
 Button/colors/font_color = Color(0.88, 0.9, 0.92, 1)
+Button/colors/font_disabled_color = Color(0.42, 0.45, 0.49, 1)
+Button/colors/font_focus_color = Color(0.88, 0.9, 0.92, 1)
 Button/colors/font_hover_color = Color(1, 1, 1, 1)
 Button/colors/font_pressed_color = Color(1, 1, 1, 1)
-Button/colors/font_focus_color = Color(0.88, 0.9, 0.92, 1)
-Button/colors/font_disabled_color = Color(0.42, 0.45, 0.49, 1)
-Button/styles/normal = SubResource("control")
-Button/styles/hover = SubResource("control_hover")
-Button/styles/pressed = SubResource("control_pressed")
-Button/styles/hover_pressed = SubResource("control_pressed")
 Button/styles/disabled = SubResource("control_disabled")
 Button/styles/focus = SubResource("focus")
+Button/styles/hover = SubResource("control_hover")
+Button/styles/hover_pressed = SubResource("control_pressed")
+Button/styles/normal = SubResource("control")
+Button/styles/pressed = SubResource("control_pressed")
 CheckButton/colors/font_color = Color(0.88, 0.9, 0.92, 1)
-CheckButton/colors/font_hover_color = Color(1, 1, 1, 1)
-CheckButton/colors/font_pressed_color = Color(0.88, 0.9, 0.92, 1)
-CheckButton/colors/font_hover_pressed_color = Color(1, 1, 1, 1)
 CheckButton/colors/font_disabled_color = Color(0.42, 0.45, 0.49, 1)
-CheckButton/styles/normal = SubResource("flat")
-CheckButton/styles/hover = SubResource("flat_hover")
-CheckButton/styles/pressed = SubResource("flat")
-CheckButton/styles/hover_pressed = SubResource("flat_hover")
+CheckButton/colors/font_hover_color = Color(1, 1, 1, 1)
+CheckButton/colors/font_hover_pressed_color = Color(1, 1, 1, 1)
+CheckButton/colors/font_pressed_color = Color(0.88, 0.9, 0.92, 1)
 CheckButton/styles/disabled = SubResource("flat")
 CheckButton/styles/focus = SubResource("none")
-Label/colors/font_color = Color(0.88, 0.9, 0.92, 1)
-LineEdit/colors/font_color = Color(0.88, 0.9, 0.92, 1)
-LineEdit/colors/font_uneditable_color = Color(0.42, 0.45, 0.49, 1)
-LineEdit/styles/normal = SubResource("control")
-LineEdit/styles/focus = SubResource("focus")
-LineEdit/styles/read_only = SubResource("control_disabled")
-OptionButton/colors/font_color = Color(0.88, 0.9, 0.92, 1)
-OptionButton/colors/font_hover_color = Color(1, 1, 1, 1)
-OptionButton/colors/font_pressed_color = Color(1, 1, 1, 1)
-OptionButton/colors/font_disabled_color = Color(0.42, 0.45, 0.49, 1)
-OptionButton/styles/normal = SubResource("control")
-OptionButton/styles/hover = SubResource("control_hover")
-OptionButton/styles/pressed = SubResource("control_pressed")
-OptionButton/styles/disabled = SubResource("control_disabled")
-OptionButton/styles/focus = SubResource("focus")
-PanelContainer/styles/panel = SubResource("panel")
-PopupMenu/colors/font_color = Color(0.88, 0.9, 0.92, 1)
-PopupMenu/colors/font_hover_color = Color(1, 1, 1, 1)
-PopupMenu/colors/font_disabled_color = Color(0.42, 0.45, 0.49, 1)
-PopupMenu/styles/panel = SubResource("popup")
-PopupMenu/styles/hover = SubResource("popup_hover")
-ProgressBar/colors/font_color = Color(0.88, 0.9, 0.92, 1)
-ProgressBar/styles/background = SubResource("progress_background")
-ProgressBar/styles/fill = SubResource("progress_fill")
-VBoxContainer/constants/separation = 6
+CheckButton/styles/hover = SubResource("flat_hover")
+CheckButton/styles/hover_pressed = SubResource("flat_hover")
+CheckButton/styles/normal = SubResource("flat")
+CheckButton/styles/pressed = SubResource("flat")
 HBoxContainer/constants/separation = 6
 HeaderLabel/base_type = &"Label"
 HeaderLabel/colors/font_color = Color(1, 1, 1, 1)
 HeaderLabel/font_sizes/font_size = 18
+Label/colors/font_color = Color(0.88, 0.9, 0.92, 1)
+LineEdit/colors/font_color = Color(0.88, 0.9, 0.92, 1)
+LineEdit/colors/font_uneditable_color = Color(0.42, 0.45, 0.49, 1)
+LineEdit/styles/focus = SubResource("focus")
+LineEdit/styles/normal = SubResource("control")
+LineEdit/styles/read_only = SubResource("control_disabled")
+MutedLabel/base_type = &"Label"
+MutedLabel/colors/font_color = Color(0.6, 0.64, 0.69, 1)
+OptionButton/colors/font_color = Color(0.88, 0.9, 0.92, 1)
+OptionButton/colors/font_disabled_color = Color(0.42, 0.45, 0.49, 1)
+OptionButton/colors/font_hover_color = Color(1, 1, 1, 1)
+OptionButton/colors/font_pressed_color = Color(1, 1, 1, 1)
+OptionButton/styles/disabled = SubResource("control_disabled")
+OptionButton/styles/focus = SubResource("focus")
+OptionButton/styles/hover = SubResource("control_hover")
+OptionButton/styles/normal = SubResource("control")
+OptionButton/styles/pressed = SubResource("control_pressed")
+PanelContainer/styles/panel = SubResource("panel")
+PopupMenu/colors/font_color = Color(0.88, 0.9, 0.92, 1)
+PopupMenu/colors/font_disabled_color = Color(0.42, 0.45, 0.49, 1)
+PopupMenu/colors/font_hover_color = Color(1, 1, 1, 1)
+PopupMenu/styles/hover = SubResource("popup_hover")
+PopupMenu/styles/panel = SubResource("popup")
+ProgressBar/colors/font_color = Color(0.88, 0.9, 0.92, 1)
+ProgressBar/styles/background = SubResource("progress_background")
+ProgressBar/styles/fill = SubResource("progress_fill")
 SectionHeader/base_type = &"Label"
 SectionHeader/colors/font_color = Color(0.3, 0.75, 0.9, 1)
 SectionHeader/font_sizes/font_size = 13
-MutedLabel/base_type = &"Label"
-MutedLabel/colors/font_color = Color(0.6, 0.64, 0.69, 1)
 SegmentButton/base_type = &"Button"
 SegmentButton/font_sizes/font_size = 14
+VBoxContainer/constants/separation = 6
 WarningLabel/base_type = &"Label"
 WarningLabel/colors/font_color = Color(0.95, 0.7, 0.25, 1)
