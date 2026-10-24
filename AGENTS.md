@@ -75,3 +75,22 @@ genre, gameplay loops, or requirements.
 - Never modify files outside this project directory.
 - Keep documentation concise and factual. Distinguish unknown facts from
   undecided choices.
+
+## Strict reusability policy
+
+All objects and systems sharing the same function and visual appearance must
+use centralized reusable scenes, scripts, and resources.
+
+- Shared implementations must have a single authoritative source.
+- Differences between instances must be expressed through configuration
+  rather than duplicated implementations.
+- Changes to shared definitions must propagate predictably throughout the
+  game.
+- Per-instance adjustments must not unintentionally modify shared resources.
+- Avoid unique implementations unless justified by genuine functional
+  differences.
+- Favor reusable production assets over one-off implementations.
+- Do not introduce unnecessary abstraction layers merely to achieve reuse.
+
+Apply this policy to all future development; do not retroactively refactor
+unrelated systems.

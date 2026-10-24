@@ -83,9 +83,16 @@ func _test_parts() -> void:
 	_check("all thruster parts are black and inside the ship's collision radius", black and inside)
 	_check("ThrusterView knows the nine emitters of each type", emitters)
 	var under_ship := false
+	var effects := true
 	for ship_name: String in SHIPS:
-		under_ship = under_ship or _ship(ship_name).is_ancestor_of(_view.plume_of(_ship(ship_name)))
-	_check("plumes and jets are drawn under ThrusterView, never under a ship", not under_ship and _view.get_node("Jets") != null)
+		var ship := _ship(ship_name)
+		var nodes: Array[Node3D] = [_view.plume_of(ship)]
+		for jet: String in JETS:
+			nodes.append(_view.jet_of(ship, jet))
+		for node: Node3D in nodes:
+			effects = effects and node != null and _view.is_ancestor_of(node)
+			under_ship = under_ship or (node != null and ship.is_ancestor_of(node))
+	_check("each plume and jet is a thruster effect under ThrusterView, never under a ship", effects and not under_ship)
 
 
 # 1b. Every main engine has its own plume, on its nozzle (the cylinder's rear face).
@@ -188,19 +195,21 @@ func _test_states() -> void:
 	var plume := _view.plume_of(ship)
 	var nozzle: Vector3 = ship.global_transform * (_view.emitters_of(ship).Main[0] as Vector3)
 	var back := ship.global_transform.basis.z.normalized()
-	_check("stopped with propulsion: IDLE, plume visible on the nozzle (%.4f u), pointing back (dot %.4f)" % [plume.global_position.distance_to(nozzle), plume.global_basis.y.normalized().dot(back)],
+	var exhaust := -plume.global_basis.z.normalized()
+	_check("stopped with propulsion: IDLE, plume on the nozzle (%.4f u), exhaust pointing back (dot %.4f), idle glow without exhaust (thrust %.2f, powered %s, emitting %s)" % [plume.global_position.distance_to(nozzle), exhaust.dot(back), plume.thrust, plume.powered, plume.emitting()],
 		_view.state_of(ship) == ThrusterView.State.IDLE and plume.visible and plume.global_position.distance_to(nozzle) < 0.001
-		and plume.global_basis.y.normalized().dot(back) > 0.999)
+		and exhaust.dot(back) > 0.999 and plume.thrust == 0.0 and plume.powered and not plume.emitting())
+	var quiet := JETS.all(func(jet: String) -> bool: return _view.jet_of(ship, jet).thrust == 0.0 and not _view.jet_of(ship, jet).emitting())
+	_check("stopped: every directional jet inactive (no thrust, no emission)", quiet)
 	ship.get_node("RouteFollower").order(OPEN + Vector2(0, -30))
 	var seen := {}
 	var order: Array[String] = []
 	var main_max := 0.0
 	var retro_max := 0.0
-	var boost_length := 0.0
+	var boost_thrust := 0.0
+	var cruise_thrust := 0.0
 	for i in 900:
 		await physics_frame
-		if _view.state_of(ship) == ThrusterView.State.BOOST:
-			boost_length = maxf(boost_length, (plume.get_node("Glow") as Node3D).scale.y)
 		var state := _view.state_of(ship)
 		var label: String = ThrusterView.State.keys()[state]
 		if order.is_empty() or order[-1] != label:
@@ -210,18 +219,41 @@ func _test_states() -> void:
 			main_max = maxf(main_max, _view.intensity_of(ship, "Main"))
 		if state == ThrusterView.State.IDLE and lo.velocity.length() > 0.2:
 			retro_max = maxf(retro_max, minf(_view.intensity_of(ship, "Retro_L"), _view.intensity_of(ship, "Retro_R")))
+		await process_frame # The effects follow in the frame after the tick.
+		if state == ThrusterView.State.BOOST:
+			boost_thrust = maxf(boost_thrust, plume.thrust)
+		if state == ThrusterView.State.THRUST:
+			cruise_thrust = plume.thrust
 		if i > 30 and not lo.has_destination and lo.velocity.length() < 0.01:
 			break
 	_check("move ahead 30 u: states %s; main engine up to %.2f while boosting; retro jets up to %.2f while braking" % [" > ".join(order), main_max, retro_max],
 		order == ["IDLE", "BOOST", "THRUST", "IDLE"] and main_max > 0.9 and retro_max > 0.9)
+	_check("main thrust: boost up to %.2f, cruise %.2f (expected 0.5)" % [boost_thrust, cruise_thrust],
+		boost_thrust > 0.9 and absf(cruise_thrust - 0.5) < 0.01)
 	lo.face(lo.heading + deg_to_rad(120.0))
 	var turn := {"Bow_R": 0.0, "Stern_L": 0.0, "Bow_L": 0.0, "Stern_R": 0.0, "Main": 0.0}
 	var turn_states := {}
+	var bow_r := _view.jet_of(ship, "Bow_R")
+	var bow_r_thrust := 0.0
+	var bow_r_pulses := 0
+	var bow_r_off := false
+	var was_emitting := false
 	for i in 240:
 		await physics_frame
+		await process_frame
 		for jet: String in turn:
 			turn[jet] = maxf(turn[jet], _view.intensity_of(ship, jet))
 		turn_states[ThrusterView.State.keys()[_view.state_of(ship)]] = true
+		bow_r_thrust = maxf(bow_r_thrust, bow_r.thrust)
+		if bow_r.emitting() and not was_emitting:
+			bow_r_pulses += 1
+		was_emitting = bow_r.emitting()
+		bow_r_off = bow_r_thrust > 0.9 and bow_r.thrust == 0.0 and not bow_r.emitting()
+	# A steady stream starts once per activation (the jet fires in one acceleration phase of
+	# the turn); pulses start more than once.
+	var continuous: bool = bow_r.settings.continuous
+	_check("turn in place: the bow-right jet effect fires up to %.2f, %d emission starts (%s), then stops emitting (%s)" % [bow_r_thrust, bow_r_pulses, "stream" if continuous else "pulses", bow_r_off],
+		bow_r_thrust > 0.9 and (bow_r_pulses == 1 if continuous else bow_r_pulses >= 2) and bow_r_off)
 	_check("turn in place: bow-right + stern-left (%.2f, %.2f), then bow-left + stern-right (%.2f, %.2f); main %.2f; states %s" % [turn.Bow_R, turn.Stern_L, turn.Bow_L, turn.Stern_R, turn.Main, str(turn_states.keys())],
 		turn.Bow_R > 0.9 and turn.Stern_L > 0.9 and turn.Bow_L > 0.9 and turn.Stern_R > 0.9 and turn.Main < ThrusterView.THRESHOLD and turn_states.keys() == ["IDLE"])
 	var right := Vector2(cos(lo.heading), -sin(lo.heading))
@@ -234,7 +266,6 @@ func _test_states() -> void:
 	_check("sideways 2 u to the right: the left lateral jet pushes (%.2f), the right one stops it (%.2f); IDLE" % [lateral.Lateral_L, lateral.Lateral_R],
 		lateral.Lateral_L > 0.9 and lateral.Lateral_R > 0.5 and _view.state_of(ship) == ThrusterView.State.IDLE)
 	await process_frame
-	var idle_length: float = (plume.get_node("Glow") as Node3D).scale.y
 	var fuel: Node = ship.get_node("Fuel")
 	var tank: float = fuel.fuel
 	fuel._set_fuel(0.0)
@@ -244,9 +275,8 @@ func _test_states() -> void:
 	var all_zero := true
 	for jet: String in ["Main"] + JETS:
 		all_zero = all_zero and _view.intensity_of(ship, jet) < 0.001
-	_check("without propulsion (no fuel, propulsion %s): NONE (%s), plume hidden (%s), every jet off (%s)" % [str(ship.get_node("Locomotion").propulsion), ThrusterView.State.keys()[_view.state_of(ship)], not plume.visible, all_zero],
-		_view.state_of(ship) == ThrusterView.State.NONE and not plume.visible and all_zero)
-	_check("plume length: boost (%.2f u) > idle (%.2f u) for the Miner" % [boost_length, idle_length], boost_length > idle_length)
+	_check("without propulsion (no fuel, propulsion %s): NONE (%s), no glow or exhaust (powered %s, thrust %.2f), every jet off (%s)" % [str(ship.get_node("Locomotion").propulsion), ThrusterView.State.keys()[_view.state_of(ship)], plume.powered, plume.thrust, all_zero],
+		_view.state_of(ship) == ThrusterView.State.NONE and not plume.powered and plume.thrust == 0.0 and not plume.emitting() and all_zero)
 	fuel._set_fuel(tank)
 	for i in 5:
 		await physics_frame

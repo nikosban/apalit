@@ -38,6 +38,8 @@ const LAB := preload("res://game/tests/combat/fixtures/combat_lab.tscn")
 const ESCORT := preload("res://game/ships/gunship_unit.tscn")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const CombatHud := preload("res://game/ui/combat_hud.gd")
+const MAIN_FX := preload("res://game/presentation/thrusters/main_thruster_fx.tscn")
+const JET_FX := preload("res://game/presentation/thrusters/directional_thruster_fx.tscn")
 const Gatling := preload("res://game/weapons/gatling.gd")
 const Ordnance := preload("res://game/combat/ordnance.gd")
 const CANNON := preload("res://game/weapons/cannon.tres")
@@ -438,7 +440,7 @@ func _sample() -> void:
 				_ord_bad.append("%s: torpedo turned before its arming distance" % where)
 			if forward.angle_to(node.velocity) > deg_to_rad(0.5):
 				_ord_bad.append("%s: torpedo velocity off its nose" % where)
-			if not node._plume.visible or ((node._plume as Node3D).global_position - node.global_position).normalized().dot(-forward) < 0.9999:
+			if node._plume.thrust <= 0.0 or ((node._plume as Node3D).global_position - node.global_position).normalized().dot(-forward) < 0.9999:
 				_ord_bad.append("%s: torpedo plume not lit behind the nozzle" % where)
 		else:
 			match node.phase:
@@ -478,17 +480,17 @@ func _sample() -> void:
 							_ord_bad.append("%s: pursuit turn %.3f deg > limit" % [where, rad_to_deg(turn)])
 						if node.velocity.length() > c.max_speed + EPS:
 							_ord_bad.append("%s: above maximum speed" % where)
-						if not node.thrusting or not node._plume.visible or ((node._plume as Node3D).global_position - node.global_position).normalized().dot(-forward) < 0.9999:
+						if not node.thrusting or node._plume.thrust <= 0.0 or ((node._plume as Node3D).global_position - node.global_position).normalized().dot(-forward) < 0.9999:
 							_ord_bad.append("%s: main plume not lit behind the nozzle under thrust" % where)
 						var nv: float = forward.angle_to(node.velocity)
 						s.max_nose_velocity = maxf(s.max_nose_velocity, nv)
 						_stats.nose_velocity = maxf(_stats.nose_velocity, nv)
-			if node.phase != "powered" and node._plume.visible:
+			if node.phase != "powered" and node._plume.thrust > 0.0:
 				_ord_bad.append("%s: main plume lit without thrust" % where)
 			# Attitude thrusters: lit only within 0.1 s after a measured turn about their axis.
 			var threshold := deg_to_rad(Ordnance.RCS_THRESHOLD_DEG) * DT
 			for i in 4:
-				if not (node._rcs[i] as Node3D).visible:
+				if node._rcs[i].thrust <= 0.0:
 					continue
 				_stats.rcs_lit_ticks += 1
 				var justified := false
@@ -1294,11 +1296,11 @@ func _missile_trace(detach: bool) -> Array:
 	var marker: Node3D = _w("Destroyer", "DeckHardpoint/MissileCells").muzzles[0]
 	var m := _launch("Destroyer", "DeckHardpoint/MissileCells", marker.global_position, Vector3.UP, "HostileGunship")
 	var spare: Array = []
-	var spare_plume := Node3D.new()
+	var spare_plume: Node3D = MAIN_FX.instantiate() # Stand-ins outside the tree: they take the thrust.
 	if detach:
 		# Remove every presentation node from the missile: the simulation must not notice.
 		for i in 4:
-			spare.append(Node3D.new())
+			spare.append(JET_FX.instantiate())
 		m._plume.free()
 		for node in m._rcs:
 			(node as Node).get_parent().free()

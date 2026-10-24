@@ -6,6 +6,8 @@ extends RefCounted
 ## the mount's −Z (forward); muzzles sit just beyond the barrel end.
 
 const MUZZLE_GAP := 0.03 # u beyond the barrel end
+const MAIN_FX := preload("res://game/presentation/thrusters/main_thruster_fx.tscn")
+const JET_FX := preload("res://game/presentation/thrusters/directional_thruster_fx.tscn")
 
 static var _materials := {}
 
@@ -34,12 +36,6 @@ static func material(key: String) -> StandardMaterial3D:
 				m.albedo_color = Color(0.78, 0.79, 0.8)
 				m.metallic = 0.3
 				m.roughness = 0.45
-			"plume_torpedo", "plume_missile", "rcs":
-				m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-				m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-				m.cull_mode = BaseMaterial3D.CULL_DISABLED
-				var colors := {"plume_torpedo": Color(1.0, 0.72, 0.35, 0.85), "plume_missile": Color(0.75, 0.88, 1.0, 0.9), "rcs": Color(0.92, 0.95, 1.0, 0.85)}
-				m.albedo_color = colors[key]
 			"band_0", "band_1":
 				m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 				m.albedo_color = [Color(0.35, 0.6, 1.0), Color(1.0, 0.35, 0.3)][int(key.right(1))]
@@ -188,10 +184,11 @@ static func build_cells(parent: Node3D, width: float, height: float, depth: floa
 
 
 ## Guided ordnance model (v0.3), centred on the node, nose toward −Z: body, nose cone,
-## faction band, rear nozzle and a small rear thrust plume (+Z, behind the nozzle);
-## missiles add four fins and four tiny attitude (RCS) thrusters around the nose, each
-## with a puff pointing outward (hidden until lit). Returns {plume, rcs (Array: +X, −X,
-## +Y, −Y puffs), nozzle}.
+## faction band, rear nozzle and the shared main thruster effect on the nozzle exit
+## (main_thruster_fx, exhaust +Z); missiles add four fins and four tiny attitude (RCS)
+## thruster mounts around the nose, each with a shared directional thruster effect firing
+## outward (directional_thruster_fx). The effects start at thrust 0; the ordnance sizes
+## and drives them. Returns {plume, rcs (Array: +X, −X, +Y, −Y effects), nozzle}.
 static func build_ordnance(parent: Node3D, kind: StringName, length: float, radius: float, faction: int) -> Dictionary:
 	var body_length := length * 0.68
 	var nose_length := length * 0.22
@@ -202,9 +199,11 @@ static func build_ordnance(parent: Node3D, kind: StringName, length: float, radi
 	nose.name = "Nose"
 	_tube(parent, "Band", radius * 1.06, length * 0.07, Vector3(0, 0, -length * 0.5 + nose_length + length * 0.06), "band_%d" % faction)
 	var nozzle := _cone(parent, "Nozzle", radius * 0.85, nozzle_length, Vector3(0, 0, length * 0.5 - nozzle_length * 0.5), -1.0, "muzzle")
-	var plume_length := length * (0.36 if kind == &"torpedo" else 0.5)
-	var plume := _cone(parent, "Plume", radius * 0.7, plume_length, Vector3(0, 0, length * 0.5 + plume_length * 0.5), 1.0, "plume_torpedo" if kind == &"torpedo" else "plume_missile")
-	plume.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var plume: Node3D = MAIN_FX.instantiate()
+	plume.name = "Plume"
+	plume.powered = false
+	plume.transform = Transform3D(Basis.looking_at(Vector3.BACK), Vector3(0, 0, length * 0.5))
+	parent.add_child(plume)
 	var rcs: Array[Node3D] = []
 	if kind == &"missile":
 		for i in 4:
@@ -216,11 +215,11 @@ static func build_ordnance(parent: Node3D, kind: StringName, length: float, radi
 		for i in 4:
 			var side: Vector3 = sides[i]
 			var block := _box(parent, "Rcs%d" % (i + 1), Vector3.ONE * radius * 0.55, side * radius * 1.05 + Vector3(0, 0, ring_z), "mount")
-			var puff := _box(block, "Puff", Vector3.ONE * radius * 0.5, side * radius * 0.6, "rcs")
-			puff.scale = Vector3(1.0, 1.0, 1.0) + side.abs() * 1.2
-			puff.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			puff.visible = false
-			rcs.append(puff)
+			var jet: Node3D = JET_FX.instantiate()
+			jet.name = "Jet"
+			jet.transform = Transform3D(Basis.looking_at(side, Vector3.BACK), side * radius * 0.275)
+			block.add_child(jet)
+			rcs.append(jet)
 	return {"plume": plume, "rcs": rcs, "nozzle": nozzle}
 
 
