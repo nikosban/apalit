@@ -212,7 +212,9 @@ no shared ship base scene, entity framework or equipment system.
   Combat migration: `gunship_unit` adds under `Weapons` a dorsal cannon turret and
   two Gatlings (left / right hardpoints); `destroyer_unit` a bow torpedo tube, a deck
   missile launcher (4 cells in 2 columns, 4-missile salvos every 0.2 s, 12 missiles:
-  the E05 configuration), a tower cannon and a stern Gatling. Both add `Behavior`
+  the E05 configuration), a cannon (`TowerHardpoint`) and a stern Gatling; since the
+  2026-10-24 hull redesign the missile cells and the cannon sit on the Spine top (y 0.4,
+  no ForeDeck or Tower block), so the cannon fires from about 1 u lower. Both add `Behavior`
   (`behavior/ship_behavior.gd`) before `Model`. The Frigate, Miner and Transporter
   variants have no weapons and no Behavior (unarmed; damageable).
 - Hull under `Model`: Selection pick boxes and ring (`ShipSelection.register_ship()`)
@@ -221,7 +223,7 @@ no shared ship base scene, entity framework or equipment system.
   Godot; `shipyard_test`); the collision footprint is still
   `RouteFollower.ship_radius`. Code that addresses a hull part by path uses
   `Model/<part>`. Since the UX round each hull scene also has `Thrusters` (black
-  `MainEngine` cylinder + eight jet boxes); they are hull parts by owner decision
+  `MainEngine` cylinder, the Destroyer also `MainEngine2`, + eight jet boxes); they are hull parts by owner decision
   (pick boxes, outline, ring radius) and stay inside `ship_radius`.
 - Instances: `main.tscn` ships are instances of their variants with only a
   transform; produced ships are instances of the same variants (`Shipyard.RECIPES`:
@@ -979,7 +981,8 @@ Shipyard untouched). Owner decisions that stay in force:
 	up to 388 ms per check over a moving 4-ship group in the Showcase, seen as stutter).
 - Propulsion effects: `thruster_view.gd` (one node, reads every child of `Ships`
   each physics tick after the ships, never writes) and `thruster_plume.gdshader`.
-  Emitters are the hull's `Thrusters` parts; jet intensity = the ship-frame
+  Emitters are the hull's `Thrusters` parts (one plume per `MainEngine*` cylinder,
+  all in the ship's plume state); jet intensity = the ship-frame
   acceleration (from the change of velocity / turn rate) as a share of its limit,
   smoothed 0.08 s, zero without propulsion; main and directional effects combine
   (e.g. main plume and turning jets while accelerating through a turn). Main plume
@@ -989,7 +992,8 @@ Shipyard untouched). Owner decisions that stay in force:
   sizes scale with the engine (Miner reference). Pale-blue directional jets. No
   trail, smoke or combustion. Per type: engine radius / jet box 0.2 / 0.14 (Miner),
   0.15 / 0.12 (Frigate, engine inset, 0.09 u protruding), 0.35 / 0.22 (Gunship),
-  0.45 / 0.25 (Transporter), 0.45 / 0.30 (Destroyer, inset, 0.18 u protruding).
+  0.45 / 0.25 (Transporter), 0.45 / 0.30 (Destroyer, two engines at x ±0.55, inset, 0.11 u
+  protruding; side jets flush on the Spine at x ±1.6593529).
 - Tests added: `ui_qol_test`, `held_command_test`, `mining_facing_test`,
   `transport_persistent_test`, `transport_editor_test`, `world_highlight_test`,
   `object_markers_test`, `command_cursor_test`, `thruster_view_test`. Assertions
@@ -2299,7 +2303,8 @@ stations added later); stations cannot be under `Ships` (GroupOrders requires
   `game/tests/combat/fixtures/combat_lab.tscn` and `game/scenes/combat_test.tscn`,
   twice before a change, then compare logs line by line, treating as variance only
   lines that also differ between the two baseline runs; known failures navigation
-  35/36, obstruction 9/12. No runner script is kept in the project (the commands are
+  35/36, obstruction 10/12 (2026-10-24 runs), `fleet_test` hostile focus (1 of 47 hostile
+  shots off the controller's focus since the 2026-10-24 Destroyer hull redesign). No runner script is kept in the project (the commands are
   run directly).
 - Playable: `game/scenes/sector_showcase.tscn` (F5, the startup scene), `main.tscn`
   (F6: economy, production, docking, pause, Tactical view; no hostiles),
@@ -2317,10 +2322,9 @@ stations added later); stations cannot be under `Ships` (GroupOrders requires
 
 ## Next task
 
-None assigned: await the owner's next task. Uncommitted owner edits are pending the
-owner (fix or revert): a Destroyer hull redesign in `destroyer.tscn` (fails
-`weapons_test` 2, `thruster_view_test` 2 and `fleet_test` 1, all of which pass on the last
-commit), Showcase environment changes in `sector_showcase.tscn` (glow and
+None assigned: await the owner's next task. The owner's Destroyer hull redesign is
+accepted with its fixes (2026-10-24). Still uncommitted and pending the owner: Showcase
+environment changes in `sector_showcase.tscn` (glow and
 volumetric fog on) and Godot 4.7 re-saves with unchanged loaded values (`warship.tscn`,
 `warm_sector.tres`, `apalit_theme.tres`, `missile.tres`, `torpedo.tres`). Group MOVE work of 2026-10-22/23 is
 accepted (collision fix steps 1-2, the cursor's group check, translated ordinary Group

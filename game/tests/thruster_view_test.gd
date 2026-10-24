@@ -1,12 +1,12 @@
 extends SceneTree
 ## Headless UX round P9 (T25) checks on the playable main scene: every ship type has
-## black thruster parts in its model (Model/Thrusters: a MainEngine cylinder and eight jet
-## boxes) inside its collision radius, counted as hull (Selection pick boxes, a click on
+## black thruster parts in its model (Model/Thrusters: MainEngine cylinders (MainEngine,
+## MainEngine2, ...) and eight jet boxes) inside its collision radius, counted as hull (Selection pick boxes, a click on
 ## an engine that misses the original hull picks the ship, the selection outline); the
 ## ThrusterView finds them on every ship, produced ships included, and draws only under
 ## itself; the main plume sits on the nozzle pointing back and follows its states (BOOST
 ## accelerating, THRUST cruising, IDLE stopped / braking / turning / sideways, NONE
-## without propulsion); the jets fire on the right sides, and together with the main
+## without propulsion), one plume on each main engine's nozzle; the jets fire on the right sides, and together with the main
 ## engine when the motions combine (accelerating through a turn).
 ## Run from the project folder:
 ##   <godot console> --headless --path . -s res://game/tests/thruster_view_test.gd
@@ -42,6 +42,7 @@ func _initialize() -> void:
 	for i in 10:
 		await physics_frame
 	_test_parts()
+	await _test_engines()
 	await _test_picking_and_outline()
 	await _test_states()
 	await _test_combined()
@@ -64,7 +65,9 @@ func _test_parts() -> void:
 		if thrusters != null:
 			for part: Node in thrusters.get_children():
 				names.append(String(part.name))
-		if names != ["MainEngine"] + JETS:
+		var engines := names.filter(func(n: String) -> bool: return n.begins_with("MainEngine"))
+		var jets := names.filter(func(n: String) -> bool: return not n.begins_with("MainEngine"))
+		if not engines.has("MainEngine") or jets != JETS:
 			found.append("%s %s" % [ship_name, str(names)])
 			continue
 		var radius: float = ship.get_node("RouteFollower").ship_radius
@@ -76,13 +79,32 @@ func _test_parts() -> void:
 			for i in 8:
 				inside = inside and Vector2(box.get_endpoint(i).x, box.get_endpoint(i).z).length() <= radius + 0.0001
 		emitters = emitters and _view.emitters_of(ship).size() == 9
-	_check("every type has Model/Thrusters with MainEngine + 8 jet boxes (%s)" % (", ".join(found) if not found.is_empty() else "all"), found.is_empty())
+	_check("every type has Model/Thrusters with MainEngine (+ MainEngine2...) + 8 jet boxes (%s)" % (", ".join(found) if not found.is_empty() else "all"), found.is_empty())
 	_check("all thruster parts are black and inside the ship's collision radius", black and inside)
 	_check("ThrusterView knows the nine emitters of each type", emitters)
 	var under_ship := false
 	for ship_name: String in SHIPS:
 		under_ship = under_ship or _ship(ship_name).is_ancestor_of(_view.plume_of(_ship(ship_name)))
 	_check("plumes and jets are drawn under ThrusterView, never under a ship", not under_ship and _view.get_node("Jets") != null)
+
+
+# 1b. Every main engine has its own plume, on its nozzle (the cylinder's rear face).
+func _test_engines() -> void:
+	await process_frame
+	var wrong: Array[String] = []
+	for ship_name: String in SHIPS:
+		var ship := _ship(ship_name)
+		var cylinders := ship.get_node("Model/Thrusters").get_children().filter(func(n: Node) -> bool: return String(n.name).begins_with("MainEngine"))
+		var plumes := _view.plumes_of(ship)
+		if plumes.size() != cylinders.size():
+			wrong.append("%s %d plumes for %d engines" % [ship_name, plumes.size(), cylinders.size()])
+			continue
+		for i in cylinders.size():
+			var engine: MeshInstance3D = cylinders[i]
+			var nozzle: Vector3 = engine.global_position + ship.global_basis.z.normalized() * (engine.mesh as CylinderMesh).height / 2.0
+			if not plumes[i].visible or plumes[i].global_position.distance_to(nozzle) > 0.001:
+				wrong.append("%s %s (visible %s, %.4f u off)" % [ship_name, engine.name, plumes[i].visible, plumes[i].global_position.distance_to(nozzle)])
+	_check("each main engine has its own visible plume on its nozzle (%s)" % (", ".join(wrong) if not wrong.is_empty() else "all"), wrong.is_empty())
 
 
 # 2. Thrusters are hull: pick boxes, a click on the protruding engine (the ray missing
@@ -97,7 +119,7 @@ func _test_picking_and_outline() -> void:
 		var thrusters := ship.get_node("Model/Thrusters")
 		var parts: Array = _selection._parts[ship]
 		var meshes := ship.find_children("*", "MeshInstance3D", true, false)
-		boxes = boxes and parts.size() == meshes.size() and thrusters.get_child_count() == 9
+		boxes = boxes and parts.size() == meshes.size() and thrusters.get_child_count() >= 9
 		# Broadside to the camera (right side facing it), alone on open ground.
 		_frame(OPEN, 24.0)
 		await process_frame
@@ -117,7 +139,7 @@ func _test_picking_and_outline() -> void:
 		_frame(OPEN, 24.0)
 		await process_frame
 		var nozzle: Vector3 = _view.emitters_of(ship).Main[0]
-		var aim_local := Vector3(0, nozzle.y, (original.end.z + nozzle.z) / 2.0) # The engine behind the hull.
+		var aim_local := Vector3(nozzle.x, nozzle.y, (original.end.z + nozzle.z) / 2.0) # The first engine behind the hull.
 		var aim := ship.global_transform * aim_local
 		_frame(Vector2(aim.x, aim.z), 24.0) # Centred on the aim: no perspective skew along the hull.
 		await process_frame
@@ -137,7 +159,7 @@ func _test_picking_and_outline() -> void:
 		if _selection.pick(screen) == ship:
 			picked.append(ship_name)
 		ship.get_node("Locomotion").place(Vector2(saved.origin.x, saved.origin.z), ship.get_node("Locomotion").heading)
-	_check("Selection pick boxes include the 9 thruster parts of each type", boxes)
+	_check("Selection pick boxes include the thruster parts of each type", boxes)
 	_check("the ray through the protruding main engine misses the original hull and hits the engine box (each type) %s" % ", ".join(hull_hit), engine_only)
 	_check("a click on the main engine picks the ship: %s" % str(picked), picked.size() == SHIPS.size())
 	var highlight: WorldHighlight = _main.get_node("WorldHighlight")

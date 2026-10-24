@@ -1,19 +1,9 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://dskuwd0t65r33"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_hull"]
 albedo_color = Color(0.2, 0.21, 0.22, 1)
 metallic = 0.4
 roughness = 0.6
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_structure"]
-albedo_color = Color(0.42, 0.43, 0.44, 1)
-metallic = 0.4
-roughness = 0.6
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_accent"]
-albedo_color = Color(0.62, 0.45, 0.2, 1)
-metallic = 0.2
-roughness = 0.7
 
 [sub_resource type="PrismMesh" id="PrismMesh_bow"]
 material = SubResource("StandardMaterial3D_hull")
@@ -27,13 +17,10 @@ size = Vector3(1.6, 0.8, 7.6)
 material = SubResource("StandardMaterial3D_hull")
 size = Vector3(2.4, 1.1, 1.4)
 
-[sub_resource type="BoxMesh" id="BoxMesh_foredeck"]
-material = SubResource("StandardMaterial3D_structure")
-size = Vector3(1.1, 0.4, 2.2)
-
-[sub_resource type="BoxMesh" id="BoxMesh_tower"]
-material = SubResource("StandardMaterial3D_structure")
-size = Vector3(1, 1, 2)
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_accent"]
+albedo_color = Color(0.62, 0.45, 0.2, 1)
+metallic = 0.2
+roughness = 0.7
 
 [sub_resource type="BoxMesh" id="BoxMesh_accent"]
 material = SubResource("StandardMaterial3D_accent")
@@ -55,66 +42,71 @@ radial_segments = 24
 material = SubResource("StandardMaterial3D_thruster")
 size = Vector3(0.3, 0.3, 0.3)
 
-[node name="Destroyer" type="Node3D"]
+[node name="Destroyer" type="Node3D" unique_id=1426050308]
 
-[node name="Bow" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, -4.5)
+[node name="Bow" type="MeshInstance3D" parent="." unique_id=827865832]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0.593, 0, -4.5)
 mesh = SubResource("PrismMesh_bow")
 
-[node name="Spine" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.8)
+[node name="Bow2" type="MeshInstance3D" parent="." unique_id=2092733090]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, -0.593, 0, -4.5)
+mesh = SubResource("PrismMesh_bow")
+
+[node name="Spine" type="MeshInstance3D" parent="." unique_id=1408046100]
+transform = Transform3D(1.8866911, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.8)
 mesh = SubResource("BoxMesh_spine")
 
-[node name="Stern" type="MeshInstance3D" parent="."]
+[node name="Beak" type="MeshInstance3D" parent="." unique_id=970051418]
+transform = Transform3D(0.7339279, 0, 0, 0, 1, 0, 0, 0, 0.39985374, 0, 0, -4.4773574)
+mesh = SubResource("BoxMesh_spine")
+
+[node name="Stern" type="MeshInstance3D" parent="." unique_id=301270346]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 5.3)
 mesh = SubResource("BoxMesh_stern")
 
-[node name="ForeDeck" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, -1.4)
-mesh = SubResource("BoxMesh_foredeck")
-
-[node name="Tower" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 1.8)
-mesh = SubResource("BoxMesh_tower")
-
-[node name="Accent" type="MeshInstance3D" parent="."]
+[node name="Accent" type="MeshInstance3D" parent="." unique_id=257607781]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.42, -3.5)
 mesh = SubResource("BoxMesh_accent")
 
-[node name="Thrusters" type="Node3D" parent="."]
+[node name="Thrusters" type="Node3D" parent="." unique_id=1229330759]
 
-[node name="MainEngine" type="MeshInstance3D" parent="Thrusters"]
-transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 5.93)
+[node name="MainEngine" type="MeshInstance3D" parent="Thrusters" unique_id=479077384]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, -0.55, 0, 5.86)
 mesh = SubResource("CylinderMesh_engine")
 
-[node name="Retro_L" type="MeshInstance3D" parent="Thrusters"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 0, 4.45)
+[node name="MainEngine2" type="MeshInstance3D" parent="Thrusters" unique_id=1737104429]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0.55, 0, 5.86)
+mesh = SubResource("CylinderMesh_engine")
+
+[node name="Retro_L" type="MeshInstance3D" parent="Thrusters" unique_id=1088852194]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.6593529, 0, 4.45)
 mesh = SubResource("BoxMesh_jet")
 
-[node name="Retro_R" type="MeshInstance3D" parent="Thrusters"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 4.45)
+[node name="Retro_R" type="MeshInstance3D" parent="Thrusters" unique_id=1890683994]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6593529, 0, 4.45)
 mesh = SubResource("BoxMesh_jet")
 
-[node name="Bow_L" type="MeshInstance3D" parent="Thrusters"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.95, 0, -2.4)
+[node name="Bow_L" type="MeshInstance3D" parent="Thrusters" unique_id=1947069688]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.6593529, 0, -2.4)
 mesh = SubResource("BoxMesh_jet")
 
-[node name="Bow_R" type="MeshInstance3D" parent="Thrusters"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.95, 0, -2.4)
+[node name="Bow_R" type="MeshInstance3D" parent="Thrusters" unique_id=1939554009]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6593529, 0, -2.4)
 mesh = SubResource("BoxMesh_jet")
 
-[node name="Lateral_L" type="MeshInstance3D" parent="Thrusters"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.95, 0, 1)
+[node name="Lateral_L" type="MeshInstance3D" parent="Thrusters" unique_id=955855469]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.6593529, 0, 1)
 mesh = SubResource("BoxMesh_jet")
 
-[node name="Lateral_R" type="MeshInstance3D" parent="Thrusters"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.95, 0, 1)
+[node name="Lateral_R" type="MeshInstance3D" parent="Thrusters" unique_id=1779152658]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6593529, 0, 1)
 mesh = SubResource("BoxMesh_jet")
 
-[node name="Stern_L" type="MeshInstance3D" parent="Thrusters"]
+[node name="Stern_L" type="MeshInstance3D" parent="Thrusters" unique_id=212669613]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.35, 0, 5.3)
 mesh = SubResource("BoxMesh_jet")
 
-[node name="Stern_R" type="MeshInstance3D" parent="Thrusters"]
+[node name="Stern_R" type="MeshInstance3D" parent="Thrusters" unique_id=1232319854]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.35, 0, 5.3)
 mesh = SubResource("BoxMesh_jet")
+

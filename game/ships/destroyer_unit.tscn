@@ -51,7 +51,7 @@ tube_length = 1.0
 tube_radius = 0.2
 
 [node name="DeckHardpoint" type="Node3D" parent="Weapons"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, -1.4)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, -1.4)
 script = ExtResource("3_hardpoint")
 size = 1
 families = PackedStringArray("missile")
@@ -67,7 +67,7 @@ salvo_interval = 0.2
 ammunition_override = 12
 
 [node name="TowerHardpoint" type="Node3D" parent="Weapons"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4, 1.6)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 1.6)
 script = ExtResource("3_hardpoint")
 size = 1
 families = PackedStringArray("cannon")

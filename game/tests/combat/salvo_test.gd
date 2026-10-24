@@ -146,7 +146,7 @@ func _case_e05_cells() -> void:
 		var distinct := {}
 		for p: Vector3 in points:
 			distinct[str(p.snapped(Vector3.ONE * 0.001))] = true
-		var deck: bool = points.all(func(p: Vector3) -> bool: return absf(p.x) <= 0.55 and p.z > -2.5 and p.z < -0.3 and p.y > 0.8)
+		var deck: bool = points.all(func(p: Vector3) -> bool: return absf(p.x) <= 0.55 and p.z > -2.5 and p.z < -0.3 and p.y > 0.4)
 		print("  %s: %d cells, salvo %d every %.2f s, %d missiles; cell points in the ship frame %s" % [name, launcher.muzzles.size(), launcher.salvo_size, launcher.salvo_interval, launcher.rounds_left(), str(points.map(func(p: Vector3) -> String: return "(%.2f, %.2f, %.2f)" % [p.x, p.y, p.z]))])
 		ok = ok and launcher.cells == 4 and launcher.muzzles.size() == 4 and distinct.size() == 4 and deck and launcher.salvo_size == 4 and launcher.rounds_left() == 12
 	# Production port: the E05 launcher is the production Destroyer's (destroyer_unit.tscn);

@@ -3,6 +3,10 @@
 Project history, newest first. One to two sentences per task; details are
 in `HANDOFF.md`. Entries are not edited after they are written.
 
+## 2026-10-24 — Destroyer hull redesign fixes
+
+On the owner's redesigned Destroyer hull, mirrored the bows and two main engines (now inside `ship_radius`), set the side jets flush on the widened Spine, lowered the missile cells and cannon onto the Spine top and gave every `MainEngine*` cylinder its own plume, with `thruster_view_test` and `salvo_test` updated (`fleet_test` hostile focus now a known failure); accepted by the owner.
+
 ## 2026-10-24 — Repository cleanup
 
 Removed the unused `ui_palette.gd` and the empty `.claude/`, corrected HANDOFF (startup scene, Playable list, suite count) and added the missing `--fixed-fps 60` to `strategic_view_test` and `sector_environment_test` in the documented test commands (`strategic_view_test` 30/30 with it); accepted by the owner.

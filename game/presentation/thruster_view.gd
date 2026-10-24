@@ -1,8 +1,8 @@
 extends Node3D
 ## UX round (P9, T25) propulsion effects, presentation only: reads every ship under Ships
 ## (produced ships included, found each tick) and never writes to them. The emitters are
-## the black thruster parts of each model (Model/Thrusters: a MainEngine cylinder, its
-## rear face the nozzle, and the jet boxes Retro_L/R, Bow_L/R, Lateral_L/R, Stern_L/R,
+## the black thruster parts of each model (Model/Thrusters: MainEngine cylinders (MainEngine,
+## MainEngine2, ...), each rear face a nozzle with its own plume, and the jet boxes Retro_L/R, Bow_L/R, Lateral_L/R, Stern_L/R,
 ## each firing from its outer face). Every physics tick (after the ships) the ship-frame
 ## acceleration comes from the change of Locomotion.velocity and the turn acceleration
 ## from the change of angular_velocity; each jet's intensity is that acceleration as a
@@ -95,10 +95,11 @@ func _process(delta: float) -> void:
 		# not show (a hostile ship hidden by the fog of war); its effect state is kept.
 		var scene := get_parent()
 		if scene.has_method("model_shown") and not scene.model_shown(ship):
-			if record.get("plume") != null:
-				(record.plume as Node3D).visible = false
+			for engine: Dictionary in record.engines:
+				(engine.plume as Node3D).visible = false
 			continue
-		_update_plume(ship, record, delta)
+		for engine: Dictionary in record.engines:
+			_update_plume(ship, record, engine, delta)
 		var to_world: Transform3D = ship.global_transform
 		for jet: String in record.jets:
 			var strength: float = record.intensity[jet]
@@ -135,14 +136,23 @@ func intensity_of(ship: Node3D, jet: String) -> float:
 	return record.intensity.get(jet, 0.0) if not record.is_empty() else 0.0
 
 
-## The node carrying a ship's plume (its origin at the nozzle, +Y along the exhaust), or null.
+## The node carrying a ship's first plume (its origin at the nozzle, +Y along the exhaust), or null.
 func plume_of(ship: Node3D) -> Node3D:
+	var plumes := plumes_of(ship)
+	return plumes[0] if not plumes.is_empty() else null
+
+
+## Every main engine plume of a ship, in Model/Thrusters order.
+func plumes_of(ship: Node3D) -> Array[Node3D]:
 	var record: Dictionary = _ships.get(ship.get_instance_id(), {})
-	return record.get("plume") if not record.is_empty() else null
+	var plumes: Array[Node3D] = []
+	for engine: Dictionary in record.get("engines", []):
+		plumes.append(engine.plume)
+	return plumes
 
 
 ## A ship's emitters in its own frame: jet name -> [position, exhaust direction], and
-## "Main" -> [nozzle, direction]; empty for a ship without thrusters.
+## "Main" -> [nozzle, direction] of the first main engine; empty for a ship without thrusters.
 func emitters_of(ship: Node3D) -> Dictionary:
 	var record: Dictionary = _ships.get(ship.get_instance_id(), {})
 	if record.is_empty():
@@ -153,33 +163,43 @@ func emitters_of(ship: Node3D) -> Dictionary:
 	return result
 
 
-# Reads a ship's thruster parts into a record: {ship, locomotion, nozzle, scale, jets {name:
-# [position, direction, length, width]}, intensity {name: 0..1}, previous velocity / turn
-# rate, state, plume node and its [length, core, glow, intensity] now}. A ship without
+# Reads a ship's thruster parts into a record: {ship, locomotion, nozzle (the first
+# engine's), engines [{nozzle, scale, plume node and its [length, core, glow, intensity]
+# now}], jets {name: [position, direction, length, width]}, intensity {name: 0..1},
+# previous velocity / turn rate, state}. A ship without a MainEngine cylinder under
 # Model/Thrusters gets an empty record (nothing drawn).
 func _register(ship: Node3D) -> void:
 	var thrusters := ship.get_node_or_null("Model/Thrusters")
 	var locomotion := ship.get_node_or_null("Locomotion")
-	var engine: MeshInstance3D = null
+	var cylinders: Array[MeshInstance3D] = []
 	if thrusters != null:
-		engine = thrusters.get_node_or_null("MainEngine") as MeshInstance3D
-	if engine == null or locomotion == null:
+		for part: Node in thrusters.get_children():
+			if String(part.name).begins_with("MainEngine") and part is MeshInstance3D:
+				cylinders.append(part)
+	if cylinders.is_empty() or locomotion == null:
 		_ships[ship.get_instance_id()] = {}
 		return
 	var to_ship := ship.global_transform.affine_inverse()
-	var cylinder := engine.mesh as CylinderMesh
-	var engine_transform: Transform3D = to_ship * engine.global_transform
+	var engines: Array[Dictionary] = []
+	for engine: MeshInstance3D in cylinders:
+		var cylinder := engine.mesh as CylinderMesh
+		var engine_transform: Transform3D = to_ship * engine.global_transform
+		engines.append({
+			"nozzle": engine_transform.origin + Vector3(0, 0, cylinder.height / 2.0),
+			"scale": cylinder.bottom_radius / REFERENCE_ENGINE,
+			"plume": _make_plume(),
+			"now": [0.0, 0.0, 0.0, 0.0],
+		})
 	var record := {
 		"ship": ship,
 		"locomotion": locomotion,
-		"nozzle": engine_transform.origin + Vector3(0, 0, cylinder.height / 2.0),
-		"scale": cylinder.bottom_radius / REFERENCE_ENGINE,
+		"nozzle": engines[0].nozzle,
+		"engines": engines,
 		"jets": {},
 		"intensity": {"Main": 0.0},
 		"velocity": locomotion.velocity,
 		"rate": locomotion.angular_velocity,
 		"state": State.NONE,
-		"now": [0.0, 0.0, 0.0, 0.0],
 	}
 	for jet: String in JETS:
 		var part := thrusters.get_node_or_null(jet) as MeshInstance3D
@@ -191,7 +211,6 @@ func _register(ship: Node3D) -> void:
 		var at: Vector3 = (to_ship * part.global_transform).origin + direction * box / 2.0
 		record.jets[jet] = [at, direction, float(JETS[jet][1]) * size, JET_WIDTH * size]
 		record.intensity[jet] = 0.0
-	record["plume"] = _make_plume()
 	_ships[ship.get_instance_id()] = record
 
 
@@ -202,7 +221,8 @@ func _alive(id: int) -> bool:
 func _forget(id: int) -> void:
 	var record: Dictionary = _ships[id]
 	if not record.is_empty():
-		(record.plume as Node).queue_free()
+		for engine: Dictionary in record.engines:
+			(engine.plume as Node).queue_free()
 	_ships.erase(id)
 
 
@@ -276,20 +296,21 @@ func _sample(record: Dictionary, delta: float) -> void:
 	record.state = state
 
 
-# Blends the plume toward its state and places it on the nozzle (+Y along the exhaust).
-func _update_plume(ship: Node3D, record: Dictionary, delta: float) -> void:
-	var now: Array = record.now
+# Blends one engine's plume toward the ship's state and places it on that engine's nozzle
+# (+Y along the exhaust).
+func _update_plume(ship: Node3D, record: Dictionary, engine: Dictionary, delta: float) -> void:
+	var now: Array = engine.now
 	var target: Array = PLUME[record.state]
 	var k := clampf(delta / PLUME_BLEND, 0.0, 1.0)
-	var size: float = record.scale
+	var size: float = engine.scale
 	for i in 4:
 		now[i] = lerpf(now[i], float(target[i]) * (size if i < 3 else 1.0), k)
-	var plume: Node3D = record.plume
+	var plume: Node3D = engine.plume
 	var length: float = now[0]
 	plume.visible = length > 0.01 * size
 	if not plume.visible:
 		return
-	plume.global_transform = ship.global_transform * Transform3D(Basis(Vector3.RIGHT, PI / 2), record.nozzle as Vector3)
+	plume.global_transform = ship.global_transform * Transform3D(Basis(Vector3.RIGHT, PI / 2), engine.nozzle as Vector3)
 	var core: MeshInstance3D = plume.get_node("Core")
 	var glow: MeshInstance3D = plume.get_node("Glow")
 	var core_length := length * CORE_LENGTH
