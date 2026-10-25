@@ -33,7 +33,7 @@ All listed work is accepted by the owner. No task is in progress (see section 10
 - `assets/models/ships/whitebox/frigate_001.glb`: the owner's whitebox frigate mesh
   (11 meshes, 3 materials, no textures; about 8.4 × 21 u, far larger than the
   Frigate's 1.6 u ship radius). Owner-made assets are organised by type under
-  `assets/`. Not referenced by any scene; import not yet verified in the editor.
+  `assets/`. Placed once in the Showcase as a bare mesh (`frigate_001`).
 - `experiments/planned_rejoin/ship_avoidance_rejoin.gd`: the only experiment. The
   paused, unaccepted cause B planned-rejoin prototype: a full replacement of
   `game/avoidance/ship_avoidance.gd` as it was on 2026-10-15 (SHA-256
@@ -60,7 +60,9 @@ the lab era) and the layout contract in section 3.
   `local_fuel_scale` 0.1, no ground, resource seed 2026; west station group
   (Station, Station2, Shipyard), the six player ships, authored asteroid formations
   (33 asteroids), a hostile Destroyer and two Gunships (their `Combat` overrides:
-  faction 1, stance Aggressive) under a `HostileCommander`, a `Backdrop`. Root
+  faction 1, stance Aggressive; the three instances have Editable Children, section
+  7) under a `HostileCommander`, a `Backdrop`, and the bare whitebox mesh
+  `frigate_001` (root child, no ship components). Root
   exports: `environment_experiment` 1, `lighting_experiment_d`,
   `strategic_experiment_e`, `god_rays_enabled` true; own DirectionalLight3D 30° up.
   Its WorldEnvironment glow and volumetric fog (albedo (0.9, 0.648, 0.54), anisotropy
@@ -79,7 +81,8 @@ the lab era) and the layout contract in section 3.
   exit and deployment point ≥ 15 u from asteroid surfaces.
 - `game/scenes/combat_test.tscn` (inherits `main.tscn`; F6): integrated combat; a
   second player Gunship and a hostile fleet east, beyond sensor range, under a
-  `HostileCommander` (Gunships Guard the Destroyer, which Attack-Moves west).
+  `HostileCommander` (Gunships Guard the Destroyer, which Attack-Moves west). Same
+  hostile `Combat` overrides and Editable Children as the Showcase.
 - `game/scenes/movement_test.tscn` (root `MovementLab`, `scenario_keys` on): the
   Movement V3 test arena with grid ground and obstacle shapes under `Obstacles`
   (8 suites load it). Its ships are movement-only copies built on the hull scenes.
@@ -902,10 +905,18 @@ distribution, logistics balance, models and UI polish.
   `game/tests/docking/tri_station.tscn`; its station-fuel check asserts only that stock
   fell, not exact amounts.
 - Docked ships count as parked for avoidance.
-- Editor re-save pitfall: a 2026-10-22 editor re-save dropped the Showcase hostiles'
-  `Combat` overrides (they became player ships); restored by hand, cause unknown, may
-  repeat. `sector_environment_test` catches it. Check the overrides after any editor
-  save of `sector_showcase.tscn`.
+- Nested overrides need Editable Children: Godot 4.7.2 saves a property override on a
+  node inside an instanced scene (the hostiles' `Ships/Hostile…/Combat`) only if that
+  instance has Editable Children (`[editable path="…"]` in the `.tscn`); otherwise
+  any save drops it, though loading applies it. The hostile overrides were
+  hand-written without it, so editor saves of the Showcase stripped them (2026-10-22
+  and 2026-10-25). Reproduced headless (load, pack, save to `user://`, reload: all
+  three lost; with `[editable]` all three kept, nodes and properties otherwise
+  identical). Fixed by `[editable]` entries for the three hostiles in
+  `sector_showcase.tscn` and `combat_test.tscn`. Any new override on a nested
+  instance's child needs the same. `sector_environment_test` and `combat_scene_test`
+  catch lost overrides at run time, not at save time. Not yet verified through an
+  actual editor save.
 - The owner's editor state (`.godot/editor/` layout and caches) still names retired
   experiment files; the editor may report once that it cannot reopen them, and headless
   `--import` logs "Cannot load shader: res://experiments/movement_v3/…". Project files

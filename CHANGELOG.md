@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-25 — Hostile Combat overrides kept on save
+
+The hostile `Combat` overrides were lost on editor saves because Godot saves overrides on nested instance children only with Editable Children; `[editable]` entries for the three hostiles in `sector_showcase.tscn` and `combat_test.tscn` fix it (reproduced and verified headless); accepted by the owner.
+
 ## 2026-10-25 — Whitebox frigate mesh added
 
 The owner's `frigate_001.glb` was copied into the new `assets/models/ships/whitebox/` folder (assets organised by type); it is not yet used by any scene; accepted by the owner.
