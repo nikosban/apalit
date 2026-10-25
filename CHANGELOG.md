@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-25 — Camera pitch refinement
+
+The camera rig's pitch now runs from 40° (up to 20 u) to 60° (from 100 u) instead of 45° to 80°, for a more oblique tactical view; FOV, zoom distances, interpolation and the Strategic View transition are unchanged, and `camera_test` asserts both defaults and the log-midpoint pitch; accepted by the owner after comparing 30°, 40° and 45° close pitches in the Showcase.
+
 ## 2026-10-25 — Session start and historical lookup
 
 `AGENTS.md` session start now reads `AGENTS.md` and `HANDOFF.md` and consults `CHANGELOG.md` and Git history only when historical context is relevant, and the CHANGELOG header states that HANDOFF is current state only, Git holds history from 2026-10-20 and earlier history may exist only in the archive; accepted by the owner.

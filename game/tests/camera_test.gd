@@ -227,15 +227,22 @@ func _case_pitch() -> void:
 	while d <= 150.0:
 		samples.append(_rig.pitch_for(d))
 		d *= 1.02
-	_check("pitch_for: 45° up to distance 20 (%.2f at 5, %.2f at 20), 80° from 100 (%.2f at 100, %.2f at 150), never falling between" % [_rig.pitch_for(5.0), _rig.pitch_for(20.0), _rig.pitch_for(100.0), _rig.pitch_for(150.0)],
-		is_equal_approx(_rig.pitch_for(5.0), 45.0) and is_equal_approx(_rig.pitch_for(20.0), 45.0) and is_equal_approx(_rig.pitch_for(100.0), 80.0)
-		and is_equal_approx(_rig.pitch_for(150.0), 80.0) and _monotonic(samples, true))
+	var close := _rig.pitch_degrees as float
+	var far := _rig.tactical_pitch_degrees as float
+	_check("default pitches: close %.1f° (expected 40°), tactical %.1f° (expected 60°)" % [close, far], is_equal_approx(close, 40.0) and is_equal_approx(far, 60.0))
+	_check("pitch_for: %.0f° up to distance 20 (%.2f at 5, %.2f at 20), %.0f° from 100 (%.2f at 100, %.2f at 150), never falling between" % [close, _rig.pitch_for(5.0), _rig.pitch_for(20.0), far, _rig.pitch_for(100.0), _rig.pitch_for(150.0)],
+		is_equal_approx(_rig.pitch_for(5.0), close) and is_equal_approx(_rig.pitch_for(20.0), close) and is_equal_approx(_rig.pitch_for(100.0), far)
+		and is_equal_approx(_rig.pitch_for(150.0), far) and _monotonic(samples, true))
+	# Log-space midpoint of 20 and 100: the smoothstep is at 0.5, so the pitch is halfway.
+	var middle := sqrt(20.0 * 100.0)
+	_check("pitch_for at the log midpoint (%.2f u): %.2f° (halfway, %.2f°)" % [middle, _rig.pitch_for(middle), (close + far) * 0.5],
+		is_equal_approx(_rig.pitch_for(middle), (close + far) * 0.5))
 	await _reset(10.0)
 	for i in 40:
 		_wheel(CENTER, true)
 	var r := await _run()
 	_check("zooming 10 -> 150 in one burst: the camera pitch equals pitch_for(rendered distance) every frame (largest step %.2f° per frame); ends at %.2f°" % [r.pitch_step, _pitch()],
-		r.pitch_ok and is_equal_approx(_pitch(), 80.0))
+		r.pitch_ok and is_equal_approx(_pitch(), far))
 	await _reset(45.0)
 	_wheel(CENTER, true)
 	var one := await _run()
@@ -265,9 +272,9 @@ func _anchored_zoom(screen: Vector2, from: float, notches: int, out: bool, yaw: 
 func _case_anchor() -> void:
 	print("\n=== K4 cursor anchoring")
 	var cases := [
-		["centre, 20 -> 111 (pitch 45 -> 80)", CENTER, 20.0, 18, true, 0.0],
+		["centre, 20 -> 111 (pitch close -> tactical)", CENTER, 20.0, 18, true, 0.0],
 		["off-centre, 20 -> 111", OFF_CENTER, 20.0, 18, true, 0.0],
-		["off-centre, 100 -> 19 (pitch 80 -> 45)", OFF_CENTER, 100.0, 17, false, 0.0],
+		["off-centre, 100 -> 19 (pitch tactical -> close)", OFF_CENTER, 100.0, 17, false, 0.0],
 		["near the bottom-right edge, 30 -> 94", _at(0.99, 0.98), 30.0, 12, true, 0.0],
 		["near the top-left edge, 30 -> 94", _at(0.02, 0.03), 30.0, 12, true, 0.0],
 		["near the top-left edge, 90 -> 29", _at(0.02, 0.03), 90.0, 12, false, 0.0],

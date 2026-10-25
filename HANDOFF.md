@@ -540,8 +540,8 @@ Combat behaviour is frozen as accepted (section 6).
   `InputEventMouseButton.factor` honoured, ≤ 10 notches per event); `zoom_distance`
   follows in log space (95 % in `zoom_smoothing_time` 0.25 s, real time); the ground
   point under the cursor stays under it (bounds win; pan, rotate or an outside move
-  drop the anchor). Pitch = `pitch_for(rendered distance)`: 45° up to 20 u, smoothstep
-  in log distance to 80° at 100 u (exported). Wheel ignored over a UI control. Snap:
+  drop the anchor). Pitch = `pitch_for(rendered distance)`: 40° up to 20 u, smoothstep
+  in log distance to 60° at 100 u (exported). Wheel ignored over a UI control. Snap:
   write `zoom_distance` and call `_apply_zoom()`. `zoom_level()`: 0–1, log on the fixed
   5–150 range. `follow()` exists but nothing triggers it.
 - Tactical (`tactical_markers.gd`): `emphasis()` 0 Local – 1 Tactical, smoothstep on
@@ -865,7 +865,7 @@ distribution, logistics balance, models and UI polish.
 
 - Camera: near the bounds the clamp lets the cursor point drift; a large wheel burst
   can tilt up to about 8° per frame; a panel opening under a still cursor may not
-  block the first wheel step (inferred); scenes that zoom to 40 show about 59°. In
+  block the first wheel step (inferred); scenes that zoom to 40 show about 48°. In
   headless runs the visible rect is reported as 1152 × 648 (unverified since the
   1920 × 1080 base canvas; section 10). Camera start zoom shows the Destroyer only
   partly in the test arena.
