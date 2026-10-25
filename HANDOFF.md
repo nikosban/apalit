@@ -606,13 +606,13 @@ Combat behaviour is frozen as accepted (section 6).
   - `thruster_view.gd` (`ThrusterView`): reads every ship each physics tick, never
 	writes; places one main effect per `MainEngine*` and one directional effect per
 	jet box of the hull's `Thrusters`, under itself (never under a ship), sized from
-    the parts. Jet intensity = ship-frame acceleration share of its limit (smoothed
-    0.08 s, zero without propulsion). Main states: BOOST 0.5 + 0.5 × intensity, THRUST
-    0.5, IDLE 0 with glow, NONE 0 without; blended 0.15 s. API: `state_of`,
-    `intensity_of`, `plume_of`, `plumes_of`, `jet_of`, `emitters_of`.
+	the parts. Jet intensity = ship-frame acceleration share of its limit (smoothed
+	0.08 s, zero without propulsion). Main states: BOOST 0.5 + 0.5 × intensity, THRUST
+	0.5, IDLE 0 with glow, NONE 0 without; blended 0.15 s. API: `state_of`,
+	`intensity_of`, `plume_of`, `plumes_of`, `jet_of`, `emitters_of`.
   - Ordnance: `WeaponGeometry.build_ordnance()` adds effects to torpedo and missile
-    nozzles and missile attitude mounts; `ordnance.gd` drives them; sizes in
-    `OrdnanceConfig`. The `OrdnanceTrails` ribbon is kept (owner choice).
+	nozzles and missile attitude mounts; `ordnance.gd` drives them; sizes in
+	`OrdnanceConfig`. The `OrdnanceTrails` ribbon is kept (owner choice).
 - Environment (`sector_environment.gd`, `SectorEnvironment`; profile
   `sector_profile.gd` / `warm_sector.tres`): key light, ambient, background, ground;
   rocks, debris and dust pockets around formations. Sky `environment_experiment`: A

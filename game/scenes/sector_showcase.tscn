@@ -28,7 +28,6 @@
 [ext_resource type="Script" uid="uid://qjq5pfler7r8" path="res://game/presentation/object_markers.gd" id="37_object_markers"]
 [ext_resource type="Script" uid="uid://doq4kne31kiv" path="res://game/presentation/command_cursor.gd" id="38_command_cursor"]
 [ext_resource type="Script" uid="uid://dvd2ssju3mx3b" path="res://game/presentation/thruster_view.gd" id="39_thruster_view"]
-[ext_resource type="PackedScene" uid="uid://bxq6ch1q7sxk3" path="res://assets/models/ships/whitebox/frigate_001.glb" id="40_a8i1t"]
 [ext_resource type="Script" uid="uid://gu2j13ro45y3" path="res://game/time/sim_clock.gd" id="90_clock"]
 [ext_resource type="Script" uid="uid://brbw77n12w8gq" path="res://game/sensors/contact_board.gd" id="91_contacts"]
 [ext_resource type="Script" uid="uid://cmilpd8e56pyx" path="res://game/combat/projectile_system.gd" id="92_projectiles"]
@@ -313,21 +312,21 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -240, 1.5, 92)
 [node name="HostileDestroyer" parent="Ships" unique_id=300941356 instance=ExtResource("5_destroyer_unit")]
 transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 214, 1.5, -58)
 
-[node name="Combat" parent="Ships/HostileDestroyer" index="7"]
+[node name="Combat" parent="Ships/HostileDestroyer" index="7" unique_id=55288439]
 faction = 1
 stance = 2
 
 [node name="HostileGunship" parent="Ships" unique_id=1933724389 instance=ExtResource("4_gunship_unit")]
 transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 204, 1.5, -76)
 
-[node name="Combat" parent="Ships/HostileGunship" index="7"]
+[node name="Combat" parent="Ships/HostileGunship" index="7" unique_id=55288439]
 faction = 1
 stance = 2
 
 [node name="HostileGunship2" parent="Ships" unique_id=1252428582 instance=ExtResource("4_gunship_unit")]
 transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 206, 1.5, -40)
 
-[node name="Combat" parent="Ships/HostileGunship2" index="7"]
+[node name="Combat" parent="Ships/HostileGunship2" index="7" unique_id=55288439]
 faction = 1
 stance = 2
 
@@ -432,9 +431,6 @@ tactic = 2
 escorted = "HostileDestroyer"
 escorts = PackedStringArray("HostileGunship", "HostileGunship2")
 objectives = PackedVector2Array(196, -128, 176, 24)
-
-[node name="frigate_001" parent="." unique_id=1364966738 instance=ExtResource("40_a8i1t")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -228.15875, 0, 58.771194)
 
 [editable path="Ships/HostileDestroyer"]
 [editable path="Ships/HostileGunship"]
