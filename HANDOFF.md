@@ -30,6 +30,10 @@ All listed work is accepted by the owner. No task is in progress (see section 10
 - `game/`: all production code, scenes and tests, one folder per system.
 - `assets/textures/skybox/multi_nebulae_2.png`: the owner's 10000 × 5000 panorama
   (imported lossless, no mipmaps), the Showcase sky; tracked in Git (owner decision).
+- `assets/models/ships/whitebox/frigate_001.glb`: the owner's whitebox frigate mesh
+  (11 meshes, 3 materials, no textures; about 8.4 × 21 u, far larger than the
+  Frigate's 1.6 u ship radius). Owner-made assets are organised by type under
+  `assets/`. Not referenced by any scene; import not yet verified in the editor.
 - `experiments/planned_rejoin/ship_avoidance_rejoin.gd`: the only experiment. The
   paused, unaccepted cause B planned-rejoin prototype: a full replacement of
   `game/avoidance/ship_avoidance.gd` as it was on 2026-10-15 (SHA-256
@@ -208,9 +212,9 @@ horizon, plus the accepted same-course pass side and re-plan after a far pass.
   or `place()`), `guide()`. `_apply_motion()` asks PlanarCollision before committing;
   `committed_motion` is what Fuel charges.
   - `propulsion` (set by Fuel): false = no translation or rotation, order kept,
-    `avoidance_cap` 0 so others treat the ship as waiting (stationary).
+	`avoidance_cap` 0 so others treat the ship as waiting (stationary).
   - Guided mode (station docking): `guide(legs, limits)` flies turn-in-place or
-    straight legs from rest within station limits capped by the ship's own, each
+	straight legs from rest within station limits capped by the ship's own, each
     ending at rest. While guided: no destination, `steer()` / `avoid()` ignored,
     `move_to()` refused and counted (`guided_order_errors`, error logged), other ships
     treat it as idle; target heading = actual heading at hand-back. `place()` cancels
@@ -224,16 +228,16 @@ horizon, plus the accepted same-course pass side and re-plan after a far pass.
 - `route_follower.gd` (`RouteFollower`): one route per order, continuous lookahead,
   per-order speed profile; holds `ship_radius`, read by other systems.
   - `order()` returns whether the order was taken (planned, or queued while the map is
-    not ready). Without a route it is refused ("No route found") and nothing changes;
-    a queued order that finds no route restores the previous status and request.
+	not ready). Without a route it is refused ("No route found") and nothing changes;
+	a queued order that finds no route restores the previous status and request.
   - Refused while guided ("Order refused during station control", counted in
-    `guided_refusals`, expected 0). `clear()` drops route, queue and status when the
-    station takes over.
+	`guided_refusals`, expected 0). `clear()` drops route, queue and status when the
+	station takes over.
   - End-of-route correction (owner-retained, `route_end_test`): the destination is
-    braked for at least the straight distance to it while that line is clear, so a
-    ship pushed off its route near the end is not capped short of it.
+	braked for at least the straight distance to it while that line is clear, so a
+	ship pushed off its route near the end is not capped short of it.
   - `replan()` (accepted 2026-10-23): called by Avoidance when a pass ends with the
-    ship more than that encounter's separation off its path; same resolved
+	ship more than that encounter's separation off its path; same resolved
     destination, `requested` and `plans` unchanged (Behavior reads it as a player
     Move), no notice, counted in `replans`; skipped without a route, guided or queued.
 - `ship_avoidance.gd` (`Avoidance`): closed-form prediction per pair; give-way roles
@@ -246,7 +250,7 @@ horizon, plus the accepted same-course pass side and re-plan after a far pass.
     steering point is pulled back to keep the reserve (`_keep_reserve`), and the pass
     speed cap limits only travel toward the reserve.
   - Cause C: a stationary ship's yield is decided after the one applied pass; if that
-    shift already clears it (`_shift_clears()`) the ship follows the pass's side
+	shift already clears it (`_shift_clears()`) the ship follows the pass's side
     (`_follow_pass()`), otherwise it yields.
   - Direct-move prediction horizon: the own-ship prediction runs from the route
     position and, on a direct move, stops at the end of the leg left (not after the
@@ -300,30 +304,30 @@ Gunship's handling with radius 4.1, Miners the Frigate's):
   Waypoint, or Move to a point) and given per ship through `_order()` / `_execute()`,
   which return whether it was accepted (executed, or held).
   - Every command is checked before anything is cancelled. Refused (MOVE without a
-    route, Dock where `Docking.can_dock()` is false, Mine where
-    `MiningOperation.can_mine()` is false, Resume without a working point): notice
-    only; order, mining, docking and transport unchanged. Checks are skipped while
-    the map is not ready (deferred). Dock at the station the ship is already docking
-    at changes nothing.
+	route, Dock where `Docking.can_dock()` is false, Mine where
+	`MiningOperation.can_mine()` is false, Resume without a working point): notice
+	only; order, mining, docking and transport unchanged. Checks are skipped while
+	the map is not ready (deferred). Dock at the station the ship is already docking
+	at changes nothing.
   - Accepted: MOVE pauses mining and transport (settings kept; Resume restarts) and
-    cancels docking; Mine cancels docking; Dock pauses mining and transport. Only ships actually ordered
-    have assignments released and `command_given(ship, kind)` emitted.
+	cancels docking; Mine cancels docking; Dock pauses mining and transport. Only ships actually ordered
+	have assignments released and `command_given(ship, kind)` emitted.
   - Single MOVE onto a stationary ship: resolved beside it ("Destination occupied by X
-    - moved beside it") or refused ("No free position near X - no order given").
+	- moved beside it") or refused ("No free position near X - no order given").
   - Group MOVE: with no ship under station control or docked, `GroupOrders.command()`;
-    otherwise one `assign()` and each placed ship gets its own destination, held ships
-    after their maneuver. Partial: "N of M ships ordered; K not ordered".
+	otherwise one `assign()` and each placed ship gets its own destination, held ships
+	after their maneuver. Partial: "N of M ships ordered; K not ordered".
   - Held commands during station control (two-stage validation, owner decision): at
-    issue only the intent is checked (`_intent_valid()`: target exists, command
-    permitted); a rejected one never replaces the held one ("… - held order kept");
-    newest valid wins (`Docking.hold_command()`). A held MOVE shows its marker at once.
-    At release (`_release()`) it runs through the full checks from the actual
-    position; refused then: notice, held command and marker cleared.
+	issue only the intent is checked (`_intent_valid()`: target exists, command
+	permitted); a rejected one never replaces the held one ("… - held order kept");
+	newest valid wins (`Docking.hold_command()`). A held MOVE shows its marker at once.
+	At release (`_release()`) it runs through the full checks from the actual
+	position; refused then: notice, held command and marker cleared.
   - Docked ship (any command but Dock at its own station): checked first from the
-    berth; refused: nothing changes; accepted: automation paused as by Undock, command
-    held, controlled exit started, then re-checked at release.
+	berth; refused: nothing changes; accepted: automation paused as by Undock, command
+	held, controlled exit started, then re-checked at release.
   - `resolve_command()` / `command_available()`: read-only versions for the cursor
-    (same resolution and checks, notices muted).
+	(same resolution and checks, notices muted).
   - `autonomous_move()`: Behavior's positioning (one RouteFollower order, moved beside
     an occupying ship, route checked; no assignment cancelled, no notice, not a
     command; refused while docking owns the ship).
@@ -356,12 +360,12 @@ Gunship's handling with radius 4.1, Miners the Frigate's):
   Dock. `can_dock(station)`: at least one usable berth (route to handover, clear
   straight entry, at least one exit side).
   - Dock: granted → an ordinary order to the handover point; arrived at rest (within
-    0.25 u) → `RouteFollower.clear()` and `Locomotion.guide()` entry (turn to the
-    final heading, straight in) → Docked on the pose (≤ 0.25 u, ≤ 0.5°). Queued: order
-    to the nearest free reachable hold; request kept. Stopped short by a contact:
-    notice, Unable to Dock.
+	0.25 u) → `RouteFollower.clear()` and `Locomotion.guide()` entry (turn to the
+	final heading, straight in) → Docked on the pose (≤ 0.25 u, ≤ 0.5°). Queued: order
+	to the nearest free reachable hold; request kept. Stopped short by a contact:
+	notice, Unable to Dock.
   - Undock: controlled exit (straight back, turn toward the exit side, forward to the
-    exit point); control returns when it ends. No clear side: notice, stays docked.
+	exit point); control returns when it ends. No clear side: notice, stays docked.
   - Docking owns the ship's movement from the dock request until control ends.
     `under_control()`, `control_ended`; one held command (`hold_command()`,
     `held_command()`). During control `cancel()` / `dock()` are refused and counted
@@ -584,15 +588,15 @@ Combat behaviour is frozen as accepted (section 6).
   space with one shader `plasma.gdshader` (per-instance brightness and size are
   instance uniforms, so no shared material is written).
   - `main_thruster_fx.tscn` (`Core`, `Exhaust`, `Trail`, `Glow`; `thrust` 0..1,
-    `powered`); `directional_thruster_fx.tscn` (`Exhaust`; `thrust`; `continuous` on by
-    owner choice, else pulses at `pulse_frequency` as emission windows, never restarts).
+	`powered`); `directional_thruster_fx.tscn` (`Exhaust`; `thrust`; `continuous` on by
+	owner choice, else pulses at `pulse_frequency` as emission windows, never restarts).
   - Shared look, edited once for every user: `main_thruster_settings.tres`,
-    `directional_thruster_settings.tres`, the `*_process.tres` and `plasma_*.tres` /
-    `nozzle_glow.tres` resources. Per instance only `nozzle_scale` and
-    `length_multiplier`. Scripts are `@tool`.
+	`directional_thruster_settings.tres`, the `*_process.tres` and `plasma_*.tres` /
+	`nozzle_glow.tres` resources. Per instance only `nozzle_scale` and
+	`length_multiplier`. Scripts are `@tool`.
   - `thruster_view.gd` (`ThrusterView`): reads every ship each physics tick, never
-    writes; places one main effect per `MainEngine*` and one directional effect per
-    jet box of the hull's `Thrusters`, under itself (never under a ship), sized from
+	writes; places one main effect per `MainEngine*` and one directional effect per
+	jet box of the hull's `Thrusters`, under itself (never under a ship), sized from
     the parts. Jet intensity = ship-frame acceleration share of its limit (smoothed
     0.08 s, zero without propulsion). Main states: BOOST 0.5 + 0.5 × intensity, THRUST
     0.5, IDLE 0 with glow, NONE 0 without; blended 0.15 s. API: `state_of`,
@@ -691,11 +695,11 @@ Design principles (owner, 2026-10-11, carried forward from the original game):
   - Facing control (heading separate from travel): trigger combat prototype.
   - Nearby-ship spatial grid: at about 20 ships; replaces all-pairs checks.
   - Formations: after groups; keep shape, shared internal speed cap, blocked slots
-    resolve, break and rejoin. Locked formations are to be designed separately; no
-    leader, shared speed or formation persistence exists.
+	resolve, break and rejoin. Locked formations are to be designed separately; no
+	leader, shared speed or formation persistence exists.
   - Transit between sectors: physical, interceptable, flip-and-burn, arrive slowed.
   - Larger maps: with weapon ranges and sectors; missile range must leave room for
-    an approach phase.
+	an approach phase.
 
 Frozen or not authorized without the owner:
 
