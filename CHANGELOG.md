@@ -3,6 +3,10 @@
 Project history, newest first. One to two sentences per task; details are
 in `HANDOFF.md`. Entries are not edited after they are written.
 
+## 2026-10-25 — Workflow: inspection, decisions and verification
+
+`AGENTS.md` now treats decisions accepted in `HANDOFF.md` as confirmed (obsolete cube prototype line removed), widens step A to interacting code where relevant, lets findings and plan share one response when nothing blocks, puts regression risks and verification scope in the plan, matches verification to the type of change, and separates owner decisions (behavior, visual design, architecture, scope, substantive implementation) from routine coding details; accepted by the owner.
+
 ## 2026-10-24 — Reusable thruster VFX
 
 Replaced the cone plumes and drawn jets with two reusable GPU-particle scenes in `game/presentation/thrusters/` (main thruster: core, plume, trail and idle glow; directional: neutral continuous stream, pulses optional), driven by `ThrusterView` on ships and by the ordnance on missiles and torpedoes (ribbon trails kept), with shared Inspector-tunable resources, a preview scene and the strict reusability policy added to `AGENTS.md`; accepted by the owner.

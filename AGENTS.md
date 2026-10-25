@@ -27,33 +27,41 @@ explicit approval.
   tilt); yaw rotation, pan, and zoom allowed.
 - Navigation: strictly 2D on a fixed horizontal plane. No vertical movement
   or altitude changes.
-- Units: spaceships. A cube is the initial prototype.
+- Units: spaceships.
 - Input: mouse. Left-click selects, right-click issues a move command.
 - No systems, code, documentation, configuration, or dependencies from
   previous projects.
 
-Anything not listed here is undecided. Do not infer mechanics, architecture,
-genre, gameplay loops, or requirements.
+Decisions recorded as accepted in `HANDOFF.md` are also confirmed; anything
+else is undecided. Do not infer mechanics, architecture, genre, gameplay
+loops, or requirements.
 
 ## Workflow (every task)
 
-- **A. Inspection:** Read the task and relevant files. Modify nothing.
-  Report unexpected files.
+- **A. Inspection:** Read the task and the code it touches. Where relevant,
+  check what interacts with it: callers, scenes and variants that instance or
+  override it, signals, NodePaths, processing order, shared resources, and
+  covering tests. Modify nothing. Report unexpected files and any existing
+  defects or conflicting behavior found.
 - **B. Findings and questions:** Report findings, risks, open questions,
   and recommendations. Separate verified facts from assumptions. Ask only
   questions that block the current task. Wait for answers; repeat until
-  resolved.
+  resolved. If nothing blocks, present the plan (C) in the same response.
   - **Editability:** If the result includes values judged by look or feel
 	rather than correctness, ask: expose them in the Godot editor, give a
 	manual refinement guide, or neither? If unsure, ask.
 - **C. Plan:** Present scope, files to create/modify, approach, exclusions,
-  verification, acceptance criteria, and limitations in the conversation.
+  affected existing behavior and regression risks, verification scope (what
+  and why), acceptance criteria, and limitations in the conversation.
   STOP for explicit approval.
 - **D. Implementation:** Implement only the approved plan and files. If an
-  unforeseen decision arises, stop and ask. Run available verification.
-  Report changes, results, and remaining problems, plus where agreed
-  editable values live (scene, node, property) or the agreed refinement
-  guide.
+  unforeseen decision arises, stop and ask. Run verification suited to the
+  type of change (the relevant `game/tests` suites for gameplay code), plus
+  broader regression proportional to the affected systems and risk, as
+  planned. Report changes, which verification ran, results, what was not
+  verified, any files Godot modified as a side effect, and remaining
+  problems, plus where agreed editable values live (scene, node, property)
+  or the agreed refinement guide.
 - **E. User validation:** Stop. The task is not complete until the owner
   explicitly accepts it. Requested changes return to A, B, or C.
 - **F. Handoff:** After acceptance, add a one-to-two-sentence `CHANGELOG.md`
@@ -65,7 +73,9 @@ genre, gameplay loops, or requirements.
 ## Rules
 
 - A recommendation is not an approved decision.
-- Never choose between alternatives without owner approval.
+- Behavior, visual design, architecture, scope, and substantive
+  implementation choices need owner approval; routine coding details within
+  an approved plan are the agent's judgment. If unsure which, ask.
 - Missing requirements are not permission to invent behavior.
 - Never expand scope silently or implement future tasks early.
 - Prefer simple implementations; no unrequested features or abstractions.
