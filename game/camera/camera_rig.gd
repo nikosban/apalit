@@ -11,8 +11,8 @@ const REFERENCE_MAX_ZOOM := 150.0 # zoom_level() 1
 const MAX_WHEEL_FACTOR := 10.0 # notches one high-resolution wheel event may count for
 const MIN_ANCHOR_RAY_DROP := 0.05 # anchor rays flatter than this (direction y) are ignored
 
-@export var pitch_degrees := 45.0 # close range (normal) pitch
-@export var tactical_pitch_degrees := 80.0 # pitch at and beyond pitch_end_distance
+@export var pitch_degrees := 40.0 # close range (normal) pitch
+@export var tactical_pitch_degrees := 60.0 # pitch at and beyond pitch_end_distance
 @export var pitch_start_distance := 20.0 # the pitch starts to steepen beyond this distance
 @export var pitch_end_distance := 100.0 # and reaches the tactical pitch here
 @export var zoom_distance := 15.0

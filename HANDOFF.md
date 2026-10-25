@@ -30,6 +30,10 @@ All listed work is accepted by the owner. No task is in progress (see section 10
 - `game/`: all production code, scenes and tests, one folder per system.
 - `assets/textures/skybox/multi_nebulae_2.png`: the owner's 10000 × 5000 panorama
   (imported lossless, no mipmaps), the Showcase sky; tracked in Git (owner decision).
+- `assets/models/ships/whitebox/frigate_001.glb`: the owner's whitebox frigate mesh
+  (11 meshes, 3 materials, no textures; about 8.4 × 21 u, far larger than the
+  Frigate's 1.6 u ship radius). Owner-made assets are organised by type under
+  `assets/`. Placed once in the Showcase as a bare mesh (`frigate_001`).
 - `experiments/planned_rejoin/ship_avoidance_rejoin.gd`: the only experiment. The
   paused, unaccepted cause B planned-rejoin prototype: a full replacement of
   `game/avoidance/ship_avoidance.gd` as it was on 2026-10-15 (SHA-256
@@ -56,7 +60,9 @@ the lab era) and the layout contract in section 3.
   `local_fuel_scale` 0.1, no ground, resource seed 2026; west station group
   (Station, Station2, Shipyard), the six player ships, authored asteroid formations
   (33 asteroids), a hostile Destroyer and two Gunships (their `Combat` overrides:
-  faction 1, stance Aggressive) under a `HostileCommander`, a `Backdrop`. Root
+  faction 1, stance Aggressive; the three instances have Editable Children, section
+  7) under a `HostileCommander`, a `Backdrop`, and the bare whitebox mesh
+  `frigate_001` (root child, no ship components). Root
   exports: `environment_experiment` 1, `lighting_experiment_d`,
   `strategic_experiment_e`, `god_rays_enabled` true; own DirectionalLight3D 30° up.
   Its WorldEnvironment glow and volumetric fog (albedo (0.9, 0.648, 0.54), anisotropy
@@ -75,7 +81,8 @@ the lab era) and the layout contract in section 3.
   exit and deployment point ≥ 15 u from asteroid surfaces.
 - `game/scenes/combat_test.tscn` (inherits `main.tscn`; F6): integrated combat; a
   second player Gunship and a hostile fleet east, beyond sensor range, under a
-  `HostileCommander` (Gunships Guard the Destroyer, which Attack-Moves west).
+  `HostileCommander` (Gunships Guard the Destroyer, which Attack-Moves west). Same
+  hostile `Combat` overrides and Editable Children as the Showcase.
 - `game/scenes/movement_test.tscn` (root `MovementLab`, `scenario_keys` on): the
   Movement V3 test arena with grid ground and obstacle shapes under `Obstacles`
   (8 suites load it). Its ships are movement-only copies built on the hull scenes.
@@ -208,9 +215,9 @@ horizon, plus the accepted same-course pass side and re-plan after a far pass.
   or `place()`), `guide()`. `_apply_motion()` asks PlanarCollision before committing;
   `committed_motion` is what Fuel charges.
   - `propulsion` (set by Fuel): false = no translation or rotation, order kept,
-    `avoidance_cap` 0 so others treat the ship as waiting (stationary).
+	`avoidance_cap` 0 so others treat the ship as waiting (stationary).
   - Guided mode (station docking): `guide(legs, limits)` flies turn-in-place or
-    straight legs from rest within station limits capped by the ship's own, each
+	straight legs from rest within station limits capped by the ship's own, each
     ending at rest. While guided: no destination, `steer()` / `avoid()` ignored,
     `move_to()` refused and counted (`guided_order_errors`, error logged), other ships
     treat it as idle; target heading = actual heading at hand-back. `place()` cancels
@@ -224,16 +231,16 @@ horizon, plus the accepted same-course pass side and re-plan after a far pass.
 - `route_follower.gd` (`RouteFollower`): one route per order, continuous lookahead,
   per-order speed profile; holds `ship_radius`, read by other systems.
   - `order()` returns whether the order was taken (planned, or queued while the map is
-    not ready). Without a route it is refused ("No route found") and nothing changes;
-    a queued order that finds no route restores the previous status and request.
+	not ready). Without a route it is refused ("No route found") and nothing changes;
+	a queued order that finds no route restores the previous status and request.
   - Refused while guided ("Order refused during station control", counted in
-    `guided_refusals`, expected 0). `clear()` drops route, queue and status when the
-    station takes over.
+	`guided_refusals`, expected 0). `clear()` drops route, queue and status when the
+	station takes over.
   - End-of-route correction (owner-retained, `route_end_test`): the destination is
-    braked for at least the straight distance to it while that line is clear, so a
-    ship pushed off its route near the end is not capped short of it.
+	braked for at least the straight distance to it while that line is clear, so a
+	ship pushed off its route near the end is not capped short of it.
   - `replan()` (accepted 2026-10-23): called by Avoidance when a pass ends with the
-    ship more than that encounter's separation off its path; same resolved
+	ship more than that encounter's separation off its path; same resolved
     destination, `requested` and `plans` unchanged (Behavior reads it as a player
     Move), no notice, counted in `replans`; skipped without a route, guided or queued.
 - `ship_avoidance.gd` (`Avoidance`): closed-form prediction per pair; give-way roles
@@ -246,7 +253,7 @@ horizon, plus the accepted same-course pass side and re-plan after a far pass.
     steering point is pulled back to keep the reserve (`_keep_reserve`), and the pass
     speed cap limits only travel toward the reserve.
   - Cause C: a stationary ship's yield is decided after the one applied pass; if that
-    shift already clears it (`_shift_clears()`) the ship follows the pass's side
+	shift already clears it (`_shift_clears()`) the ship follows the pass's side
     (`_follow_pass()`), otherwise it yields.
   - Direct-move prediction horizon: the own-ship prediction runs from the route
     position and, on a direct move, stops at the end of the leg left (not after the
@@ -300,30 +307,30 @@ Gunship's handling with radius 4.1, Miners the Frigate's):
   Waypoint, or Move to a point) and given per ship through `_order()` / `_execute()`,
   which return whether it was accepted (executed, or held).
   - Every command is checked before anything is cancelled. Refused (MOVE without a
-    route, Dock where `Docking.can_dock()` is false, Mine where
-    `MiningOperation.can_mine()` is false, Resume without a working point): notice
-    only; order, mining, docking and transport unchanged. Checks are skipped while
-    the map is not ready (deferred). Dock at the station the ship is already docking
-    at changes nothing.
+	route, Dock where `Docking.can_dock()` is false, Mine where
+	`MiningOperation.can_mine()` is false, Resume without a working point): notice
+	only; order, mining, docking and transport unchanged. Checks are skipped while
+	the map is not ready (deferred). Dock at the station the ship is already docking
+	at changes nothing.
   - Accepted: MOVE pauses mining and transport (settings kept; Resume restarts) and
-    cancels docking; Mine cancels docking; Dock pauses mining and transport. Only ships actually ordered
-    have assignments released and `command_given(ship, kind)` emitted.
+	cancels docking; Mine cancels docking; Dock pauses mining and transport. Only ships actually ordered
+	have assignments released and `command_given(ship, kind)` emitted.
   - Single MOVE onto a stationary ship: resolved beside it ("Destination occupied by X
-    - moved beside it") or refused ("No free position near X - no order given").
+	- moved beside it") or refused ("No free position near X - no order given").
   - Group MOVE: with no ship under station control or docked, `GroupOrders.command()`;
-    otherwise one `assign()` and each placed ship gets its own destination, held ships
-    after their maneuver. Partial: "N of M ships ordered; K not ordered".
+	otherwise one `assign()` and each placed ship gets its own destination, held ships
+	after their maneuver. Partial: "N of M ships ordered; K not ordered".
   - Held commands during station control (two-stage validation, owner decision): at
-    issue only the intent is checked (`_intent_valid()`: target exists, command
-    permitted); a rejected one never replaces the held one ("… - held order kept");
-    newest valid wins (`Docking.hold_command()`). A held MOVE shows its marker at once.
-    At release (`_release()`) it runs through the full checks from the actual
-    position; refused then: notice, held command and marker cleared.
+	issue only the intent is checked (`_intent_valid()`: target exists, command
+	permitted); a rejected one never replaces the held one ("… - held order kept");
+	newest valid wins (`Docking.hold_command()`). A held MOVE shows its marker at once.
+	At release (`_release()`) it runs through the full checks from the actual
+	position; refused then: notice, held command and marker cleared.
   - Docked ship (any command but Dock at its own station): checked first from the
-    berth; refused: nothing changes; accepted: automation paused as by Undock, command
-    held, controlled exit started, then re-checked at release.
+	berth; refused: nothing changes; accepted: automation paused as by Undock, command
+	held, controlled exit started, then re-checked at release.
   - `resolve_command()` / `command_available()`: read-only versions for the cursor
-    (same resolution and checks, notices muted).
+	(same resolution and checks, notices muted).
   - `autonomous_move()`: Behavior's positioning (one RouteFollower order, moved beside
     an occupying ship, route checked; no assignment cancelled, no notice, not a
     command; refused while docking owns the ship).
@@ -356,12 +363,12 @@ Gunship's handling with radius 4.1, Miners the Frigate's):
   Dock. `can_dock(station)`: at least one usable berth (route to handover, clear
   straight entry, at least one exit side).
   - Dock: granted → an ordinary order to the handover point; arrived at rest (within
-    0.25 u) → `RouteFollower.clear()` and `Locomotion.guide()` entry (turn to the
-    final heading, straight in) → Docked on the pose (≤ 0.25 u, ≤ 0.5°). Queued: order
-    to the nearest free reachable hold; request kept. Stopped short by a contact:
-    notice, Unable to Dock.
+	0.25 u) → `RouteFollower.clear()` and `Locomotion.guide()` entry (turn to the
+	final heading, straight in) → Docked on the pose (≤ 0.25 u, ≤ 0.5°). Queued: order
+	to the nearest free reachable hold; request kept. Stopped short by a contact:
+	notice, Unable to Dock.
   - Undock: controlled exit (straight back, turn toward the exit side, forward to the
-    exit point); control returns when it ends. No clear side: notice, stays docked.
+	exit point); control returns when it ends. No clear side: notice, stays docked.
   - Docking owns the ship's movement from the dock request until control ends.
     `under_control()`, `control_ended`; one held command (`hold_command()`,
     `held_command()`). During control `cancel()` / `dock()` are refused and counted
@@ -540,8 +547,8 @@ Combat behaviour is frozen as accepted (section 6).
   `InputEventMouseButton.factor` honoured, ≤ 10 notches per event); `zoom_distance`
   follows in log space (95 % in `zoom_smoothing_time` 0.25 s, real time); the ground
   point under the cursor stays under it (bounds win; pan, rotate or an outside move
-  drop the anchor). Pitch = `pitch_for(rendered distance)`: 45° up to 20 u, smoothstep
-  in log distance to 80° at 100 u (exported). Wheel ignored over a UI control. Snap:
+  drop the anchor). Pitch = `pitch_for(rendered distance)`: 40° up to 20 u, smoothstep
+  in log distance to 60° at 100 u (exported). Wheel ignored over a UI control. Snap:
   write `zoom_distance` and call `_apply_zoom()`. `zoom_level()`: 0–1, log on the fixed
   5–150 range. `follow()` exists but nothing triggers it.
 - Tactical (`tactical_markers.gd`): `emphasis()` 0 Local – 1 Tactical, smoothstep on
@@ -584,15 +591,15 @@ Combat behaviour is frozen as accepted (section 6).
   space with one shader `plasma.gdshader` (per-instance brightness and size are
   instance uniforms, so no shared material is written).
   - `main_thruster_fx.tscn` (`Core`, `Exhaust`, `Trail`, `Glow`; `thrust` 0..1,
-    `powered`); `directional_thruster_fx.tscn` (`Exhaust`; `thrust`; `continuous` on by
-    owner choice, else pulses at `pulse_frequency` as emission windows, never restarts).
+	`powered`); `directional_thruster_fx.tscn` (`Exhaust`; `thrust`; `continuous` on by
+	owner choice, else pulses at `pulse_frequency` as emission windows, never restarts).
   - Shared look, edited once for every user: `main_thruster_settings.tres`,
-    `directional_thruster_settings.tres`, the `*_process.tres` and `plasma_*.tres` /
-    `nozzle_glow.tres` resources. Per instance only `nozzle_scale` and
-    `length_multiplier`. Scripts are `@tool`.
+	`directional_thruster_settings.tres`, the `*_process.tres` and `plasma_*.tres` /
+	`nozzle_glow.tres` resources. Per instance only `nozzle_scale` and
+	`length_multiplier`. Scripts are `@tool`.
   - `thruster_view.gd` (`ThrusterView`): reads every ship each physics tick, never
-    writes; places one main effect per `MainEngine*` and one directional effect per
-    jet box of the hull's `Thrusters`, under itself (never under a ship), sized from
+	writes; places one main effect per `MainEngine*` and one directional effect per
+	jet box of the hull's `Thrusters`, under itself (never under a ship), sized from
     the parts. Jet intensity = ship-frame acceleration share of its limit (smoothed
     0.08 s, zero without propulsion). Main states: BOOST 0.5 + 0.5 × intensity, THRUST
     0.5, IDLE 0 with glow, NONE 0 without; blended 0.15 s. API: `state_of`,
@@ -691,11 +698,11 @@ Design principles (owner, 2026-10-11, carried forward from the original game):
   - Facing control (heading separate from travel): trigger combat prototype.
   - Nearby-ship spatial grid: at about 20 ships; replaces all-pairs checks.
   - Formations: after groups; keep shape, shared internal speed cap, blocked slots
-    resolve, break and rejoin. Locked formations are to be designed separately; no
-    leader, shared speed or formation persistence exists.
+	resolve, break and rejoin. Locked formations are to be designed separately; no
+	leader, shared speed or formation persistence exists.
   - Transit between sectors: physical, interceptable, flip-and-burn, arrive slowed.
   - Larger maps: with weapon ranges and sectors; missile range must leave room for
-    an approach phase.
+	an approach phase.
 
 Frozen or not authorized without the owner:
 
@@ -865,7 +872,7 @@ distribution, logistics balance, models and UI polish.
 
 - Camera: near the bounds the clamp lets the cursor point drift; a large wheel burst
   can tilt up to about 8° per frame; a panel opening under a still cursor may not
-  block the first wheel step (inferred); scenes that zoom to 40 show about 59°. In
+  block the first wheel step (inferred); scenes that zoom to 40 show about 48°. In
   headless runs the visible rect is reported as 1152 × 648 (unverified since the
   1920 × 1080 base canvas; section 10). Camera start zoom shows the Destroyer only
   partly in the test arena.
@@ -898,10 +905,18 @@ distribution, logistics balance, models and UI polish.
   `game/tests/docking/tri_station.tscn`; its station-fuel check asserts only that stock
   fell, not exact amounts.
 - Docked ships count as parked for avoidance.
-- Editor re-save pitfall: a 2026-10-22 editor re-save dropped the Showcase hostiles'
-  `Combat` overrides (they became player ships); restored by hand, cause unknown, may
-  repeat. `sector_environment_test` catches it. Check the overrides after any editor
-  save of `sector_showcase.tscn`.
+- Nested overrides need Editable Children: Godot 4.7.2 saves a property override on a
+  node inside an instanced scene (the hostiles' `Ships/Hostile…/Combat`) only if that
+  instance has Editable Children (`[editable path="…"]` in the `.tscn`); otherwise
+  any save drops it, though loading applies it. The hostile overrides were
+  hand-written without it, so editor saves of the Showcase stripped them (2026-10-22
+  and 2026-10-25). Reproduced headless (load, pack, save to `user://`, reload: all
+  three lost; with `[editable]` all three kept, nodes and properties otherwise
+  identical). Fixed by `[editable]` entries for the three hostiles in
+  `sector_showcase.tscn` and `combat_test.tscn`. Any new override on a nested
+  instance's child needs the same. `sector_environment_test` and `combat_scene_test`
+  catch lost overrides at run time, not at save time. Not yet verified through an
+  actual editor save.
 - The owner's editor state (`.godot/editor/` layout and caches) still names retired
   experiment files; the editor may report once that it cannot reopen them, and headless
   `--import` logs "Cannot load shader: res://experiments/movement_v3/…". Project files

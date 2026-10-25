@@ -37,3 +37,7 @@ tactic = 2
 escorted = "HostileDestroyer"
 escorts = PackedStringArray("HostileGunship", "HostileGunship2")
 objectives = PackedVector2Array(20, 0, -30, 8)
+
+[editable path="Ships/HostileDestroyer"]
+[editable path="Ships/HostileGunship"]
+[editable path="Ships/HostileGunship2"]
