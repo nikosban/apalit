@@ -211,6 +211,7 @@ func _p02() -> void:
 	var b = Behavior.of(d)
 	var c = CombatShip.of(d)
 	var locomotion: Node = d.get_node("Locomotion")
+	var half: float = arena.sector_half_size()
 	var first_useful := -1.0
 	var engaged := 0.0
 	var in_band := 0.0
@@ -236,7 +237,7 @@ func _p02() -> void:
 			if not band.is_empty() and distance >= band.near and distance <= band.far:
 				in_band += 1.0 / 60.0
 				in_band_by[Profiles.NAMES[b.effective_profile]] = in_band_by.get(Profiles.NAMES[b.effective_profile], 0.0) + 1.0 / 60.0
-		if absf(locomotion.planar_position.x) > Behavior.MAP_LIMIT or absf(locomotion.planar_position.y) > Behavior.MAP_LIMIT:
+		if absf(locomotion.planar_position.x) > half or absf(locomotion.planar_position.y) > half:
 			off_map = true
 	print("First useful firing position: %.1f s; engaged (target in contact) %.1f s, in the effective profile's band %.1f s %s" % [first_useful, engaged, in_band, str(in_band_by)])
 	print("Requests: %d movement, %d heading; approach/open-range reversals %d; ping-pongs %d; blocked %.1f s; collisions %d" % [b.move_requests, b.heading_requests,

@@ -34,6 +34,7 @@ extends Node
 
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const RouteFollower := preload("res://game/navigation/route_follower.gd")
+const StaticNavigation := preload("res://game/navigation/static_navigation.gd")
 const Profiles := preload("res://game/behavior/weapon_profiles.gd")
 const Docking := preload("res://game/stations/docking.gd")
 const CombatObstacles := preload("res://game/combat/combat_obstacles.gd")
@@ -47,7 +48,6 @@ const ARRIVAL := 1.5 # u from a resolved destination that counts as arrived (Att
 const DECISION_INTERVAL := 0.5 # s
 const MIN_ORDER_INTERVAL := 1.0 # s between two movement requests (engagement, defense)
 const RESTATION := 8.0 # u an engagement station must move before it is requested again
-const MAP_LIMIT := 135.0 # u from the centre on each axis
 const ROCK_CLEARANCE := 3.0 # u between a footprint and an asteroid
 const SIGHT_MARGIN := 0.5 # u added to asteroid radii for a line of fire
 const ROTATION_STEP := 15.0 # ° between engagement stations tried around the target
@@ -132,6 +132,7 @@ var _last_stance := -1
 @onready var combat = ship.get_node("Combat")
 @onready var locomotion = ship.get_node("Locomotion")
 @onready var follower = ship.get_node("RouteFollower") as RouteFollower
+@onready var _navigation := follower.get_node(follower.navigation_path) as StaticNavigation
 @onready var arena := ship.get_parent().get_parent()
 @onready var asteroids = arena.get_node_or_null("Asteroids")
 
@@ -143,6 +144,7 @@ static func of(node: Variant):
 
 
 func _ready() -> void:
+	assert(_navigation != null, "Behavior requires StaticNavigation at RouteFollower.navigation_path")
 	process_physics_priority = -3 # After the sensors, before scripted orders, RouteFollower and Locomotion.
 	_plans_seen = follower.plans
 	var available := Profiles.available(combat)
@@ -938,7 +940,7 @@ func _slot_usable(slot: int, margin := 0.0) -> bool:
 # Why a guard position is unusable (for the log).
 func _unusable_reason(point: Vector2) -> String:
 	if not _position_ok(point):
-		return "asteroid" if absf(point.x) <= MAP_LIMIT - follower.ship_radius and absf(point.y) <= MAP_LIMIT - follower.ship_radius else "map edge"
+		return "asteroid" if _inside_sector(point, follower.ship_radius) else "map edge"
 	return "another guard"
 
 
@@ -964,11 +966,18 @@ func line_clear(a: Vector2, b: Vector2) -> bool:
 	return not CombatObstacles.blocked(get_tree(), Vector3(a.x, y, a.y), Vector3(b.x, y, b.y))
 
 
+# The follower's navigation configuration owns the sector; both candidate validity and
+# edge diagnostics use the same footprint-aware boundary check.
+func _inside_sector(point: Vector2, radius: float) -> bool:
+	var limit := _navigation.map_half_size - radius
+	return absf(point.x) <= limit and absf(point.y) <= limit
+
+
 # A footprint at `point`: on the map and clear of every asteroid and station (the same
 # clearance as from an asteroid).
 func _position_ok(point: Vector2, margin := 0.0) -> bool:
 	var radius: float = follower.ship_radius + margin
-	if absf(point.x) > MAP_LIMIT - radius or absf(point.y) > MAP_LIMIT - radius:
+	if not _inside_sector(point, radius):
 		return false
 	if asteroids != null:
 		for id: int in asteroids.ids():

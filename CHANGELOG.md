@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-25 — I01 combat-positioning boundary mismatch resolved
+
+Combat positioning and edge diagnostics now share the configured StaticNavigation boundary resolved through RouteFollower's `navigation_path`, replacing the production 135 u limit while preserving footprint and clearance semantics, movement and combat rules, and the independent E05 fixture boundary; accepted by the owner, with no further combat tuning authorized by this fix. Verification passed all 76 new boundary checks and compared 28 existing suites plus four scene smoke runs against two pre-change baselines: only the known navigation, obstruction and fleet-focus failures remain open, and P02 and integrated battle measurement changes were reproduced as boundary effects.
+
 ## 2026-10-25 — Hostile Combat overrides kept on save
 
 The hostile `Combat` overrides were lost on editor saves because Godot saves overrides on nested instance children only with Editable Children; `[editable]` entries for the three hostiles in `sector_showcase.tscn` and `combat_test.tscn` fix it (reproduced and verified headless); accepted by the owner.

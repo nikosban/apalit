@@ -17,7 +17,8 @@ Sector Showcase scene with environment rendering; a themed inspector UI and reus
 thruster VFX. No component manufacturing, station construction, save system or
 strategic AI.
 
-All listed work is accepted by the owner. No task is in progress (see section 10).
+All listed work, including the resolved I01 combat-positioning boundary mismatch, is
+accepted by the owner. No task is in progress (see section 10).
 
 ## 2. Project layout and scenes
 
@@ -527,6 +528,11 @@ Combat behaviour is frozen as accepted (section 6).
   profile (Siege / Mid-range / Close Quarters from the installed weapons, fallback in
   that order; positioning only, never authorizes or forbids a shot;
   `weapon_profiles.gd`). Guard and explicit movement override autonomous positioning.
+- Combat positioning (I01 resolved, accepted 2026-10-25): `_position_ok()` and
+  `_unusable_reason()` share `_inside_sector()`, reading `StaticNavigation.map_half_size`
+  through the RouteFollower's configured `navigation_path` (required dependency, no
+  fallback). Ship footprint, optional margin, asteroid and station clearance are
+  unchanged; the independent E05 fixture controller keeps its own 135 u limit.
 - Movement ownership: Locomotion is the only executor. Behavior moves only through
   `movement_lab.autonomous_move()`. Player commands are announced by
   `command_given()` from `_execute()` (a held command is recorded when released);
@@ -716,7 +722,8 @@ Frozen or not authorized without the owner:
 - Group MOVE projected slot ordering (step 3) was rejected and reverted.
 - No further movement or docking refinements; docking durations and the Destroyer's
   footprint wait for the owner (radius and collision geometry unchanged by decision).
-- Combat: no tuning, new mechanics, Frigate weapons or hostile AI changes.
+- Combat: no tuning, new mechanics, Frigate weapons or hostile AI changes; I01's
+  accepted boundary correction authorizes no further combat tuning.
 - Solar Map and multi-sector architecture: anticipated, not authorized or planned.
 - Components, upgrades and equipment swapping are placeholders (transport editor
   Components tab disabled).
@@ -930,8 +937,8 @@ distribution, logistics balance, models and UI polish.
   `C:\Users\Nikos\Downloads\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe`
   (4.7.2.stable). Git 2.55.0 and GitHub CLI 2.102.0 installed; `gh` logged in as
   `nikosban`, pushes use SSH.
-- Suites: 39 in `game/tests/`, 16 in `game/tests/combat/`, `game/tests/docking/tri_dock_test.gd`
-  (56 total). Run: `<godot console> --headless --path . -s res://game/tests/<name>.gd`.
+- Suites: 39 in `game/tests/`, 17 in `game/tests/combat/`, `game/tests/docking/tri_dock_test.gd`
+  (57 total). Run: `<godot console> --headless --path . -s res://game/tests/<name>.gd`.
 - `--fixed-fps 60` is required for every combat suite and for `shipyard_runtime_test`,
   `reuse_test` (uninterrupted loop as fast as possible), `camera_test`,
   `tactical_view_test`, `strategic_view_test` (fails its boundary-fade check without
@@ -948,7 +955,14 @@ distribution, logistics balance, models and UI polish.
   10 guard, `station_docking_test` deliberate `cancel()`, tri-dock navigation edge
   warnings. Verification scope follows `AGENTS.md` steps C and D. No runner script is
   kept.
-- Known failures (current baseline, unchanged output expected): `navigation_test`
+- `combat/positioning_boundary_test.gd`: 76/76 checks pass, covering configured sector
+  sizes, the follower's navigation reference, footprint and clearance margins, Guard,
+  engagement, Defensive positioning and group waypoints. I01 verification compared
+  28 existing suites and four scene smoke runs against two pre-change baselines:
+  25 suites and all smoke runs passed, with only the three known failing suites below;
+  no new errors or warnings. P02 and integrated combat measurement changes are accepted,
+  reproducible boundary effects. Logs: `archive/i01_verification_2026-10-25/` (local only).
+- Known open failures (unrelated to I01; reproduced unchanged before and after its fix): `navigation_test`
   35/36 (Destroyer redirect aim line), `obstruction_test` 10/12 (the two cause B
   overshoot checks), `fleet_test` hostile focus (1 of 47 hostile shots off the
   controller's focus since the 2026-10-24 Destroyer hull redesign).
