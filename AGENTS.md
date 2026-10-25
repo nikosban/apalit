@@ -5,9 +5,11 @@ repository. Do not create CLAUDE.md or run /init.
 
 ## Session start
 
-1. Read this file.
-2. Read `CHANGELOG.md` for project history.
-3. Read `HANDOFF.md` for current state and the next task.
+1. Read this file for operating rules.
+2. Read `HANDOFF.md` for current project state, accepted decisions, known
+   limitations, and the next task.
+3. Consult `CHANGELOG.md` and Git history only when historical context is
+   relevant to the task; do not read the whole changelog every session.
 
 ## Roles
 

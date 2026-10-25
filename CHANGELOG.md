@@ -1,7 +1,19 @@
 # CHANGELOG.md
 
-Project history, newest first. One to two sentences per task; details are
-in `HANDOFF.md`. Entries are not edited after they are written.
+Accepted, meaningful changes, newest first, one to two sentences per task.
+`HANDOFF.md` holds only the current state. Git holds earlier versions and exact
+diffs from 2026-10-20 (`d2eb056`); earlier history may exist only in the archive ZIP
+or the recovery snapshots (`HANDOFF.md` section 9). References in older entries to
+former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
+after they are written.
+
+## 2026-10-25 — Session start and historical lookup
+
+`AGENTS.md` session start now reads `AGENTS.md` and `HANDOFF.md` and consults `CHANGELOG.md` and Git history only when historical context is relevant, and the CHANGELOG header states that HANDOFF is current state only, Git holds history from 2026-10-20 and earlier history may exist only in the archive; accepted by the owner.
+
+## 2026-10-25 — HANDOFF restructured to current state
+
+`HANDOFF.md` was rewritten from a phase-by-phase history (2,402 lines) into a current-state reference organised by system (about 1,000 lines): architecture contracts, processing order, ownership and command semantics, frozen areas, known limitations and test baseline; verification logs and prototype records were removed (kept in Git history) and outdated statements corrected against the code; accepted by the owner.
 
 ## 2026-10-25 — Workflow: inspection, decisions and verification
 
