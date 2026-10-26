@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" path="res://game/weapons/nc90_bastion.tscn" id="6_bastion"]
 [ext_resource type="PackedScene" path="res://game/weapons/pdc20_kestrel.tscn" id="7_kestrel"]
 [ext_resource type="PackedScene" path="res://game/weapons/rl8_barrage.tscn" id="8_barrage"]
+[ext_resource type="PackedScene" path="res://game/weapons/gcm4_wayfarer.tscn" id="9_wayfarer"]
 
 [node name="FF01" instance=ExtResource("1_archetype")]
 metadata/display_name = "FF-01"
@@ -105,11 +106,13 @@ pitch_max_deg = 0.0
 [node name="RL8Barrage" parent="Weapons/BarrageHardpoint" instance=ExtResource("8_barrage")]
 
 [node name="WayfarerHardpoint" type="Node3D" parent="Weapons"]
-editor_description = "Reserved for GCM-4 Wayfarer. Mount -Z stays forward; a future vertical launcher supplies its own +Y ejection muzzles. No cells installed."
+editor_description = "GCM-4 Wayfarer. Mount -Z stays forward; the launcher's four cells supply +Y ejection muzzles."
 position = Vector3(0, 0.55, 0)
 script = ExtResource("3_hardpoint")
 size = 1
 families = PackedStringArray("missile")
+
+[node name="GCM4Wayfarer" parent="Weapons/WayfarerHardpoint" instance=ExtResource("9_wayfarer")]
 
 [node name="Combat" parent="." index="7"]
 durability = ExtResource("5_durability")

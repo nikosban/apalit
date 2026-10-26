@@ -1,0 +1,9 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/weapons/guided_missile_launcher.gd" id="1_launcher"]
+[ext_resource type="Resource" path="res://game/weapons/gcm4_wayfarer.tres" id="2_config"]
+
+[node name="GCM4Wayfarer" type="Node3D"]
+editor_description = "GCM-4 Wayfarer: resource-configured guided cruise-missile family. Install at identity on a missile hardpoint. Edit config (gcm4_wayfarer.tres) for cells, columns, housing dimensions, launch rotation, salvo timing, ammunition and damage; its ordnance sub-resource contains flight, clearance, guidance, avoidance and model properties. Inherited launcher layout exports are populated from config at startup. The gray primitive housing stays level; four muzzles eject along local +Y."
+script = ExtResource("1_launcher")
+config = ExtResource("2_config")

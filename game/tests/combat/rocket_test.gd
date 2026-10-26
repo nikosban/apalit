@@ -290,9 +290,9 @@ func _installation() -> void:
 	var bastions := BASTIONS.all(func(n: String) -> bool: return _mounted(n, NC90))
 	var kestrels := KESTRELS.all(func(n: String) -> bool: return _mounted(n, KESTREL))
 	var wayfarer := ff01.get_node("Weapons/WayfarerHardpoint")
-	_check("FF-01: two Bastions, four Kestrels, one Barrage, empty Wayfarer; Combat steps seven weapons, none incompatible",
-		bastions and kestrels and wayfarer.get_child_count() == 0 and wayfarer.weapon() == null
-		and combat.weapons.size() == 7 and combat.incompatible.is_empty())
+	_check("FF-01: two Bastions, four Kestrels, one Barrage, one Wayfarer; Combat steps eight weapons, none incompatible",
+		bastions and kestrels and wayfarer.get_child_count() == 1 and wayfarer.weapon().config.display_name == "GCM-4 Wayfarer"
+		and combat.weapons.size() == 8 and combat.incompatible.is_empty())
 	# Tubes: eight distinct mouths beyond the bow hit box, every trajectory in the cone clear of the own hull.
 	var to_ship: Transform3D = ff01.global_transform.affine_inverse()
 	var local := []

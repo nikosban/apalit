@@ -28,6 +28,9 @@ const Profiles := preload("res://game/behavior/weapon_profiles.gd")
 const SimClock := preload("res://game/time/sim_clock.gd")
 const DT := 1.0 / 60.0
 const PLAYER_WARSHIPS := ["Gunship", "Gunship2", "Destroyer"]
+## Keep the original three ships' Aggressive orders. FF-01 keeps its authored tactic,
+## but its new launcher means it can still be fighting after those three ships die.
+const PLAYER_FLEET := ["Gunship", "Gunship2", "Destroyer", "FF01"]
 const HOSTILES := ["HostileDestroyer", "HostileGunship", "HostileGunship2"]
 
 var scene: Node3D
@@ -147,7 +150,7 @@ func _s1_s2() -> void:
 	projectiles.ordnance_launched.connect(func(node: Node3D) -> void: launches.append({"time": SimClock.now(), "owner": node.owner_name, "kind": String(node.kind)}))
 	var detected := {"time": -1.0}
 	var kills := []
-	for name in PLAYER_WARSHIPS + HOSTILES:
+	for name in PLAYER_FLEET + HOSTILES:
 		var ship := _ship(name)
 		CombatShip.of(ship).destroyed.connect(func(s: Node3D) -> void: kills.append([SimClock.now(), String(s.name)]))
 	var alive := func(names: Array) -> int:
@@ -155,7 +158,7 @@ func _s1_s2() -> void:
 	var ended := await _run(400.0, func() -> bool:
 		if detected.time < 0.0 and HOSTILES.any(func(n: String) -> bool: return _ship(n) != null and scene.player_sees(_ship(n))):
 			detected.time = SimClock.now()
-		return alive.call(PLAYER_WARSHIPS) == 0 or alive.call(HOSTILES) == 0)
+		return alive.call(PLAYER_FLEET) == 0 or alive.call(HOSTILES) == 0)
 	var salvos := 0
 	var missiles := launches.filter(func(l: Dictionary) -> bool: return l.kind == "missile")
 	for i in missiles.size():
@@ -164,7 +167,7 @@ func _s1_s2() -> void:
 			salvos += 1
 	var intercepts: int = projectiles.records.filter(func(r: Dictionary) -> bool: return r.outcome == "intercept").size()
 	var damage: int = projectiles.damage_events.size()
-	var winner := "player" if alive.call(HOSTILES) == 0 and alive.call(PLAYER_WARSHIPS) > 0 else ("hostile" if alive.call(PLAYER_WARSHIPS) == 0 else "none")
+	var winner := "player" if alive.call(HOSTILES) == 0 and alive.call(PLAYER_FLEET) > 0 else ("hostile" if alive.call(PLAYER_FLEET) == 0 else "none")
 	print("  detected at %.1f s; %d launches (%d missiles, %d salvos), %d interceptions, %d damaging hits; kills %s; ended %s at %.1f s, winner %s" % [
 		detected.time, launches.size(), missiles.size(), salvos, intercepts, damage, str(kills), ended, SimClock.now(), winner])
 	_check("the fleets meet: detected (%.1f s), damaging hits (%d), kills (%d) and a result (%s)" % [detected.time, damage, kills.size(), winner],

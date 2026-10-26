@@ -93,11 +93,11 @@ func spawn(owner_ship: Node3D, faction: int, origin: Vector3, velocity: Vector3,
 
 ## Launches guided ordnance from `origin` (the launcher's muzzle transform; −Z = launch
 ## axis) at `target`, with the launcher's configuration (damage, ordnance values).
-func launch(owner_ship: Node3D, faction: int, origin: Transform3D, weapon_config: Resource, target: Node3D) -> int:
+func launch(owner_ship: Node3D, faction: int, origin: Transform3D, weapon_config: Resource, target: Node3D, remembered_target: Dictionary = {}) -> int:
 	var id := _next_id
 	_next_id += 1
 	var node: Node3D = Ordnance.new()
-	node.setup(id, owner_ship, faction, weapon_config, target, _contacts)
+	node.setup(id, owner_ship, faction, weapon_config, target, _contacts, remembered_target)
 	add_child(node)
 	node.begin(origin)
 	ordnance.append(node)
@@ -114,8 +114,20 @@ func _physics_process(delta: float) -> void:
 
 
 func _advance_ordnance(node: Node3D, delta: float) -> void:
+	var age_before: float = node.age
 	node.step(delta, self)
 	var hit := _first_hit(node.owner_id, node.prev_position, node.global_position, -1)
+	if node.strict_flight_expiration:
+		# Flight was clipped at the operational deadline. Sweep that final segment, but
+		# admit only hits strictly before the deadline (including when delta crosses it).
+		var hit_age: float = age_before + (node.age - age_before) * hit.get("fraction", 1.0)
+		if hit_age >= node.config.flight_time:
+			hit = {}
+		elif not hit.is_empty():
+			node.age = hit_age
+			node.traveled -= node.prev_position.distance_to(node.global_position)
+			node.traveled += node.prev_position.distance_to(hit.point)
+			node.global_position = hit.point
 	if not hit.is_empty():
 		var outcome := "asteroid"
 		var ship_name := ""
@@ -150,6 +162,8 @@ func _finish_ordnance(node: Node3D, outcome: String, ship_name: String, point: V
 	var done := {"id": node.id, "kind": String(node.kind), "outcome": outcome, "ship": ship_name, "point": point,
 		"origin": node.launch_point, "age": node.age, "traveled": node.traveled, "owner_name": node.owner_name,
 		"target_name": node.target_name, "intercepted_by": by, "phase": node.phase}
+	if node.strict_flight_expiration:
+		done["target_id"] = node.target_id
 	ordnance_records.append(done)
 	if ordnance_records.size() > 500:
 		ordnance_records.remove_at(0)

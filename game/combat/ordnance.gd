@@ -39,6 +39,7 @@ extends Node3D
 const WeaponGeometry := preload("res://game/weapons/weapon_geometry.gd")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const CombatObstacles := preload("res://game/combat/combat_obstacles.gd")
+const GuidedMissileConfig := preload("res://game/weapons/guided_missile_config.gd")
 const RCS_HOLD := 0.1 # s a thruster stays lit after a turn above the threshold
 const RCS_THRESHOLD_DEG := 15.0 # °/s of measured turn about an axis lights its thruster
 
@@ -55,6 +56,8 @@ var owner_combat = null
 var faction := 0
 var target: Node3D
 var target_name := ""
+var target_id := 0 # Assigned identity remains meaningful after the target node is freed.
+var strict_flight_expiration := false # New guided-missile family only; legacy semantics unchanged.
 var contacts = null
 var live := true
 var finished := "" # Set when it ends by itself (expired, self_destruct).
@@ -85,7 +88,7 @@ var _rcs: Array = []
 var _target_combat = null
 
 
-func setup(new_id: int, owner_node: Node3D, new_faction: int, weapon_config: Resource, new_target: Node3D, contact_board: Variant) -> void:
+func setup(new_id: int, owner_node: Node3D, new_faction: int, weapon_config: Resource, new_target: Node3D, contact_board: Variant, remembered_target: Dictionary = {}) -> void:
 	id = new_id
 	config = weapon_config.ordnance
 	kind = config.kind
@@ -99,6 +102,14 @@ func setup(new_id: int, owner_node: Node3D, new_faction: int, weapon_config: Res
 	faction = new_faction
 	target = new_target
 	target_name = String(new_target.name) if new_target != null else ""
+	target_id = new_target.get_instance_id() if new_target != null else 0
+	strict_flight_expiration = weapon_config is GuidedMissileConfig
+	if strict_flight_expiration and not remembered_target.is_empty():
+		target_id = remembered_target.target_id
+		target_name = remembered_target.target_name
+		last_known = remembered_target.position
+		goal = last_known
+		has_goal = true
 	_target_combat = CombatShip.of(new_target)
 	contacts = contact_board
 	name = "%s%d" % [{&"torpedo": "Torpedo", &"rocket": "Rocket"}.get(kind, "Missile"), id]
@@ -161,6 +172,8 @@ func launching() -> bool:
 
 
 func step(delta: float, _system: Node) -> void:
+	if strict_flight_expiration:
+		delta = minf(delta, maxf(0.0, config.flight_time - age))
 	prev_position = global_position
 	age += delta
 	if kind != &"rocket":
@@ -176,7 +189,10 @@ func step(delta: float, _system: Node) -> void:
 	_measure_turn(before, delta)
 	_record_trail(delta)
 	_update_visuals(delta)
-	if kind == &"missile" and config.flight_time > 0.0 and age >= config.flight_time - 0.000001:
+	if strict_flight_expiration and age >= config.flight_time - 0.000000000001:
+		age = config.flight_time
+		finished = "self_destruct"
+	elif not strict_flight_expiration and kind == &"missile" and config.flight_time > 0.0 and age >= config.flight_time - 0.000001:
 		finished = "self_destruct"
 	elif age >= config.lifetime - 0.000001 or traveled >= config.max_travel - 0.000001:
 		finished = "expired"

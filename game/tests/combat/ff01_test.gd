@@ -1,5 +1,5 @@
 extends SceneTree
-## FF-01 composition, mount reservations (two NC-90 Bastions, four PDC-20 Kestrels, two empty), preserved Combat Test content, and
+## FF-01 composition (two Bastions, four Kestrels, one Barrage, one Wayfarer), preserved Combat Test content, and
 ## real selection / command input on the production movement loop.
 ## Run: <godot console> --headless --path . --fixed-fps 60 -s res://game/tests/combat/ff01_test.gd
 
@@ -11,6 +11,7 @@ const Hardpoint := preload("res://game/weapons/hardpoint.gd")
 const BASTION := "res://game/weapons/nc90_bastion.tscn"
 const KESTREL := "res://game/weapons/pdc20_kestrel.tscn"
 const BARRAGE := "res://game/weapons/rl8_barrage.tscn"
+const WAYFARER := "res://game/weapons/gcm4_wayfarer.tscn"
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const Behavior := preload("res://game/behavior/ship_behavior.gd")
 const Profiles := preload("res://game/behavior/weapon_profiles.gd")
@@ -97,11 +98,12 @@ func _authored() -> void:
 		var bastion: bool = name in ["ForwardBastionHardpoint", "AftBastionHardpoint"]
 		var pdc: bool = name.ends_with("PDCHardpoint")
 		var barrage: bool = name == "BarrageHardpoint"
+		var wayfarer: bool = name == "WayfarerHardpoint"
 		var installed: bool = mount.get_child_count() == 0 and mount.weapon() == null
-		if bastion or pdc or barrage:
-			installed = mount.get_child_count() == 1 and mount.weapon() != null and mount.weapon().scene_file_path == (BASTION if bastion else (KESTREL if pdc else BARRAGE))
+		if bastion or pdc or barrage or wayfarer:
+			installed = mount.get_child_count() == 1 and mount.weapon() != null and mount.weapon().scene_file_path == (BASTION if bastion else (KESTREL if pdc else (BARRAGE if barrage else WAYFARER)))
 		_check("%s: exact position, neutral yaw, limit, size, family; %s" % [name, "one NC-90 Bastion installed" if bastion else ("one PDC-20 Kestrel installed" if pdc
-			else ("one RL-8 Barrage installed" if barrage else "no installed child"))],
+			else ("one RL-8 Barrage installed" if barrage else "one GCM-4 Wayfarer installed"))],
 			mount.get_script() == Hardpoint and mount.position.is_equal_approx(row[0])
 			and mount.basis.is_equal_approx(Basis(Vector3.UP, deg_to_rad(row[1])))
 			and mount.yaw_limit_deg == row[2] and mount.size == row[3] and Array(mount.families) == row[4]
@@ -241,9 +243,9 @@ func _load() -> void:
 		if ship != subject:
 			clear = clear and subject.get_node("Locomotion").planar_position.distance_to(ship.get_node("Locomotion").planar_position) > follower.ship_radius + ship.get_node("RouteFollower").ship_radius
 	_check("authored spawn clears every ship footprint and every asteroid with planning clearance", clear)
-	_check("two installed Bastions, four Kestrels and one Barrage, no incompatible weapons, Mid-range and Close Quarters profiles, no shots; full initial fuel",
-		CombatShip.of(subject).weapons.size() == 7 and CombatShip.of(subject).incompatible.is_empty()
-		and Profiles.available(CombatShip.of(subject)) == [Profiles.Profile.MID, Profiles.Profile.CLOSE] and scene.projectiles.spawned == 0 and scene.projectiles.launched == 0
+	_check("two Bastions, four Kestrels, one Barrage and one Wayfarer, no incompatible weapons, Siege, Mid-range and Close Quarters profiles, no shots; full initial fuel",
+		CombatShip.of(subject).weapons.size() == 8 and CombatShip.of(subject).incompatible.is_empty()
+		and Profiles.available(CombatShip.of(subject)) == [Profiles.Profile.SIEGE, Profiles.Profile.MID, Profiles.Profile.CLOSE] and scene.projectiles.spawned == 0 and scene.projectiles.launched == 0
 		and subject.get_node("Fuel").fuel == 400.0)
 	_check("FF-01 resolves the arena's existing navigation, collision, contacts and projectile services",
 		follower._navigation == navigation and subject.get_node("Locomotion")._collision == scene.get_node("PlanarCollision")
@@ -282,9 +284,9 @@ func _selection_and_movement() -> void:
 		and scene.selection()._parts.has(subject) and scene._markers.has(subject))
 	var panel := scene.get_node("ShipPanel")
 	await process_frame
-	_check("FF-01 panel: hull 160, command controls, the Mid-range and Close Quarters profiles, two NC-90 and four PDC-20 weapon rows",
+	_check("FF-01 panel: hull 160, command controls, the Siege, Mid-range and Close Quarters profiles, two NC-90 and four PDC-20 weapon rows",
 		panel.ship == subject and panel._hull.text == "Hull: 160 / 160" and panel._combat.visible
-		and panel._profile.item_count == 2 and panel._weapons.text.count("NC-90 Bastion") == 2 and panel._weapons.text.count("PDC-20 Kestrel") == 4)
+		and panel._profile.item_count == 3 and panel._weapons.text.count("NC-90 Bastion") == 2 and panel._weapons.text.count("PDC-20 Kestrel") == 4)
 	var destination := Vector3(-18, 0, -40)
 	await _look_at(destination)
 	await _click(MOUSE_BUTTON_RIGHT, destination)
@@ -307,8 +309,8 @@ func _selection_and_movement() -> void:
 		and not locomotion.has_destination and locomotion.collision_count == 0 and stays_planar)
 	_check("existing fuel accounting charges actual movement at the unchanged consumption rate",
 		absf(fuel_before - subject.get_node("Fuel").fuel - traveled) < 0.01)
-	_check("movement emits the existing thruster effects; the two Bastions, four Kestrels and the Barrage stay installed",
-		scene.get_node("ThrusterView").plumes_of(subject).size() == 2 and CombatShip.of(subject).weapons.size() == 7
+	_check("movement emits the existing thruster effects; the two Bastions, four Kestrels, Barrage and Wayfarer stay installed",
+		scene.get_node("ThrusterView").plumes_of(subject).size() == 2 and CombatShip.of(subject).weapons.size() == 8
 		and scene.projectiles.spawned == 0 and scene.projectiles.launched == 0)
 
 
@@ -341,5 +343,5 @@ func _commands() -> void:
 	_check("waypoints use the same command interface", scene.orders.waypoint([subject], Vector2(-18, -55), false) == 1
 		and behavior.command == Behavior.Command.WAYPOINTS)
 	scene.orders.cancel([subject])
-	_check("combat-related orders keep the two Bastions, four Kestrels and the Barrage and produce no projectiles (Combat not stepped here)", CombatShip.of(subject).weapons.size() == 7
+	_check("combat-related orders keep the two Bastions, four Kestrels, Barrage and Wayfarer and produce no projectiles (Combat not stepped here)", CombatShip.of(subject).weapons.size() == 8
 		and scene.projectiles.spawned == 0 and scene.projectiles.launched == 0)

@@ -204,10 +204,10 @@ func _case_combat_arena() -> void:
 	_check("Combat Test: navigation maps are ready for every authored ship", ready)
 	var names: Array = scene.get_node("Ships").get_children().map(func(ship: Node) -> String: return str(ship.name))
 	var original := ["Gunship", "Destroyer", "Gunship2", "HostileDestroyer", "HostileGunship", "HostileGunship2"]
-	_check("Combat Test: the six original armed ships plus FF-01 with its two NC-90 Bastions and four PDC-20 Kestrels and one RL-8 Barrage, and no stations",
+	_check("Combat Test: the six original armed ships plus FF-01 with two Bastions, four Kestrels, one Barrage and one Wayfarer, and no stations",
 		names == original + ["FF01"]
 		and original.all(func(name: String) -> bool: return not CombatShip.of(_ship(name)).weapons.is_empty())
-		and CombatShip.of(_ship("FF01")).weapons.size() == 7
+		and CombatShip.of(_ship("FF01")).weapons.size() == 8
 		and scene.get_node("Stations").get_child_count() == 0)
 	var rect := Rect2(-380, -380, 760, 760)
 	_check("Combat Test: 36 authored asteroids; navigation, command bounds, camera, Strategic View and ground cover 760 by 760",

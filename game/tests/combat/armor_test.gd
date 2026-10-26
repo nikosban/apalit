@@ -200,11 +200,11 @@ func _configuration() -> void:
 		and combat.armor == ARMOR and combat.max_armor == ARMOR and combat.armor_resistance == RESISTANCE and CombatHud.hull_text(combat) == "Hull 160 / 160")
 	var mounts := ff01.get_node("Weapons").get_children()
 	var bastions := ["ForwardBastionHardpoint", "AftBastionHardpoint"]
-	var reserved := ["WayfarerHardpoint"]
-	_check("FF-01: NC-90 Bastions on the two centerline hardpoints, PDC-20 Kestrels on the four PDC hardpoints, RL-8 on the Barrage; Wayfarer stays empty", mounts.size() == 8
-		and mounts.all(func(m: Node) -> bool: return (m.weapon() != null) != reserved.has(String(m.name)))
+	_check("FF-01: two Bastions, four Kestrels, one Barrage and one Wayfarer", mounts.size() == 8
+		and mounts.all(func(m: Node) -> bool: return m.weapon() != null)
 		and bastions.all(func(n: String) -> bool: return ff01.get_node("Weapons/%s" % n).weapon().config.display_name == "NC-90 Bastion")
-		and combat.weapons.size() == 7 and combat.incompatible.is_empty())
+		and ff01.get_node("Weapons/WayfarerHardpoint").weapon().config.display_name == "GCM-4 Wayfarer"
+		and combat.weapons.size() == 8 and combat.incompatible.is_empty())
 	var others := true
 	for ship: Node in scene.get_node("Ships").get_children():
 		if ship != ff01:
