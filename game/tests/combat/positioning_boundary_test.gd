@@ -23,6 +23,7 @@ var _failures := 0
 func _initialize() -> void:
 	await process_frame
 	await _case_dimensions()
+	await _case_combat_arena()
 	await _case_reference()
 	await _case_exact_edges()
 	await _case_clearance()
@@ -156,7 +157,7 @@ func _route_ends_at(ship: Node3D, point: Vector2) -> bool:
 
 
 func _case_dimensions() -> void:
-	for entry: Array in [[MAIN, 150.0], [SHOWCASE, 380.0], [REUSE, 150.0], [ENCOUNTER, 150.0], [COMBAT_TEST, 150.0]]:
+	for entry: Array in [[MAIN, 150.0], [SHOWCASE, 380.0], [REUSE, 150.0], [ENCOUNTER, 150.0], [COMBAT_TEST, 380.0]]:
 		await _load(entry[0])
 		var half: float = scene.get_node("StaticNavigation").map_half_size
 		_check("%s keeps its configured half-size %.0f" % [scene.name, entry[1]], is_equal_approx(half, entry[1]))
@@ -177,6 +178,88 @@ func _case_dimensions() -> void:
 			_check("%s %s: edge diagnostics follow the configured size" % [scene.name, name],
 				b._unusable_reason(Vector2(half + 1.0, 0)) == "map edge"
 				and b._unusable_reason(Vector2(138, 0)) == "another guard")
+	_free()
+
+
+# Keep the authored field, six armed ships and unarmed FF-01 for this case. Only the test's live
+# instance is controlled: stop weapons and the commander, then exercise actual
+# commands, navigation, avoidance, locomotion and Behavior beyond the old boundary.
+func _case_combat_arena() -> void:
+	_free()
+	scene = COMBAT_TEST.instantiate()
+	root.add_child(scene)
+	scene.get_node("HostileCommander").set_physics_process(false)
+	for ship in scene.get_node("Ships").get_children():
+		ship.get_node("Combat").stance = CombatShip.Stance.HOLD_FIRE
+		ship.get_node("Combat").set_physics_process(false)
+		ship.get_node("Behavior").set_physics_process(false)
+	var navigation = scene.get_node("StaticNavigation")
+	var ready := false
+	for frame in 120:
+		ready = scene.get_node("Ships").get_children().all(func(ship: Node) -> bool:
+			return navigation.is_ready(ship.get_node("RouteFollower").planning_radius()))
+		if ready:
+			break
+		await physics_frame
+	_check("Combat Test: navigation maps are ready for every authored ship", ready)
+	var names: Array = scene.get_node("Ships").get_children().map(func(ship: Node) -> String: return str(ship.name))
+	var original := ["Gunship", "Destroyer", "Gunship2", "HostileDestroyer", "HostileGunship", "HostileGunship2"]
+	_check("Combat Test: the six original armed ships plus unarmed FF-01, and no stations",
+		names == original + ["FF01"]
+		and original.all(func(name: String) -> bool: return not CombatShip.of(_ship(name)).weapons.is_empty())
+		and CombatShip.of(_ship("FF01")).weapons.is_empty()
+		and scene.get_node("Stations").get_child_count() == 0)
+	var rect := Rect2(-380, -380, 760, 760)
+	_check("Combat Test: 36 authored asteroids; navigation, command bounds, camera, Strategic View and ground cover 760 by 760",
+		scene.get_node("Asteroids").ids().size() == 36 and navigation.map_half_size == 380.0
+		and scene.sector_half_size() == 380.0 and scene.get_node("CameraRig").bounds == rect
+		and scene.strategic.sector_rect() == rect and scene.get_node("Ground").mesh.size == Vector2(760, 760))
+	var gunship := _ship("Gunship")
+	var b = _b()
+	_put("Gunship", Vector2(140, 0), -PI / 2.0)
+	var destination := Vector2(200, 0)
+	var moved: bool = scene.orders.move([gunship], destination)
+	_check("Combat Test: a production MOVE across x = 150 is accepted with a route to x = 200",
+		moved and b.command == Behavior.Command.MOVE and _route_ends_at(gunship, destination))
+	await _run(25.0)
+	_check("Combat Test: the ship actually crosses x = 150 and arrives at x = 200 without collision",
+		b._here().x > 150.0 and b._here().distance_to(destination) < 0.5
+		and not b.locomotion.has_destination and b.locomotion.collision_count == 0)
+	var requested: Vector2 = b.follower.requested
+	scene.selection().set_selection([gunship])
+	scene.get_node("CameraRig").global_position = Vector3(360, 0, 0)
+	var screen := root.get_camera_3d().unproject_position(Vector3(381, 0, 0))
+	var outside: Dictionary = scene.resolve_command(screen)
+	_check("Combat Test: the player command resolver refuses a point outside the new sector without changing the destination",
+		outside.is_empty() and not scene.command_available(outside) and b.follower.requested == requested)
+	_put("Destroyer", Vector2(200, 0))
+	_put("Gunship", Vector2(200, 28))
+	var guarded: int = scene.orders.guard([gunship], _ship("Destroyer"))
+	b.set_physics_process(true)
+	await _run(0.6)
+	_check("Combat Test: Guard requests a usable combat position beyond x = 150 through the production route path",
+		guarded == 1 and b.guard_slot >= 0 and b.has_station and b.station.x > 150.0
+		and b._slot_usable(b.guard_slot) and _route_ends_at(gunship, b.station))
+	await _run(14.0)
+	_check("Combat Test: Guard actually reaches its slot beyond x = 150 without collision or command replacement",
+		b.command == Behavior.Command.GUARD and b._here().x > 150.0
+		and b._here().distance_to(b.slot_point(b.guard_slot)) < 1.5 and b.locomotion.collision_count == 0)
+	scene.orders.cancel([gunship])
+	_put("Destroyer", Vector2(240, 40))
+	_put("Gunship", Vector2(200, 0))
+	_put("HostileGunship", Vector2(200, -90))
+	scene.sensors.evaluate()
+	b.combat.target = _ship("HostileGunship")
+	scene.orders.set_stance([gunship], CombatShip.Stance.AGGRESSIVE)
+	await _run(2.0)
+	var band := Profiles.band(b.combat, b.requested_profile)
+	_check("Combat Test: Aggressive engagement requests a routable firing position beyond x = 150",
+		b.has_station and b.station.x > 150.0 and b._station_ok(b.station, Vector2(200, -90), band)
+		and _route_ends_at(gunship, b.station))
+	await _run(20.0)
+	_check("Combat Test: engagement actually reaches its firing position beyond x = 150 without collision",
+		b.has_station and b._here().x > 150.0 and b._here().distance_to(b.station) < 1.5
+		and b._station_ok(b.station, Vector2(200, -90), band) and b.locomotion.collision_count == 0)
 	_free()
 
 
