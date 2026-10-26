@@ -95,7 +95,7 @@ yaw_limit_deg = 90.0
 [node name="PDC20Kestrel" parent="Weapons/AftStarboardPDCHardpoint" instance=ExtResource("7_kestrel")]
 
 [node name="BarrageHardpoint" type="Node3D" parent="Weapons"]
-editor_description = "RL-8 Barrage, fixed along -Z (rocket family). The launcher's tube mouths sit forward of the bow hit box; cone remains the unused shared default."
+editor_description = "RL-8 Barrage (rocket family). Existing eight cell origins ahead of the bow eject vertically and turn after dorsal clearance; no hull-facing firing gate. Hardpoint articulation and the unused shared cone remain unchanged."
 position = Vector3(0, 0, -5.85)
 script = ExtResource("3_hardpoint")
 families = PackedStringArray("rocket")

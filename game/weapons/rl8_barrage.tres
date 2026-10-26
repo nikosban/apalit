@@ -7,8 +7,13 @@
 script = ExtResource("2_ordnance")
 kind = &"rocket"
 speed = 30.0
-max_travel = 60.0
-lifetime = 2.0
+max_travel = 70.0
+lifetime = 4.0
+clearance = 4.0
+eject_speed = 8.0
+orient_rate_deg = 100.0
+transition_timeout = 1.5
+acceleration = 30.0
 flight_time = 0.0
 avoidance = false
 radius = 0.3

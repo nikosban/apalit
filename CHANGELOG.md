@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-26 — FF-01 Barrage and Wayfarer launch profiles
+
+Owner-approved broadside launch profiles add inherited world velocity and finite post-clearance turns: Barrage clears 4 u, commits one dispersed salvo solution and ramps at 30 u/s² to 30 u/s within 70 u total travel / 4 s while retaining 60 u acquisition; Wayfarer clears 8 u and retains active guidance, avoidance and sensor rules. Focused suites pass, including 148 trajectory checks, and the final 25-suite combat regression retains only the known fleet-focus failure, with Combat Test smoke and rendered validation accepted.
+
 ## 2026-10-26 — Stage 5: Guided Missile family and GCM-4 Wayfarer
 
 The reusable Guided Missile family installs GCM-4 Wayfarer on FF-01 with committed four-cell salvos, remembered original-target guidance, bounded obstacle avoidance, strict nine-second expiration and shared armor/interception behavior (`f1a5952`). Owner play validation accepted Stage 5; missile verification passed 71/71 and two full regressions retained only the three known baseline failures, with all six scene smoke runs passing.

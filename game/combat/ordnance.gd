@@ -32,9 +32,13 @@ extends Node3D
 ## its own ship): over, under or around as the geometry gives. At flight_time it
 ## self-destructs.
 ##
-## Rocket (Rocket family): unguided. Constant speed along its launch axis from the first
-## tick; no guidance point, contact tracking, turning, acceleration or avoidance. It ends
-## at its technical limit (travel / lifetime), on impact or when intercepted.
+## FF-01 profiles (positive transition_timeout): world-height clearance, inherited release
+## velocity, bounded post-clearance transition. Wayfarer retains its drifting orientation
+## and powered guidance. Barrage turns at ejection speed toward its immutable dispersed
+## salvo point, steering both the nose and world velocity finitely. It commits the
+## achieved velocity ray, then accelerates along that fixed ray to cruise speed; it
+## never reads contacts or target motion. Launch travel counts toward the same limits.
+## Legacy ordnance with zero timeout retains its previous launch behavior.
 
 const WeaponGeometry := preload("res://game/weapons/weapon_geometry.gd")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
@@ -63,11 +67,17 @@ var live := true
 var finished := "" # Set when it ends by itself (expired, self_destruct).
 
 var velocity := Vector3.ZERO
-var phase := "" # torpedo: arming, guided; missile: eject, orient, powered; rocket: flight
+var phase := "" # torpedo: arming, guided; missile: eject, orient, powered; rocket: eject, orient, flight
 var age := 0.0
 var traveled := 0.0
 var launch_point := Vector3.ZERO
 var launch_axis := Vector3.FORWARD
+var profiled_launch := false
+var inherited_velocity := Vector3.ZERO # Captured once at release, never follows its owner.
+var transition_elapsed := 0.0 # Starts after clearance; does not include ejection.
+var locked_point := Vector3.ZERO # Rockets only: immutable salvo solution, no tracking.
+var dispersion := Basis.IDENTITY # Rockets only: per-release fixed dispersion rotation.
+var rocket_cruise_direction := Vector3.ZERO # Actual world velocity direction frozen at commitment.
 var prev_position := Vector3.ZERO
 var last_known := Vector3.ZERO
 var has_contact := false
@@ -104,6 +114,10 @@ func setup(new_id: int, owner_node: Node3D, new_faction: int, weapon_config: Res
 	target_name = String(new_target.name) if new_target != null else ""
 	target_id = new_target.get_instance_id() if new_target != null else 0
 	strict_flight_expiration = weapon_config is GuidedMissileConfig
+	profiled_launch = config.transition_timeout > 0.0 and (kind == &"rocket" or strict_flight_expiration)
+	if kind == &"rocket":
+		locked_point = remembered_target.get("locked_point", Vector3.ZERO)
+		dispersion = remembered_target.get("dispersion", Basis.IDENTITY)
 	if strict_flight_expiration and not remembered_target.is_empty():
 		target_id = remembered_target.target_id
 		target_name = remembered_target.target_name
@@ -120,6 +134,8 @@ func begin(origin: Transform3D) -> void:
 	launch_point = origin.origin
 	prev_position = origin.origin
 	launch_axis = -origin.basis.z.normalized()
+	if profiled_launch:
+		inherited_velocity = owner_combat.velocity() if owner_combat != null else Vector3.ZERO
 	var parts := WeaponGeometry.build_ordnance(self, kind, config.length, config.body_radius, faction)
 	_plume = parts.plume
 	_rcs = parts.rcs
@@ -130,12 +146,12 @@ func begin(origin: Transform3D) -> void:
 	if kind == &"torpedo":
 		phase = "arming"
 		velocity = launch_axis * config.speed
-	elif kind == &"rocket":
+	elif kind == &"rocket" and not profiled_launch:
 		phase = "flight"
 		velocity = launch_axis * config.speed
 	else:
 		phase = "eject"
-		velocity = launch_axis * config.eject_speed
+		velocity = launch_axis * config.eject_speed + inherited_velocity
 	if kind != &"rocket":
 		_update_contact()
 	_record_trail(0.0)
@@ -174,8 +190,9 @@ func launching() -> bool:
 func step(delta: float, _system: Node) -> void:
 	if strict_flight_expiration:
 		delta = minf(delta, maxf(0.0, config.flight_time - age))
+	elif profiled_launch:
+		delta = minf(delta, maxf(0.0, config.lifetime - age))
 	prev_position = global_position
-	age += delta
 	if kind != &"rocket":
 		_update_contact()
 	var before := forward()
@@ -183,6 +200,11 @@ func step(delta: float, _system: Node) -> void:
 		_step_torpedo(delta)
 	elif kind == &"missile":
 		_step_missile(delta)
+	elif kind == &"rocket" and profiled_launch:
+		_step_rocket(delta)
+	if profiled_launch and kind == &"rocket":
+		delta = minf(delta, maxf(0.0, config.max_travel - traveled) / maxf(velocity.length(), 0.000001))
+	age += delta
 	global_position += velocity * delta
 	traveled += velocity.length() * delta
 	global_basis = global_basis.orthonormalized()
@@ -248,12 +270,13 @@ func _step_missile(delta: float) -> void:
 	thrusting = false
 	match phase:
 		"eject":
-			if launch_point.distance_to(global_position) >= config.clearance - 0.000001 and _clear_of_owner():
+			if _reached_clearance() and _clear_of_owner():
 				phase = "orient"
 		"orient":
 			var wanted := _wanted_direction()
-			_turn_toward(wanted, deg_to_rad(config.orient_rate_deg) * delta)
-			if rad_to_deg(forward().angle_to(wanted)) <= config.powered_within_deg:
+			var turn_delta := _transition_step(delta)
+			_turn_toward(wanted, deg_to_rad(config.orient_rate_deg) * turn_delta)
+			if rad_to_deg(forward().angle_to(wanted)) <= config.powered_within_deg or _transition_expired():
 				phase = "powered"
 		"powered":
 			var wanted := _wanted_direction()
@@ -269,6 +292,56 @@ func _step_missile(delta: float) -> void:
 			if velocity.length() > config.max_speed:
 				velocity = velocity.normalized() * config.max_speed
 			thrusting = true
+
+
+func _reached_clearance() -> bool:
+	var clearance: float = global_position.y - launch_point.y if profiled_launch else launch_point.distance_to(global_position)
+	return clearance >= config.clearance - 0.000001
+
+
+func _transition_step(delta: float) -> float:
+	if not profiled_launch:
+		return delta
+	var step := minf(delta, maxf(0.0, config.transition_timeout - transition_elapsed))
+	transition_elapsed += step
+	return step
+
+
+func _transition_expired() -> bool:
+	return profiled_launch and transition_elapsed >= config.transition_timeout - 0.000000000001
+
+
+func _step_rocket(delta: float) -> void:
+	match phase:
+		"eject":
+			if _reached_clearance() and _clear_of_owner():
+				phase = "orient"
+		"orient":
+			# No target node/contact reads: only the immutable, dispersed salvo solution.
+			var wanted := dispersion * (locked_point - global_position).normalized()
+			var turn_limit := deg_to_rad(config.orient_rate_deg) * _transition_step(delta)
+			_turn_toward(wanted, turn_limit)
+			# Ejection includes ship motion: the nose and actual velocity need not agree.
+			# Apply a bounded turn to that existing velocity, preserving its magnitude and
+			# momentum continuously instead of rebuilding it from nose * speed.
+			var direction := velocity.normalized()
+			var angle := direction.angle_to(wanted)
+			if angle > 0.0000001:
+				var axis := direction.cross(wanted)
+				if axis.length() < 0.000001:
+					axis = global_basis.y if absf(global_basis.y.dot(direction)) < 0.99 else global_basis.x
+				velocity = Basis(axis.normalized(), minf(angle, turn_limit)) * velocity
+			var aligned := forward().angle_to(wanted) < 0.0001 and velocity.angle_to(wanted) < 0.0001
+			if aligned or _transition_expired():
+				phase = "flight"
+				rocket_cruise_direction = velocity.normalized()
+				# No change to position, heading or velocity at the phase boundary.
+				return
+		"flight":
+			if rocket_cruise_direction == Vector3.ZERO:
+				rocket_cruise_direction = velocity.normalized()
+			velocity = velocity.move_toward(rocket_cruise_direction * config.speed, config.acceleration * delta)
+			return # Engine changes speed only: never steer the committed ray again.
 
 
 # The direction it wants to fly: toward the guidance point (else straight on), bent by

@@ -21,12 +21,12 @@ FF-01 combat adjustments (branch `combat_adjustments`, not merged into `main`): 
 FF-01 frigate in an expanded Combat Test arena, then Stage 1 global armor and damage
 resolution (`f152f8b`), Stage 2 Cannon family / NC-90 Bastion (`586ac21`), Stage 3 PDC
 family / PDC-20 Kestrel (`94a7a37`), Stage 4 Rocket family / RL-8 Barrage
-(`baa7484`) and Stage 5 Guided Missile family / GCM-4 Wayfarer (`f1a5952`)
-(section 4.6).
+(`baa7484`), Stage 5 Guided Missile family / GCM-4 Wayfarer (`f1a5952`),
+and the approved broadside launch profiles for Barrage and Wayfarer (section 4.6).
 
 All listed work, including the resolved I01 combat-positioning boundary mismatch and
-Stages 1–5, is accepted by the owner after play validation. The next task awaits
-the owner's brief (section 10).
+Stages 1–5 and the final launch-profile revision, is accepted by the owner. The next
+task awaits the owner's brief (section 10).
 
 ## 2. Project layout and scenes
 
@@ -137,8 +137,8 @@ the lab era) and the layout contract in section 3.
   `Weapons`: two NC-90 Bastions (`ForwardBastionHardpoint` (0, 0.55, −3) and
   `AftBastionHardpoint` (0, 0.55, 3) yaw 180°, ±120°), four PDC-20 Kestrels (PDC
   hardpoints at (±1.3, 0.55, ±4), yaw ±45° / ±135°, ±90°), one RL-8 Barrage
-  (`BarrageHardpoint` (0, 0, −5.85), fixed −Z, family rocket) and one GCM-4 Wayfarer
-  (`WayfarerHardpoint` (0, 0.55, 0), level housing, four +Y vertical cells, family
+  (`BarrageHardpoint` (0, 0, −5.85), vertical ejection, family rocket) and one
+  GCM-4 Wayfarer (`WayfarerHardpoint` (0, 0.55, 0), level housing, four +Y vertical cells, family
   missile). Only used in `combat_test.tscn` and tests.
 - Instances: scene ships and produced ships are instances of the same variants with
   only a transform. Runtime state is per instance (script variables, one
@@ -551,39 +551,46 @@ Combat behaviour is frozen as accepted (section 6).
     40 of 400, reload 3 s, 2.5° dispersion. Defensive order: own ship, then allies;
     torpedoes before missiles, except a missile (or rocket) arriving under 1.5 s and
     earlier; then impact time, ordnance id. Mounts select independently.
-  - Rocket (Stage 4, `rocket_launcher.gd` + `rl8_barrage.tres/.tscn`): RL-8 Barrage,
-    a fixed forward launcher with 4 × 2 tubes (mouths at x ±0.15 / ±0.45, y ±0.15,
-    z −6.28, ahead of the bow hit box). A salvo needs 8 rockets left, the 60 u range,
-    a solution within ±3° of the launcher axis and a clear line; it locks the axis in
-    world space and launches 8 rockets at 0.12 s of accumulated simulation time, each
-    independently dispersed within 3°, one round per launch. It is not cancelled or
-    re-aimed by target, contact, stance or ship motion; only the owner's destruction
-    cancels the rest. 5 s cooldown after the eighth; 48 rockets (six salvos). Not a
-    `fixed` weapon: the hull is never turned toward the target. Rockets (ordnance
-    kind `rocket`): unguided, 30 u/s straight for 60 u (lifetime 2 s), 4 hull /
-    penetration 8 / armor damage 1, interception radius 0.3, model 0.6 × 0.06 u with
-    plume and short trail. Salvo values and tube layout are editable on
-    `rl8_barrage.tscn`, flight and model values in the `.tres` ordnance sub-resource.
-  - Guided Missile (Stage 5, `guided_missile_launcher.gd` extends `launcher.gd`,
+  - Rocket (`rocket_launcher.gd` + `rl8_barrage.tres/.tscn`): RL-8 Barrage retains
+    its eight cell origins (4 × 2, ship-frame x ±0.15 / ±0.45, y ±0.15, z −6.28).
+    It ejects world +Y to 4 u above release, at 8 u/s nominal ejection/transition
+    speed with inherited ship velocity; after clearance, nose and actual velocity
+    turn toward one locked salvo intercept point at up to 100°/s for at most 1.5 s.
+    Alignment or timeout freezes the achieved world-space velocity ray; a continuous
+    30 u/s² ramp reaches 30 u/s, then straight unguided flight continues. No target
+    updates, reacquisition or obstacle avoidance follow commitment. The initial
+    first-order lead includes an approximate launch/acceleration delay.
+    A whole salvo needs eight rounds and a valid target/aim point within 60 u of the
+    fire-control muzzle; no bow alignment is required. Eight independently dispersed
+    rockets (3°) launch every 0.12 s from their current cell positions; only owner
+    destruction cancels pending launches. One round per release; 48 rounds, 5 s
+    cooldown after the eighth. Lifetime 4 s and 70 u maximum total path both include
+    clearance, turning and acceleration; acquisition remains 60 u. Damage unchanged:
+    4 hull / penetration 8 / armor damage 1; interception radius 0.3, model 0.6 × 0.06 u.
+    Salvo/layout exports live on `rl8_barrage.tscn`; flight, acceleration, timeout,
+    technical limits and model values are editable in the `.tres` ordnance resource.
+  - Guided Missile (`guided_missile_launcher.gd` extends `launcher.gd`,
     `guided_missile_config.gd` extends `weapon_config.gd`, `gcm4_wayfarer.tres/.tscn`):
-    GCM-4 Wayfarer, four cells / four missiles per committed salvo, 12 missiles,
+    GCM-4 Wayfarer has four cells / four missiles per committed salvo, 12 missiles,
     launches at 0 / 0.2 / 0.4 / 0.6 s on the first eligible physics ticks; 6 s cooldown
-    after the final launch. Cell origins in the ship frame: (±0.25, 0.922, ±0.35),
-    ejecting +Y and clearing the hull. One round is consumed per actual launch;
-    only destruction of the firing ship cancels pending launches. Each salvo keeps
-    its original target identity and latest legitimately observed position; contact
-    loss, target changes/destruction and stance changes do not cancel or redirect it.
-    Missiles use last-known position without contact and reacquire only that same
-    target; hidden position/velocity never feed guidance or launch bookkeeping.
-    Existing ejection, orientation, momentum, bounded steering and obstacle avoidance
-    are reused: max speed 32 u/s, acceleration 18 u/s², powered nose turn 40°/s,
-    authorized launch range 90 u. This family expires at exactly 9 s: impacts before
-    the deadline count, those at/after it do not; 30 s / 400 u are secondary bounds.
-    Impact: 35 hull / penetration 45 / armor damage 2 (first fresh FF-01 hit: 139 hull,
-    98 armor). One successful PDC hit destroys it. All variant values, cell layout,
-    launch orientation and provisional launch/avoidance/model values are editable in
-    the `.tres` (flight/model in its ordnance sub-resource). Legacy missile launchers,
-    torpedoes, interception priorities and other weapon statistics are unchanged.
+    after the final launch. Cell origins: (±0.25, 0.922, ±0.35) in the ship frame.
+    Ejection is world +Y at 5 u/s plus inherited ship velocity until 8 u above release;
+    the existing drifting orientation turns at 75°/s, for at most 1.5 s after clearance,
+    then existing powered guidance resumes on alignment (15° threshold) or timeout.
+    Active tracking, original-target identity, sensor loss, same-target reacquisition,
+    bounded obstacle avoidance and momentum-based overshoot recovery are preserved.
+    Salvos retain the original target and latest legitimately observed position;
+    without contact missiles use last-known position, never hidden target data.
+    Only owner destruction cancels pending releases; one round is used per release.
+    Max speed 32 u/s, acceleration 18 u/s², powered nose turn 40°/s, acquisition 90 u.
+    Lifetime is exactly 9 s from release: impacts before the deadline count, those
+    at/after it do not; 30 s / 400 u are secondary bounds. Impact: 35 hull /
+    penetration 45 / armor damage 2 (first fresh FF-01 hit: 139 hull, 98 armor).
+    One successful PDC hit destroys it. All layout and launch/flight/model values
+    are editable in its `.tres` (flight/model in `ordnance`). Both families render
+    their actual simulated positions, retain launching-ship collision exclusion and
+    physical interception; legacy missiles, torpedoes and other combat stats remain
+    unchanged (zero `transition_timeout` preserves legacy flight).
   - Interception: torpedoes and missiles are destroyed by any hostile round; rockets
     only by rounds spawned with `intercepts_rockets` (Gatling family: Kestrels and
     legacy Gatlings); cannon shells pass through rockets.
@@ -799,7 +806,7 @@ Frozen or not authorized without the owner:
   footprint wait for the owner (radius and collision geometry unchanged by decision).
 - Combat: no tuning, new mechanics, Frigate weapons or hostile AI changes; I01's
   accepted boundary correction authorizes no further combat tuning. Exception: the
-  owner's staged FF-01 weapon tasks (Stages 1–5 accepted), each
+  owner's staged FF-01 weapon tasks and launch profiles (all accepted), each
   authorized separately; their values are approved v0.1 playtest values, not to be
   rebalanced without the owner. Rocket threat priority beyond the missile rule is not
   designed.
@@ -955,19 +962,16 @@ distribution, logistics balance, models and UI polish.
 - Integrated Combat Test verification: the original three player warships Aggressive,
   FF-01 on its authored Defensive tactic, no player orders; the player fleet won at
   about 78.2 s. Completion counts FF-01 as part of the fleet (observation, no tuning).
-- Wayfarer throughput (seeds 1–3, four missiles each, repeated identically): all 12
-  intercepted against stationary or maneuvering FF-01s and with an intervening asteroid;
-  combined with Barrage, all 12 missiles hit (24 rockets: 15 intercepted, 1 hit, 8 missed).
-  Each run consumed four missiles; combined runs also consumed eight rockets. Bounded
-  avoidance can still fail physically, and recovery depends on remaining flight time.
-- RL-8 (accepted Stage 4 limitations): rockets fly the locked direction from tubes
-  that turn with the ship, so a sharp turn mid-salvo can send a rocket's path across
-  FF-01's own hull (no collision: ordnance never hits its own ship); the 3° cone also
-  spreads vertically, so at range part of a salvo passes over or under a 1.1 u hull;
-  the Alt weapon envelope uses the hardpoint's unused 15° cone and the F10 overlay
-  draws no wedge for it. Measurement (hostile salvo against FF-01's four Kestrels, 40
-  rockets each): about 31 intercepted / 4 hits at 40 u, 26 / 6 at 55 u, 14–17 / 21–23 at
-  25 u; the first 25 u case varies between runs (cause not investigated).
+- Wayfarer avoidance remains bounded and can fail physically; overshoot recovery
+  depends on its remaining nine-second flight time. It never switches target identity.
+- Barrage is a committed saturation weapon: abrupt maneuvers can evade its approximate
+  initial lead, and physical 3° dispersion can miss thin hulls. At a 60 u muzzle
+  distance, five seeds gave 17/40 hits per broadside; dispersion-free controls hit
+  8/8 per side (65.75–66.75 u total travel, 3.57–3.60 s). Misses expired at the
+  70 u path cap before 4 s; fresh attacks beyond 60 u were rejected, while committed
+  rockets continued beyond that acquisition radius. These values are owner-approved;
+  no further tuning is requested. The Alt envelope still uses the hardpoint's unused
+  15° cone and the F10 overlay draws no rocket wedge.
 
 ### Camera, views and presentation
 
@@ -1031,8 +1035,8 @@ distribution, logistics balance, models and UI polish.
   `C:\Users\Nikos\Downloads\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe`
   (4.7.2.stable). Git 2.55.0 and GitHub CLI 2.102.0 installed; `gh` logged in as
   `nikosban`, pushes use SSH.
-- Suites: 39 in `game/tests/`, 23 in `game/tests/combat/`, `game/tests/docking/tri_dock_test.gd`
-  (63 total). Run: `<godot console> --headless --path . -s res://game/tests/<name>.gd`.
+- Suites: 39 in `game/tests/`, 25 in `game/tests/combat/`, `game/tests/docking/tri_dock_test.gd`
+  (65 total). Run: `<godot console> --headless --path . -s res://game/tests/<name>.gd`.
 - `--fixed-fps 60` is required for every combat suite and for `shipyard_runtime_test`,
   `reuse_test` (uninterrupted loop as fast as possible), `camera_test`,
   `tactical_view_test`, `strategic_view_test` (fails its boundary-fade check without
@@ -1050,14 +1054,16 @@ distribution, logistics balance, models and UI polish.
   warnings. Verification scope follows `AGENTS.md` steps C and D. No runner script is
   kept.
 - FF-01 weapon suites (`combat/`): `ff01_test` 55, `armor_test` 53, `cannon_test` 46,
-  `pdc_test` 64, `rocket_test` 72, `guided_missile_test` 71 checks, all passing. Stage 5
-  verification ran two baselines (59 of 62 suites passing), then two full regressions
-  (60 of 63 passing); the same three baseline failures remained, with no new error or
-  warning messages. All six 600-frame scene smoke runs passed twice before and after.
-  The missile suite logs were byte-identical across final passes; legacy Rocket
-  throughput variation persists. Tests reflect eight weapons, isolate cannon impacts
-  from Wayfarer, and count FF-01 in battle completion. Owner play validation accepted.
-  Logs: `archive/gcm4_verification_2026-10-26/` (local only).
+  `pdc_test` 65, `rocket_test` 73, `guided_missile_test` 71, `launch_profiles_test` 48
+  and `barrage_trajectory_test` 148 checks, all passing. Final launch-profile regression:
+  24/25 combat suites pass, with only the same pre-existing `fleet_test` hostile-focus
+  failure and no new diagnostics; the 600-frame Combat Test smoke run passes.
+  Five seeded muzzle-distance salvos per broadside: 39/40 hits at 25 u, 27/40 at
+  45 u, 20/40 at 55 u, 17/40 at 60 u. Acquisition-boundary, continuation, physical
+  interception, lifetime, motion and maneuver-evasion controls pass; sampled Wayfarer
+  flight traces are identical to baseline. Rendered inspection and final profiles
+  are accepted by the owner. PDC offense fixtures isolate other weapon families.
+  Logs/measurements: `archive/barrage_travel70_verification_2026-10-26/` (local only).
 - `combat/positioning_boundary_test.gd`: 86/86 checks pass (76 at I01), covering configured sector
   sizes, the follower's navigation reference, footprint and clearance margins, Guard,
   engagement, Defensive positioning and group waypoints. I01 verification compared
@@ -1097,9 +1103,9 @@ distribution, logistics balance, models and UI polish.
 
 ## 10. Next task and open items
 
-Next task: awaits the owner's brief. Stage 5, GCM-4 Wayfarer, is accepted after owner
-play validation and committed on `combat_adjustments`; Stage 6 has not begun. All
-new work follows the `AGENTS.md` workflow.
+Next task: awaits the owner's brief. The revised Barrage and Wayfarer launch profiles
+are accepted on `combat_adjustments`, with no further tuning requested. Stage 6 has
+not begun; the branch remains separate from `main`. New work follows `AGENTS.md`.
 
 Open owner decisions:
 

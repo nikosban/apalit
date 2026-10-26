@@ -1053,7 +1053,7 @@ func _scenario_c() -> void:
 # --- O: offensive fire and armor ------------------------------------------------------
 
 func _offense() -> void:
-	print("\n=== O physical Kestrel rounds against a fresh hostile FF-01 (Bastions disabled for the measurement)")
+	print("\n=== O physical Kestrel rounds against a fresh hostile FF-01 (other weapon families disabled)")
 	_home("O")
 	_place(hostile, site + Vector2(250, 0) if site.x < 0 else site - Vector2(250, 0))
 	var victim: Node3D = UNIT.instantiate()
@@ -1071,8 +1071,10 @@ func _offense() -> void:
 	var events: Array = []
 	target.damaged.connect(func(amount: float, id: int) -> void: events.append([amount, id, target.health, target.armor]))
 	_reset_pdcs(11)
-	for name: String in BASTIONS:
-		ff01.get_node("Weapons/%s" % name).weapon().enabled = false
+	for weapon in CombatShip.of(ff01).weapons:
+		if weapon.config != KESTREL:
+			weapon.disable() # Also cancels any pending launches from unrelated salvo weapons.
+	var launched_before: int = projectiles.launched
 	var fs: Node = _pdc("ForwardStarboardPDCHardpoint")
 	var shot_ticks: Array = []
 	var tick := {"n": 0}
@@ -1118,6 +1120,7 @@ func _offense() -> void:
 	var later := events.slice(count)
 	_check("armor condition 0: each round delivers the full 0.2 hull damage (%d impacts)" % later.size(),
 		not later.is_empty() and later.all(func(e: Array) -> bool: return absf(e[0] - 0.2) < 1e-12))
+	_check("PDC-only offense fixture launches no unrelated ordnance", projectiles.launched == launched_before)
 	var own: Array = projectiles.records.filter(func(r: Dictionary) -> bool: return r.owner_name == "FF01" and r.ship == "FF01")
 	_check("no Kestrel round hit the firing FF-01", own.is_empty())
 	combat.clear_target()

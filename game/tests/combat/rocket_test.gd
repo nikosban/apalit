@@ -89,12 +89,12 @@ func _configuration() -> void:
 		c != null and c.display_name == "RL-8 Barrage" and c.family == &"rocket" and c.size == 1)
 	_check("hull damage 4, penetration 8 (explicitly configured), armor damage 1",
 		c.damage == 4.0 and c.has_penetration and c.penetration == 8.0 and c.resolved_penetration() == 8.0 and c.armor_damage == 1.0)
-	_check("48 rockets, no magazine, 5 s cooldown after the salvo, authorized range 60 u, alignment 3 deg, dispersion 3 deg",
+	_check("48 rockets, no magazine, 5 s cooldown after the salvo, authorized range 60 u, unused alignment value 3 deg, dispersion 3 deg",
 		c.ammunition == 48 and c.magazine_size == 0 and c.cooldown == 5.0 and c.weapon_range == 60.0
 		and c.alignment_tolerance_deg == 3.0 and c.dispersion_max_deg == 3.0)
-	_check("rocket ordnance: kind rocket, 30 u/s, 60 u travel, lifetime 2 s (= travel / speed), interception radius 0.3",
-		o != null and o.get_script() == OrdnanceConfig and o.kind == &"rocket" and o.speed == 30.0 and o.max_travel == 60.0
-		and is_equal_approx(o.lifetime, o.max_travel / o.speed) and o.radius == 0.3)
+	_check("rocket ordnance: kind rocket, 30 u/s, 70 u travel, lifetime 4 s (includes launch), interception radius 0.3",
+		o != null and o.get_script() == OrdnanceConfig and o.kind == &"rocket" and o.speed == 30.0 and o.max_travel == 70.0
+		and o.lifetime == 4.0 and o.clearance == 4.0 and o.eject_speed == 8.0 and o.orient_rate_deg == 100.0 and o.transition_timeout == 1.5 and o.acceleration == 30.0 and o.radius == 0.3)
 	_check("rocket model 0.6 u long, 0.06 u body diameter",
 		o.length == 0.6 and is_equal_approx(o.body_radius * 2.0, 0.06))
 	var node := RL8_SCENE.instantiate()
@@ -286,7 +286,7 @@ func _installation() -> void:
 		barrage != null and mount.get_child_count() == 1 and barrage.scene_file_path == RL8_SCENE.resource_path and barrage.config == RL8
 		and barrage.transform.is_equal_approx(Transform3D.IDENTITY) and mount.accepts(RL8) and combat.weapons.has(barrage) and barrage.enabled)
 	_check("not a fixed-axis weapon for Combat (no automatic hull facing)", barrage.fixed == false)
-	_check("launch orientation along the mount's -Z", barrage.forward().is_equal_approx(-ff01.global_basis.z))
+	_check("existing tube-axis marker stays along mount -Z (release profile is vertical)", barrage.forward().is_equal_approx(-ff01.global_basis.z))
 	var bastions := BASTIONS.all(func(n: String) -> bool: return _mounted(n, NC90))
 	var kestrels := KESTRELS.all(func(n: String) -> bool: return _mounted(n, KESTREL))
 	var wayfarer := ff01.get_node("Weapons/WayfarerHardpoint")
@@ -319,7 +319,7 @@ func _installation() -> void:
 			var dir := (axis * cos(deg_to_rad(3.0)) + (u * cos(phi) + v * sin(phi)) * sin(deg_to_rad(3.0))).normalized()
 			clear = clear and combat.segment_fraction(m.global_position, m.global_position + dir * 60.0) < 0.0
 		clear = clear and combat.segment_fraction(m.global_position, m.global_position + axis * 60.0) < 0.0
-	_check("every 60 u trajectory from every tube, on the axis and at the 3 deg cone edge, clears FF-01's own hull", clear)
+	_check("legacy tube-axis geometry rays still clear FF-01 (physical dorsal clearance tested separately)", clear)
 	_check("the fire-control reference (aim muzzle) also lies ahead of the bow box", (to_ship * barrage.muzzle.global_position).z < BOW_FRONT)
 
 
@@ -423,14 +423,14 @@ func _commitment() -> void:
 	for id: int in ids:
 		var node := _ordnance(id)
 		if node != null:
-			angles.append(_angle(locked, node.velocity))
-			dirs[node.velocity.normalized().snapped(Vector3.ONE * 0.000001)] = true
+			angles.append(_angle(locked, node.dispersion * locked))
+			dirs[(node.dispersion * locked).snapped(Vector3.ONE * 0.000001)] = true
 	var max_angle: float = angles.max() if not angles.is_empty() else INF
 	_check("8 rockets launched while the ship turned 40 deg and moved and the target moved", ids.size() == 8 and angles.size() == 8)
-	_check("locked direction = the launcher's forward axis at salvo start (%.4f deg), not the current one (%.1f deg off now)" % [
+	_check("locked solution points ahead at salvo start (%.4f deg), not the current one (%.1f deg off now)" % [
 		_angle(locked, forward_at_start), _angle(locked, barrage.forward())],
 		_angle(locked, forward_at_start) < ANGLE_EPS and _angle(locked, barrage.forward()) > 30.0)
-	_check("every rocket within 3 deg of the locked direction (max %.4f deg); eight independent directions (%d distinct)" % [max_angle, dirs.size()],
+	_check("every fixed dispersion draw within 3 deg of the locked direction (max %.4f deg); eight independent directions (%d distinct)" % [max_angle, dirs.size()],
 		max_angle <= 3.0 + ANGLE_EPS and dirs.size() == 8)
 	_clear_flight()
 	# Target changed and cleared, contact lost, stance changed, target destroyed: the salvo continues.
@@ -445,7 +445,7 @@ func _commitment() -> void:
 	_place(victim, site + Vector2(0, 150))
 	ids += _launched_ids(barrage, 60)
 	_check("target cleared, stance Passive and target out of contact after rocket 1: all %d rockets launch along the locked direction" % ids.size(),
-		ids.size() == 8 and ids.all(func(id: int) -> bool: return _ordnance(id) != null and _angle(barrage.salvo_direction, _ordnance(id).velocity) <= 3.0 + ANGLE_EPS))
+		ids.size() == 8 and ids.all(func(id: int) -> bool: return _ordnance(id) != null and _ordnance(id).locked_point == barrage.salvo_point))
 	_clear_flight()
 	var doomed: Node3D = UNIT.instantiate()
 	doomed.name = "DoomedFF01"
@@ -479,15 +479,15 @@ func _commitment() -> void:
 		ids.size() == 2 and barrage.salvo_left == 0 and barrage.salvos_cancelled == 1 and barrage.rounds_left() == 46)
 	_clear_flight()
 	# Deterministic seeds.
-	var first := await _salvo_velocities(31)
-	var again := await _salvo_velocities(31)
-	var other := await _salvo_velocities(32)
-	_check("the same seed reproduces identical trajectories; another seed gives others", first.size() == 8 and first == again and first != other)
+	var first := await _salvo_directions(31)
+	var again := await _salvo_directions(31)
+	var other := await _salvo_directions(32)
+	_check("the same seed reproduces identical dispersion draws; another seed gives others", first.size() == 8 and first == again and first != other)
 	# Many salvos: dispersion bound and independence.
 	var worst := 0.0
 	var all_distinct := true
 	for seed in range(100, 130):
-		var v := await _salvo_velocities(seed)
+		var v := await _salvo_directions(seed)
 		var seen := {}
 		for d: Vector3 in v:
 			worst = maxf(worst, _angle(Vector3.FORWARD, d))
@@ -498,15 +498,15 @@ func _commitment() -> void:
 	_disarm()
 
 
-# Launch velocities of one salvo from the site, bow -Z, seeded.
-func _salvo_velocities(seed: int) -> Array:
+# Fixed dispersion directions of one salvo from the site, bow -Z, seeded.
+func _salvo_directions(seed: int) -> Array:
 	_home()
 	_arm(_ahead(40.0))
 	_reset_launcher(barrage, seed)
 	var ids := _launched_ids(barrage, 60)
 	var out := []
 	for id: int in ids:
-		out.append(_ordnance(id).velocity)
+		out.append(_ordnance(id).dispersion * barrage.salvo_direction)
 	_clear_flight()
 	return out
 
@@ -524,7 +524,7 @@ func _reusability() -> void:
 	config.penetration = 4.0
 	config.ordnance.speed = 20.0
 	config.ordnance.max_travel = 40.0
-	config.ordnance.lifetime = 2.0
+	config.ordnance.lifetime = 3.0 # Test variant: allow clearance, turning and the slower ramp.
 	var pod: Node = RocketLauncher.new()
 	pod.name = "TestPod"
 	pod.config = config
@@ -543,9 +543,14 @@ func _reusability() -> void:
 	_check("3-rocket salvos every 0.3 s, 1 s cooldown, 8 rockets: two salvos in 4 s, then no partial one (%d launches, %d left)" % [times.size(), pod.rounds_left()],
 		schedule and pod.rounds_left() == 2 and pod.muzzles.size() == 3 and pod.reason == "Salvo needs 3 rockets (2 left)")
 	var rockets: Array = projectiles.ordnance.filter(func(n: Node3D) -> bool: return n.owner_name == "FF01")
-	_check("its rockets fly 20 u/s with its damage and penetration; RL-8 values untouched",
-		not rockets.is_empty() and rockets.all(func(n: Node3D) -> bool: return absf(n.velocity.length() - 20.0) < 0.001 and n.damage == 2.0 and n.penetration == 4.0)
+	_check("its rockets configure 20 u/s cruise with independent damage and penetration; RL-8 values untouched",
+		not rockets.is_empty() and rockets.all(func(n: Node3D) -> bool: return n.config.speed == 20.0 and n.phase == "eject" and n.damage == 2.0 and n.penetration == 4.0)
 		and RL8.ammunition == 48 and RL8.ordnance.speed == 30.0 and RL8.dispersion_max_deg == 3.0)
+	# Step the alternate variant through its own launch phases, independently of collision.
+	for rocket: Node3D in rockets:
+		for tick in 180:
+			rocket.step(TICK, projectiles)
+	_check("alternate variant actually commits at its configured 20 u/s", rockets.all(func(n: Node3D) -> bool: return n.phase == "flight" and absf(n.velocity.length() - 20.0) < 0.001))
 	_clear_flight()
 	ff01.get_node("Weapons").remove_child(pod)
 	pod.free()
@@ -557,7 +562,11 @@ func _reusability() -> void:
 
 func _launch_rocket(owner_ship: Node3D, faction: int, from: Vector3, direction: Vector3, target: Node3D) -> Node3D:
 	var id: int = projectiles.launch(owner_ship, faction, Transform3D(Basis.looking_at(direction.normalized(), Vector3.UP), from), RL8, target)
-	return _ordnance(id)
+	# Collision/defense fixtures start in committed flight; full launch is covered separately.
+	var node := _ordnance(id)
+	node.phase = "flight"
+	node.velocity = direction.normalized() * RL8.ordnance.speed
+	return node
 
 
 func _flight() -> void:
@@ -617,22 +626,22 @@ func _collisions() -> void:
 	await _frames(90)
 	rec = _ordnance_record(id)
 	_check("a rocket strikes an asteroid: %s at %.1f u" % [rec.get("outcome", "live"), rec.get("traveled", -1.0)], rec.get("outcome", "") == "asteroid")
-	# Expiry after 60 u.
+	# Expiry after 70 u, independently of the unchanged 60 u acquisition range.
 	id = _launch_rocket(ff01, 0, Vector3(site.x, ff01.global_position.y, site.y - 7.0), Vector3.FORWARD, null).id
 	await _frames(150)
 	rec = _ordnance_record(id)
 	_check("a rocket that hits nothing expires after its travel: %s at %.3f u, %.3f s" % [rec.get("outcome", "live"), rec.get("traveled", -1.0), rec.get("age", -1.0)],
-		rec.get("outcome", "") == "expired" and absf(rec.get("traveled", 0.0) - 60.0) < 0.51 and rec.get("traveled", 0.0) >= 60.0 - EPS)
+		rec.get("outcome", "") == "expired" and absf(rec.get("traveled", 0.0) - 70.0) < 0.0001 and rec.get("traveled", 0.0) >= 70.0 - EPS)
 	# A real salvo from FF-01: no own-hull hit, at most one damage event per rocket.
 	_reset_victim()
-	_arm(_ahead(18.0), PI * 0.5)
+	_arm(_ahead(55.0), PI * 0.5)
 	_reset_launcher(barrage, 51)
 	var ids := _launched_ids(barrage, 1)
 	await _frames(1)
 	for i in 60:
 		ids += _launched_ids(barrage, 1)
 		await physics_frame
-	await _frames(60)
+	await _frames(240)
 	var outcomes := {}
 	var own := 0
 	var once := true
@@ -642,7 +651,7 @@ func _collisions() -> void:
 		if r.get("ship", "") == "FF01":
 			own += 1
 		once = once and projectiles.damage_events.get(rid, 0) <= 1
-	print("  salvo at a broadside hostile FF-01 18 u ahead: %s" % str(outcomes))
+	print("  salvo at a broadside hostile FF-01 55 u ahead: %s" % str(outcomes))
 	_check("live salvo: 8 rockets, none touches FF-01, each at most one damage event", ids.size() == 8 and own == 0 and once and outcomes.get("damage", 0) >= 1)
 	_clear_flight()
 	_disarm()
@@ -675,12 +684,12 @@ func _damage() -> void:
 	# A live salvo: every impact follows the formula from its own pre-impact condition.
 	_reset_victim()
 	events.clear()
-	_arm(_ahead(15.0), PI * 0.5)
+	_arm(_ahead(55.0), PI * 0.5)
 	_reset_launcher(barrage, 61)
 	for i in 70:
 		_launched_ids(barrage, 1)
 		await physics_frame
-	await _frames(30)
+	await _frames(240)
 	var ok := not events.is_empty()
 	var armor := 100.0
 	for e: Array in events:
@@ -809,7 +818,9 @@ func _threat(config: Resource, rel: Vector2, time: float) -> Node3D:
 	var offset: Vector3 = ff01.global_position - from
 	var node: Node3D = _ordnance(projectiles.launch(hostile, HOSTILE, Transform3D(Basis.looking_at(offset.normalized(), Vector3.UP), from), config, ff01))
 	node.velocity = offset.normalized() * (offset.length() / time)
-	if config != RL8:
+	if config == RL8:
+		node.phase = "flight"
+	else:
 		node.phase = "guided" if config == TORPEDO else "powered"
 		node.has_goal = true
 	return node
@@ -908,7 +919,7 @@ func _measurement() -> void:
 		ff01.get_node("Weapons/%s" % n).weapon().enabled = false
 	barrage.enabled = false
 	var totals := {}
-	for distance: float in [25.0, 40.0, 55.0]:
+	for distance: float in [25.0, 45.0, 60.0]:
 		var line := []
 		for seed in [1, 2, 3, 4, 5]:
 			_home()
@@ -932,7 +943,7 @@ func _measurement() -> void:
 			var on_shot := func(_w: Node, rid: int, _t: Node3D, _o: Transform3D) -> void: ids.append(rid)
 			launcher.shot.connect(on_shot)
 			combat.set_physics_process(true)
-			for i in 240:
+			for i in 320:
 				if ids.size() < 8:
 					launcher.step(TICK)
 				await physics_frame

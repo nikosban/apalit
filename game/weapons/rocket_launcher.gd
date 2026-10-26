@@ -1,19 +1,18 @@
 extends "res://game/weapons/weapon.gd"
 ## Combat: Rocket family (RL-8 Barrage and future variants; weapon values in the variant's
 ## WeaponConfig, flight values in its `ordnance` OrdnanceConfig of kind rocket, salvo and
-## tube layout on the variant scene). A fixed forward launcher: tubes laid out across the
-## mount, every tube along the mount's −Z. It uses the shared firing authorization against
-## the rocket's flight (straight-line intercept at the rocket's speed, within its lifetime
-## and travel): the intercept point must be within `alignment_tolerance_deg` of the
-## launcher's forward axis, inside `weapon_range`, with a clear line. The hull is never
-## turned toward the target (not a `fixed` weapon for Combat's facing request).
+## tube layout on the variant scene). The existing eight cell positions eject world +Y,
+## then turn after clearance toward one captured firing solution. Authorization keeps
+## the existing speed-based intercept/range check (it is not a full launch-path reach
+## prediction), with a clearance/elevated obstruction check and no bow alignment gate.
+## The hull is never turned toward the target.
 ##
 ## Salvo: one authorized firing action commits `salvo_size` rockets (authorized only with at
-## least that many left; no partial salvos). At that moment the launcher's forward axis in
-## world space is locked as the salvo's intended direction; rocket 1 leaves at once and
+## least that many left; no partial salvos). At that moment the target solution in
+## world space is locked; rocket 1 leaves at once and
 ## rocket k at (k − 1) × `salvo_interval` s of accumulated simulation time, each in the
-## first tick on or after its time. Every rocket leaves its own tube (tube k mod tubes) along
-## the locked direction deviated within the configuration's `dispersion_max_deg` (Weapon
+## first tick on or after its time. Every rocket leaves its own tube (tube k mod tubes),
+## with a fixed dispersion rotation within `dispersion_max_deg` toward the solution (Weapon
 ## .disperse, its own draw from `rng`). The salvo never re-aims and is not cancelled by a
 ## target change or destruction, lost contact, a stance change or the ship's own motion;
 ## only the owner's destruction cancels the launches left. One round is used per rocket
@@ -36,6 +35,7 @@ var salvo_left := 0 # Rockets of the salvo under way not yet launched.
 var salvo_launched := 0 # Rockets of the salvo under way already launched.
 var salvo_time := 0.0 # s of simulation time since the salvo began.
 var salvo_direction := Vector3.ZERO # Locked world-space intended direction.
+var salvo_point := Vector3.ZERO # Single world-space firing solution captured at commitment.
 var salvo_target: Node3D = null # The target the salvo was authorized against (attack registration only).
 var salvos := 0 # Salvos begun.
 var salvos_cancelled := 0
@@ -86,6 +86,9 @@ func assess(target: Node3D, pipeline_order: bool = false) -> Dictionary:
 
 # Fire control at the rocket's speed and flight limits (full lead).
 func _solve(target: Node3D) -> bool:
+	if salvo_left > 0:
+		aim_point = salvo_point
+		return true # Pending rockets do not recalculate the committed target solution.
 	var solution := _solution(target)
 	aim_point = solution[1] if solution[0] else target.global_position
 	flight_time = solution[2]
@@ -96,11 +99,45 @@ func _solve(target: Node3D) -> bool:
 ## [solved, aim point, flight time] (read-only).
 func _solution(target: Node3D) -> Array:
 	var rocket: Resource = config.ordnance
+	var origin := muzzle.global_position
+	var position := target.global_position
 	var velocity := velocity_of(target)
-	var time := intercept_time(muzzle.global_position, target.global_position, velocity, rocket.speed)
-	if time <= 0.0:
+	var nominal_time := intercept_time(origin, position, velocity, rocket.speed)
+	if nominal_time <= 0.0:
 		return [false, Vector3.ZERO, 0.0]
-	return [time <= rocket.lifetime and rocket.speed * time <= rocket.max_travel, target.global_position + velocity * time, time]
+	var time := nominal_time
+	# First-order lead includes launch delay. Approximate the turn as an 8 u/s arc:
+	# its forward progress replaces part of straight cruise, while its extra height
+	# changes the angle needed. Iterate only before commitment, using this one observed
+	# position/velocity snapshot. Collision and actual travel remain authoritative.
+	var rate := deg_to_rad(maxf(rocket.orient_rate_deg, 0.001))
+	var radius: float = rocket.eject_speed / rate
+	var elevated: Vector3 = origin + Vector3.UP * (rocket.clearance + radius)
+	var ramp_delay: float = pow(maxf(0.0, rocket.speed - rocket.eject_speed), 2.0) / (2.0 * maxf(rocket.acceleration, 0.001) * rocket.speed)
+	for iteration in 3:
+		var angle := Vector3.UP.angle_to(position + velocity * time - elevated)
+		var turn_time: float = minf(angle / rate, rocket.transition_timeout)
+		var progress: float = radius * sin(rate * turn_time)
+		var delay: float = rocket.clearance / maxf(rocket.eject_speed, 0.001) + turn_time - progress / rocket.speed + ramp_delay
+		var cruise_time := intercept_time(origin, position + velocity * delay, velocity, rocket.speed)
+		if cruise_time <= 0.0:
+			return [false, Vector3.ZERO, 0.0]
+		time = delay + cruise_time
+	# Retain the existing admission bounds; this estimate improves lead, not range.
+	# The physical travel cap includes launch travel and can still end a shot early.
+	return [nominal_time <= rocket.lifetime and rocket.speed * nominal_time <= rocket.max_travel, position + velocity * time, time]
+
+
+func _alignment_error(_origin: Vector3, _aim: Vector3) -> float:
+	return 0.0 # Dorsal launch turns after clearance; no hull-facing requirement.
+
+
+func _path_blocker(from: Vector3, to: Vector3, target: Node3D) -> String:
+	# Authorize the clearance leg and elevated firing line, rather than a bow-level ray
+	# through the launching hull. Actual curved flight still uses physical sweeps.
+	var elevated: Vector3 = from + Vector3.UP * config.ordnance.clearance
+	var blocker := super._path_blocker(from, elevated, target)
+	return blocker if blocker != "" else super._path_blocker(elevated, to, target)
 
 
 ## The owner is destroyed: the launches left are cancelled.
@@ -120,7 +157,8 @@ func cancel_salvo() -> void:
 # One firing action = one salvo: direction locked, rocket 1 now, the rest scheduled.
 func _fire(target: Node3D) -> void:
 	salvos += 1
-	salvo_direction = forward()
+	salvo_point = aim_point
+	salvo_direction = (salvo_point - muzzle.global_position).normalized()
 	salvo_target = target
 	salvo_launched = 0
 	salvo_left = salvo_size
@@ -143,12 +181,15 @@ func _launch() -> void:
 		return
 	var tube := muzzles[salvo_launched % muzzles.size()]
 	var direction := disperse(salvo_direction, config.dispersion_max_deg, rng)
-	var up := Vector3.UP if absf(direction.dot(Vector3.UP)) < 0.99 else Vector3.FORWARD
-	var origin := Transform3D(Basis.looking_at(direction, up), tube.global_position)
+	# Dispersion is a fixed per-rocket rotation of the committed solution, approached
+	# with finite steering. Applying it as a heading jump at phase exit would snap.
+	var spread := Basis(Quaternion(salvo_direction, direction))
+	var origin := Transform3D(Basis.looking_at(Vector3.UP, Vector3.FORWARD), tube.global_position)
 	var target := salvo_target if is_instance_valid(salvo_target) else null
 	var id := -1
 	if combat.projectiles != null:
-		id = combat.projectiles.launch(ship, combat.faction, origin, config, target)
+		id = combat.projectiles.launch(ship, combat.faction, origin, config, target,
+			{"locked_point": salvo_point, "dispersion": spread})
 	_use_round()
 	shots += 1
 	salvo_launched += 1
@@ -158,7 +199,7 @@ func _launch() -> void:
 		cooldown_left = config.cooldown
 		salvo_target = null
 	if combat.effects != null:
-		combat.effects.muzzle_flash(origin.origin, direction, CombatShip.FACTION_COLORS[combat.faction], 0.6)
+		combat.effects.muzzle_flash(origin.origin, Vector3.UP, CombatShip.FACTION_COLORS[combat.faction], 0.6)
 	shot.emit(self, id, target, origin)
 	if target != null:
 		combat.on_fired(self, target)

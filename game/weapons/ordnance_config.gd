@@ -11,19 +11,25 @@ extends Resource
 ## The nose steers toward the velocity change needed to fly the wanted direction at
 ## `max_speed`, except within `steering_deadband_deg` of it, where it steers along the
 ## wanted direction itself (no turning across a small error at the speed cap).
-## Rocket: unguided, constant `speed` along its launch axis until `max_travel` / `lifetime`;
-## no turning or avoidance (the turn, ejection and avoidance values are unused).
+## FF-01 profiles opt in with positive transition_timeout: clearance is world +Y height;
+## both inherit release velocity. Rocket turns at eject_speed after clearance, toward
+## its fixed dispersed salvo solution, then locks its actual velocity direction on
+## alignment/timeout and accelerates along that straight ray to speed.
+## Missile retains drifting orientation and powered guidance, with a timeout added.
 
 @export var kind := &"torpedo" # torpedo, missile, rocket
 @export var speed := 12.0 # u/s (torpedo, rocket; constant)
 @export var turn_rate_deg := 4.0 # °/s (torpedo; missile powered pursuit)
 @export var arming_distance := 6.0 # u straight before guidance (torpedo)
-@export var eject_speed := 5.0 # u/s (missile)
-@export var clearance := 2.5 # u from the launch point (missile)
+@export var eject_speed := 5.0 # u/s (missile; profiled rocket clearance and turn)
+@export var clearance := 2.5 # u above release with a profile; radial distance for legacy missiles
 @export var hull_margin := 0.5 # u beyond its own hull boxes before turning (missile)
-@export var orient_rate_deg := 180.0 # °/s (missile, orientation stage)
+@export var orient_rate_deg := 180.0 # °/s (missile / profiled rocket transition)
+## Positive for the FF-01 launch profiles; zero preserves legacy launch behavior.
+## With a profile, clearance is world +Y height above release, not radial distance.
+@export var transition_timeout := 0.0 # s after clearance; commit achieved heading at timeout
 @export var powered_within_deg := 15.0 # (missile)
-@export var acceleration := 60.0 # u/s² (missile)
+@export var acceleration := 60.0 # u/s² (missile; profiled rocket straight-flight speed ramp)
 @export var max_speed := 32.0 # u/s (missile)
 @export var steering_deadband_deg := 0.0 # (missile; 0 = none)
 @export var avoidance := true # missile: local obstacle avoidance
