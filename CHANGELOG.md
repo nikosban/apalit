@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-26 — Stage 4: Rocket family and RL-8 Barrage
+
+A reusable unguided Rocket family (`rocket_launcher.gd`, rocket kind in `ordnance.gd`) with the RL-8 Barrage (`rl8_barrage.tres` / `.tscn`: committed 8-rocket salvos at 0.12 s on a locked world-space direction, 3° dispersion, 48 rockets, 5 s cooldown, 30 u/s over 60 u, 4 hull / penetration 8 / 1 armor) is installed on FF-01's Barrage hardpoint, and rockets are intercepted only by Gatling-family rounds (Kestrels and legacy Gatlings, under the existing missile priority rule) while cannon shells pass through them (`baa7484`). `rocket_test` passed 72/72 and two full regressions matched two baselines apart from updated FF-01 loadout checks and the three known failures; accepted by the owner after play validation.
+
 ## 2026-10-25 — I01 combat-positioning boundary mismatch resolved
 
 Combat positioning and edge diagnostics now share the configured StaticNavigation boundary resolved through RouteFollower's `navigation_path`, replacing the production 135 u limit while preserving footprint and clearance semantics, movement and combat rules, and the independent E05 fixture boundary; accepted by the owner, with no further combat tuning authorized by this fix. Verification passed all 76 new boundary checks and compared 28 existing suites plus four scene smoke runs against two pre-change baselines: only the known navigation, obstruction and fleet-focus failures remain open, and P02 and integrated battle measurement changes were reproduced as boundary effects.

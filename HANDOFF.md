@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-Last updated: 2026-10-25. Current state only. Development history is in `CHANGELOG.md` and Git; earlier versions of this file
+Last updated: 2026-10-26. Current state only. Development history is in `CHANGELOG.md` and Git; earlier versions of this file
 (per-task verification logs, measurements, prototype records) are in Git history.
 
 ## 1. Status
@@ -17,8 +17,14 @@ Sector Showcase scene with environment rendering; a themed inspector UI and reus
 thruster VFX. No component manufacturing, station construction, save system or
 strategic AI.
 
-All listed work, including the resolved I01 combat-positioning boundary mismatch, is
-accepted by the owner. No task is in progress (see section 10).
+FF-01 combat adjustments (branch `combat_adjustments`, not merged into `main`): the
+FF-01 frigate in an expanded Combat Test arena, then Stage 1 global armor and damage
+resolution (`f152f8b`), Stage 2 Cannon family / NC-90 Bastion (`586ac21`), Stage 3 PDC
+family / PDC-20 Kestrel (`94a7a37`) and Stage 4 Rocket family / RL-8 Barrage
+(`baa7484`) (section 4.6).
+
+All listed work, including the resolved I01 combat-positioning boundary mismatch and
+Stages 1–4, is accepted by the owner. Next task: Stage 5, GCM-4 Wayfarer (section 10).
 
 ## 2. Project layout and scenes
 
@@ -47,6 +53,7 @@ accepted by the owner. No task is in progress (see section 10).
   (text stored with LF), `.gitignore` (`.godot/`, `/android/`, `/archive/`).
 - Git: branch `main`, remote `origin` = `git@github.com:nikosban/apalit.git`
   (private). No commit or push conventions are decided beyond the initial setup.
+  Current work: `combat_adjustments` (pushed, not merged into `main`).
 
 Terminology (owner-agreed): shared, self-contained pieces such as the camera rig are
 "reusable scenes" (own `.tscn`, instanced into other scenes).
@@ -80,8 +87,11 @@ the lab era) and the layout contract in section 3.
   Every ship and station instance overrides only its transform (`shipyard_test`
   checks it). Station placement rule used so far: every docking, approach, holding,
   exit and deployment point ≥ 15 u from asteroid surfaces.
-- `game/scenes/combat_test.tscn` (inherits `main.tscn`; F6): integrated combat; a
-  second player Gunship and a hostile fleet east, beyond sensor range, under a
+- `game/scenes/combat_test.tscn` (F6; standalone since the FF-01 arena expansion, no
+  longer inherits `main.tscn`): integrated combat on a 760 × 760 sector
+  (`map_half_size` 380, camera and Strategic View follow ±380), the 36 Test Arena
+  asteroids unchanged, no stations; player Gunship, Destroyer, Gunship2 and FF-01
+  (spawn (−18, 1.5, −12)); a hostile fleet east, beyond sensor range, under a
   `HostileCommander` (Gunships Guard the Destroyer, which Attack-Moves west). Same
   hostile `Combat` overrides and Editable Children as the Showcase.
 - `game/scenes/movement_test.tscn` (root `MovementLab`, `scenario_keys` on): the
@@ -119,6 +129,15 @@ the lab era) and the layout contract in section 3.
   Destroyer a bow torpedo tube, a deck missile launcher (4 cells, 4-missile salvos
   every 0.2 s, 12 missiles), a cannon and a stern Gatling. Frigate, Miner and
   Transporter are unarmed and damageable.
+- `ff01_unit.tscn` (warship; hull `ff01.tscn`, a 12 × 3 × 1.1 u primitive blockout, bow
+  −Z): Destroyer handling and footprint (3 u/s, 25 °/s, radius 6.2, size class 3, fuel
+  400 / 1.0), `Behavior`, durability `ff01_durability.tres`. Eight hardpoints under
+  `Weapons`: two NC-90 Bastions (`ForwardBastionHardpoint` (0, 0.55, −3) and
+  `AftBastionHardpoint` (0, 0.55, 3) yaw 180°, ±120°), four PDC-20 Kestrels (PDC
+  hardpoints at (±1.3, 0.55, ±4), yaw ±45° / ±135°, ±90°), one RL-8 Barrage
+  (`BarrageHardpoint` (0, 0, −5.85), fixed −Z, family rocket) and the empty
+  `WayfarerHardpoint` (0, 0.55, 0), family missile, reserved for GCM-4 Wayfarer. Only
+  used in `combat_test.tscn` and tests.
 - Instances: scene ships and produced ships are instances of the same variants with
   only a transform. Runtime state is per instance (script variables, one
   `Inventory.new()` per Cargo and per station).
@@ -489,7 +508,14 @@ Gunship's handling with radius 4.1, Miners the Frigate's):
 Combat behaviour is frozen as accepted (section 6).
 
 - `combat_ship.gd` (`Combat`, every ship): the one owner of hull health
-  (`combat_rules.tres`: 150 for every ship), faction (0 player, 1 hostile), manual /
+  (`combat_rules.tres`: 150 for every ship without a durability) and, Stage 1, armor:
+  an optional `durability` (`durability_config.gd`: `max_hull`, `max_armor`,
+  `armor_resistance`; an invalid one is rejected as a whole). FF-01: hull 160, armor
+  condition 100, resistance 30; no other ship has one. One global formula
+  (`resolve_hit()`, from the pre-impact condition): hull damage = base × p / (p +
+  resistance × condition / max), armor condition reduced by the hit's armor damage;
+  unconfigured penetration (null, every legacy weapon) bypasses armor; non-finite
+  inputs are rejected (`hit_input_error()`). It also owns faction (0 player, 1 hostile), manual /
   automatic target and threats; steps the ship's weapons. Targeting is strict: a
   manual target is the only offensive target; without one, Defensive takes confirmed
   threats (attacks on itself or allies within 30 u, 10 s persistence), Aggressive the
@@ -512,6 +538,33 @@ Combat behaviour is frozen as accepted (section 6).
   under every tactic, then offense), `launcher.gd` (tube, cells, salvos),
   `hardpoint.gd`, configs, `weapon_geometry.gd` (placeholder meshes). Values in
   `cannon.tres`, `gatling.tres`, `torpedo.tres`, `missile.tres` (validated, unchanged).
+  Weapon families on FF-01 (one script per family, values in the variant's `.tres`,
+  instanced through the variant's `.tscn`):
+  - Cannon (Stage 2, `turret.gd` + `nc90_bastion.tres/.tscn`): NC-90 Bastion, 12 hull /
+    penetration 20 / armor damage 6, 2.5 s, 75 u (effective 45), 40 u/s, 40 rounds,
+    shell dispersion 0.5° (`Weapon.disperse()`: uniform over the cone's solid angle,
+    per-mount seeded `rng`).
+  - PDC (Stage 3, `pdc.gd` extends `gatling.gd` + `pdc20_kestrel.tres/.tscn`):
+    PDC-20 Kestrel, 0.2 / penetration 1 / 0, 0.08 s, 25 u, 70 u/s tracers, magazine
+    40 of 400, reload 3 s, 2.5° dispersion. Defensive order: own ship, then allies;
+    torpedoes before missiles, except a missile (or rocket) arriving under 1.5 s and
+    earlier; then impact time, ordnance id. Mounts select independently.
+  - Rocket (Stage 4, `rocket_launcher.gd` + `rl8_barrage.tres/.tscn`): RL-8 Barrage,
+    a fixed forward launcher with 4 × 2 tubes (mouths at x ±0.15 / ±0.45, y ±0.15,
+    z −6.28, ahead of the bow hit box). A salvo needs 8 rockets left, the 60 u range,
+    a solution within ±3° of the launcher axis and a clear line; it locks the axis in
+    world space and launches 8 rockets at 0.12 s of accumulated simulation time, each
+    independently dispersed within 3°, one round per launch. It is not cancelled or
+    re-aimed by target, contact, stance or ship motion; only the owner's destruction
+    cancels the rest. 5 s cooldown after the eighth; 48 rockets (six salvos). Not a
+    `fixed` weapon: the hull is never turned toward the target. Rockets (ordnance
+    kind `rocket`): unguided, 30 u/s straight for 60 u (lifetime 2 s), 4 hull /
+    penetration 8 / armor damage 1, interception radius 0.3, model 0.6 × 0.06 u with
+    plume and short trail. Salvo values and tube layout are editable on
+    `rl8_barrage.tscn`, flight and model values in the `.tres` ordnance sub-resource.
+  - Interception: torpedoes and missiles are destroyed by any hostile round; rockets
+    only by rounds spawned with `intercepts_rockets` (Gatling family: Kestrels and
+    legacy Gatlings); cannon shells pass through rockets.
 - Sensors: `sensors.gd` (`Sensors`): faction-shared detection within 100 u with a
   line clear of asteroids, every 0.2 s of simulation time, 8 s last-known memory;
   stations ignored. `contact_board.gd` (`Contacts`): contact = detection. Line of fire
@@ -606,13 +659,13 @@ Combat behaviour is frozen as accepted (section 6).
   - `thruster_view.gd` (`ThrusterView`): reads every ship each physics tick, never
 	writes; places one main effect per `MainEngine*` and one directional effect per
 	jet box of the hull's `Thrusters`, under itself (never under a ship), sized from
-    the parts. Jet intensity = ship-frame acceleration share of its limit (smoothed
-    0.08 s, zero without propulsion). Main states: BOOST 0.5 + 0.5 × intensity, THRUST
-    0.5, IDLE 0 with glow, NONE 0 without; blended 0.15 s. API: `state_of`,
-    `intensity_of`, `plume_of`, `plumes_of`, `jet_of`, `emitters_of`.
+	the parts. Jet intensity = ship-frame acceleration share of its limit (smoothed
+	0.08 s, zero without propulsion). Main states: BOOST 0.5 + 0.5 × intensity, THRUST
+	0.5, IDLE 0 with glow, NONE 0 without; blended 0.15 s. API: `state_of`,
+	`intensity_of`, `plume_of`, `plumes_of`, `jet_of`, `emitters_of`.
   - Ordnance: `WeaponGeometry.build_ordnance()` adds effects to torpedo and missile
-    nozzles and missile attitude mounts; `ordnance.gd` drives them; sizes in
-    `OrdnanceConfig`. The `OrdnanceTrails` ribbon is kept (owner choice).
+	nozzles and missile attitude mounts; `ordnance.gd` drives them; sizes in
+	`OrdnanceConfig`. The `OrdnanceTrails` ribbon is kept (owner choice).
 - Environment (`sector_environment.gd`, `SectorEnvironment`; profile
   `sector_profile.gd` / `warm_sector.tres`): key light, ambient, background, ground;
   rocks, debris and dust pockets around formations. Sky `environment_experiment`: A
@@ -723,7 +776,11 @@ Frozen or not authorized without the owner:
 - No further movement or docking refinements; docking durations and the Destroyer's
   footprint wait for the owner (radius and collision geometry unchanged by decision).
 - Combat: no tuning, new mechanics, Frigate weapons or hostile AI changes; I01's
-  accepted boundary correction authorizes no further combat tuning.
+  accepted boundary correction authorizes no further combat tuning. Exception: the
+  owner's staged FF-01 weapon tasks (Stages 1–4 accepted, Stage 5 next), each
+  authorized separately; their values are approved v0.1 playtest values, not to be
+  rebalanced without the owner. Rocket threat priority beyond the missile rule is not
+  designed.
 - Solar Map and multi-sector architecture: anticipated, not authorized or planned.
 - Components, upgrades and equipment swapping are placeholders (transport editor
   Components tab disabled).
@@ -866,7 +923,8 @@ distribution, logistics balance, models and UI polish.
 
 - Aggressive hostiles acquire civilian player ships like any player ship.
 - Stations block fire but take no damage; sensors ignore stations; weapon envelopes
-  draw asteroid shadows only. Every hull is 150, civilian ships included.
+  draw asteroid shadows only. Every hull is 150, civilian ships included, except FF-01
+  (160 with armor); the HUD shows hull only, not armor.
 - A ship destroyed during a controlled entry or exit stays as a 2 s hulk where it was;
   its station records are released at once and the berth is granted again only when
   physically empty.
@@ -874,6 +932,14 @@ distribution, logistics balance, models and UI polish.
   meshes, hull tint (player blue, hostile red).
 - `combat_test.tscn`: with the player's warships Aggressive and no orders the hostile
   fleet won the headless run (observation, no tuning).
+- RL-8 (accepted Stage 4 limitations): rockets fly the locked direction from tubes
+  that turn with the ship, so a sharp turn mid-salvo can send a rocket's path across
+  FF-01's own hull (no collision: ordnance never hits its own ship); the 3° cone also
+  spreads vertically, so at range part of a salvo passes over or under a 1.1 u hull;
+  the Alt weapon envelope uses the hardpoint's unused 15° cone and the F10 overlay
+  draws no wedge for it. Measurement (hostile salvo against FF-01's four Kestrels, 40
+  rockets each): about 31 intercepted / 4 hits at 40 u, 26 / 6 at 55 u, 14–17 / 21–23 at
+  25 u; the first 25 u case varies between runs (cause not investigated).
 
 ### Camera, views and presentation
 
@@ -937,8 +1003,8 @@ distribution, logistics balance, models and UI polish.
   `C:\Users\Nikos\Downloads\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe`
   (4.7.2.stable). Git 2.55.0 and GitHub CLI 2.102.0 installed; `gh` logged in as
   `nikosban`, pushes use SSH.
-- Suites: 39 in `game/tests/`, 17 in `game/tests/combat/`, `game/tests/docking/tri_dock_test.gd`
-  (57 total). Run: `<godot console> --headless --path . -s res://game/tests/<name>.gd`.
+- Suites: 39 in `game/tests/`, 22 in `game/tests/combat/`, `game/tests/docking/tri_dock_test.gd`
+  (62 total). Run: `<godot console> --headless --path . -s res://game/tests/<name>.gd`.
 - `--fixed-fps 60` is required for every combat suite and for `shipyard_runtime_test`,
   `reuse_test` (uninterrupted loop as fast as possible), `camera_test`,
   `tactical_view_test`, `strategic_view_test` (fails its boundary-fade check without
@@ -955,14 +1021,19 @@ distribution, logistics balance, models and UI polish.
   10 guard, `station_docking_test` deliberate `cancel()`, tri-dock navigation edge
   warnings. Verification scope follows `AGENTS.md` steps C and D. No runner script is
   kept.
-- `combat/positioning_boundary_test.gd`: 76/76 checks pass, covering configured sector
+- FF-01 weapon suites (`combat/`): `ff01_test` 55, `armor_test` 53, `cannon_test` 46,
+  `pdc_test` 64, `rocket_test` 72 checks, all passing. Stage 4 verification ran every
+  suite and the five scene runs twice before and twice after the change: identical
+  apart from updated FF-01 loadout checks (seven weapons) and the known variance; no
+  new errors or warnings. Logs: `archive/rl8_verification_2026-10-26/` (local only).
+- `combat/positioning_boundary_test.gd`: 86/86 checks pass (76 at I01), covering configured sector
   sizes, the follower's navigation reference, footprint and clearance margins, Guard,
   engagement, Defensive positioning and group waypoints. I01 verification compared
   28 existing suites and four scene smoke runs against two pre-change baselines:
   25 suites and all smoke runs passed, with only the three known failing suites below;
   no new errors or warnings. P02 and integrated combat measurement changes are accepted,
   reproducible boundary effects. Logs: `archive/i01_verification_2026-10-25/` (local only).
-- Known open failures (unrelated to I01; reproduced unchanged before and after its fix): `navigation_test`
+- Known open failures (baseline, not regressions; reproduced unchanged before and after I01 and Stage 4): `navigation_test`
   35/36 (Destroyer redirect aim line), `obstruction_test` 10/12 (the two cause B
   overshoot checks), `fleet_test` hostile focus (1 of 47 hostile shots off the
   controller's focus since the 2026-10-24 Destroyer hull redesign).
@@ -994,8 +1065,10 @@ distribution, logistics balance, models and UI polish.
 
 ## 10. Next task and open items
 
-Next task: none assigned; await the owner's next task. All work follows the
-`AGENTS.md` workflow (replace this section after every task).
+Next task: Stage 5, GCM-4 Wayfarer, on `combat_adjustments`; awaits the owner's task
+brief (nothing about it is designed or implemented yet; its FF-01 hardpoint
+`WayfarerHardpoint` is reserved, family missile, mount −Z forward). All work follows
+the `AGENTS.md` workflow (replace this section after every task).
 
 Open owner decisions:
 
