@@ -31,6 +31,10 @@ extends Node3D
 ## edge of the nearest obstacle sphere ahead (asteroids, ships other than its target and
 ## its own ship): over, under or around as the geometry gives. At flight_time it
 ## self-destructs.
+##
+## Rocket (Rocket family): unguided. Constant speed along its launch axis from the first
+## tick; no guidance point, contact tracking, turning, acceleration or avoidance. It ends
+## at its technical limit (travel / lifetime), on impact or when intercepted.
 
 const WeaponGeometry := preload("res://game/weapons/weapon_geometry.gd")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
@@ -56,7 +60,7 @@ var live := true
 var finished := "" # Set when it ends by itself (expired, self_destruct).
 
 var velocity := Vector3.ZERO
-var phase := "" # torpedo: arming, guided; missile: eject, orient, powered
+var phase := "" # torpedo: arming, guided; missile: eject, orient, powered; rocket: flight
 var age := 0.0
 var traveled := 0.0
 var launch_point := Vector3.ZERO
@@ -97,7 +101,7 @@ func setup(new_id: int, owner_node: Node3D, new_faction: int, weapon_config: Res
 	target_name = String(new_target.name) if new_target != null else ""
 	_target_combat = CombatShip.of(new_target)
 	contacts = contact_board
-	name = "%s%d" % ["Torpedo" if kind == &"torpedo" else "Missile", id]
+	name = "%s%d" % [{&"torpedo": "Torpedo", &"rocket": "Rocket"}.get(kind, "Missile"), id]
 
 
 func begin(origin: Transform3D) -> void:
@@ -115,10 +119,14 @@ func begin(origin: Transform3D) -> void:
 	if kind == &"torpedo":
 		phase = "arming"
 		velocity = launch_axis * config.speed
+	elif kind == &"rocket":
+		phase = "flight"
+		velocity = launch_axis * config.speed
 	else:
 		phase = "eject"
 		velocity = launch_axis * config.eject_speed
-	_update_contact()
+	if kind != &"rocket":
+		_update_contact()
 	_record_trail(0.0)
 	_update_visuals(0.0)
 
@@ -155,11 +163,12 @@ func launching() -> bool:
 func step(delta: float, _system: Node) -> void:
 	prev_position = global_position
 	age += delta
-	_update_contact()
+	if kind != &"rocket":
+		_update_contact()
 	var before := forward()
 	if kind == &"torpedo":
 		_step_torpedo(delta)
-	else:
+	elif kind == &"missile":
 		_step_missile(delta)
 	global_position += velocity * delta
 	traveled += velocity.length() * delta
@@ -384,7 +393,7 @@ func _measure_turn(before: Vector3, delta: float) -> void:
 func _record_trail(delta: float) -> void:
 	for i in trail_ages.size():
 		trail_ages[i] += delta
-	if kind == &"torpedo" or thrusting:
+	if kind != &"missile" or thrusting:
 		trail.append(nozzle_position())
 		trail_ages.append(0.0)
 	while not trail_ages.is_empty() and trail_ages[0] > config.trail_time:
@@ -395,7 +404,7 @@ func _record_trail(delta: float) -> void:
 func _update_visuals(_delta: float) -> void:
 	# The shared thruster effects: full thrust while lit (the nozzle glow only then: an
 	# unlit engine shows nothing), off otherwise.
-	var lit := kind == &"torpedo" or thrusting
+	var lit := kind != &"missile" or thrusting
 	_plume.thrust = 1.0 if lit else 0.0
 	_plume.powered = lit
 	for i in _rcs.size():

@@ -19,7 +19,8 @@ extends Node3D
 ## direction and projectile direction are the same, deviated by at most the configuration's
 ## `dispersion_max_deg` (Cannon family; drawn from `rng` after authorization, so it never
 ## changes whether the weapon fires); it uses one round of the stock and registers the
-## attack (threats).
+## attack (threats). Gatling-family rounds (PDCs, legacy Gatlings) can also destroy hostile
+## rockets; other rounds pass through them (projectile_system.gd).
 ##
 ## Ammunition (v0.3): `ammo` is the stock outside the magazine (the whole stock for
 ## weapons without one), `magazine` the rounds ready to fire. An empty magazine starts a
@@ -429,7 +430,7 @@ func _fire(target: Node3D) -> void:
 		var shell_direction := disperse(direction, config.dispersion_max_deg, rng)
 		id = combat.projectiles.spawn(ship, combat.faction, origin.origin, shell_direction * config.projectile_speed,
 			config.damage, config.max_travel(), config.projectile_lifetime, target, config.projectile_style,
-			config.resolved_penetration(), config.armor_damage)
+			config.resolved_penetration(), config.armor_damage, config.family == &"gatling")
 	_use_round()
 	cooldown_left = config.cooldown
 	shots += 1

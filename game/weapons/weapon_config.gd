@@ -13,7 +13,7 @@ extends Resource
 ## at the maximum range (under-leading a moving target; never random).
 
 @export var display_name := "Weapon"
-@export var family := &"fixed" # fixed, cannon, gatling, torpedo, missile (hardpoint compatibility)
+@export var family := &"fixed" # fixed, cannon, gatling, torpedo, missile, rocket (hardpoint compatibility)
 @export var size := 1 # 0 small, 1 medium, 2 large (hardpoint compatibility)
 @export var damage := 10.0
 @export var has_penetration := false # false: penetration unconfigured, damage bypasses armor (legacy)

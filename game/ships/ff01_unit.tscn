@@ -7,6 +7,7 @@
 [ext_resource type="Resource" path="res://game/ships/ff01_durability.tres" id="5_durability"]
 [ext_resource type="PackedScene" path="res://game/weapons/nc90_bastion.tscn" id="6_bastion"]
 [ext_resource type="PackedScene" path="res://game/weapons/pdc20_kestrel.tscn" id="7_kestrel"]
+[ext_resource type="PackedScene" path="res://game/weapons/rl8_barrage.tscn" id="8_barrage"]
 
 [node name="FF01" instance=ExtResource("1_archetype")]
 metadata/display_name = "FF-01"
@@ -93,13 +94,15 @@ yaw_limit_deg = 90.0
 [node name="PDC20Kestrel" parent="Weapons/AftStarboardPDCHardpoint" instance=ExtResource("7_kestrel")]
 
 [node name="BarrageHardpoint" type="Node3D" parent="Weapons"]
-editor_description = "Reserved for RL-8 Barrage, fixed along -Z. No family is accepted until rocket equipment is defined; cone remains the unused shared default."
+editor_description = "RL-8 Barrage, fixed along -Z (rocket family). The launcher's tube mouths sit forward of the bow hit box; cone remains the unused shared default."
 position = Vector3(0, 0, -5.85)
 script = ExtResource("3_hardpoint")
-families = PackedStringArray()
+families = PackedStringArray("rocket")
 yaw_limit_deg = 0.0
 pitch_min_deg = 0.0
 pitch_max_deg = 0.0
+
+[node name="RL8Barrage" parent="Weapons/BarrageHardpoint" instance=ExtResource("8_barrage")]
 
 [node name="WayfarerHardpoint" type="Node3D" parent="Weapons"]
 editor_description = "Reserved for GCM-4 Wayfarer. Mount -Z stays forward; a future vertical launcher supplies its own +Y ejection muzzles. No cells installed."

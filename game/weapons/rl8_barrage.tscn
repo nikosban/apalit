@@ -1,0 +1,16 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/weapons/rocket_launcher.gd" id="1_rocket"]
+[ext_resource type="Resource" path="res://game/weapons/rl8_barrage.tres" id="2_config"]
+
+[node name="RL8Barrage" type="Node3D"]
+editor_description = "RL-8 Barrage: Rocket-family fixed forward launcher (rocket_launcher.gd) configured by rl8_barrage.tres (weapon values; its ordnance sub-resource holds rocket flight, interception radius and model size). Salvo size / interval and the placeholder tube block (columns, rows, spacing, tube length and radius) are editable here. Install as the only child of a rocket-family hardpoint, at identity; tubes point along the mount's -Z."
+script = ExtResource("1_rocket")
+config = ExtResource("2_config")
+salvo_size = 8
+salvo_interval = 0.12
+tube_columns = 4
+tube_rows = 2
+tube_spacing = 0.3
+tube_length = 0.4
+tube_radius = 0.1

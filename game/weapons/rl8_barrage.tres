@@ -1,0 +1,34 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://game/weapons/weapon_config.gd" id="1_config"]
+[ext_resource type="Script" path="res://game/weapons/ordnance_config.gd" id="2_ordnance"]
+
+[sub_resource type="Resource" id="Resource_rocket"]
+script = ExtResource("2_ordnance")
+kind = &"rocket"
+speed = 30.0
+max_travel = 60.0
+lifetime = 2.0
+flight_time = 0.0
+avoidance = false
+radius = 0.3
+length = 0.6
+body_radius = 0.03
+trail_time = 0.3
+thruster_scale = 0.15
+
+[resource]
+script = ExtResource("1_config")
+display_name = "RL-8 Barrage"
+family = &"rocket"
+size = 1
+damage = 4.0
+has_penetration = true
+penetration = 8.0
+armor_damage = 1.0
+cooldown = 5.0
+weapon_range = 60.0
+alignment_tolerance_deg = 3.0
+dispersion_max_deg = 3.0
+ammunition = 48
+ordnance = SubResource("Resource_rocket")

@@ -27,7 +27,6 @@ const MOUNT_ROWS := { # position, neutral yaw (deg), yaw limit (deg)
 	"AftPortPDCHardpoint": [Vector3(-1.3, 0.55, 4), 135.0, 90.0],
 	"AftStarboardPDCHardpoint": [Vector3(1.3, 0.55, 4), -135.0, 90.0]}
 const BASTIONS := ["ForwardBastionHardpoint", "AftBastionHardpoint"]
-const RESERVED := ["BarrageHardpoint", "WayfarerHardpoint"]
 const SITE_CLEARANCE := 85.0 # u of asteroid-free space around the test site (throughput approach corridor)
 const HEIGHT := 0.7 # u, ordnance height in the targeting cases (about the PDC muzzle height)
 const APPROACH := 70.0 # u, missile launch distance in the throughput scenarios
@@ -330,9 +329,10 @@ func _installation() -> void:
 	_check("two NC-90 Bastions unchanged: forward (0, 0.55, -3) yaw 0, aft (0, 0.55, 3) yaw 180, +/-120 deg, 40 rounds each", bastions
 		and fwd.position.is_equal_approx(Vector3(0, 0.55, -3)) and fwd.basis.is_equal_approx(Basis.IDENTITY) and fwd.yaw_limit_deg == 120.0
 		and aft.position.is_equal_approx(Vector3(0, 0.55, 3)) and aft.basis.is_equal_approx(Basis(Vector3.UP, PI)) and aft.yaw_limit_deg == 120.0)
-	_check("Barrage (rocket) and Wayfarer (missile) hardpoints stay empty", RESERVED.all(func(n: String) -> bool:
-		return ff01.get_node("Weapons/%s" % n).get_child_count() == 0 and ff01.get_node("Weapons/%s" % n).weapon() == null))
-	_check("FF-01 Combat steps six weapons (two Bastions, four Kestrels), none incompatible", combat.weapons.size() == 6 and combat.incompatible.is_empty())
+	_check("Barrage carries the RL-8 Barrage (rocket_test); the Wayfarer (missile) hardpoint stays empty",
+		ff01.get_node("Weapons/BarrageHardpoint").weapon() != null and ff01.get_node("Weapons/BarrageHardpoint").weapon().config.display_name == "RL-8 Barrage"
+		and ff01.get_node("Weapons/WayfarerHardpoint").get_child_count() == 0 and ff01.get_node("Weapons/WayfarerHardpoint").weapon() == null)
+	_check("FF-01 Combat steps seven weapons (two Bastions, four Kestrels, one Barrage), none incompatible", combat.weapons.size() == 7 and combat.incompatible.is_empty())
 	var pdcs := _pdcs()
 	var distinct := true
 	for i in pdcs.size():

@@ -93,7 +93,7 @@ func _fire(target: Node3D) -> void:
 		var round_direction := disperse(direction, config.dispersion_max_deg, rng)
 		id = combat.projectiles.spawn(ship, combat.faction, origin.origin, round_direction * config.projectile_speed,
 			config.damage, config.max_travel(), config.projectile_lifetime, target, config.projectile_style,
-			config.resolved_penetration(), config.armor_damage)
+			config.resolved_penetration(), config.armor_damage, config.family == &"gatling")
 	_use_round()
 	cooldown_left = config.cooldown
 	shots += 1

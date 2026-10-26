@@ -11,9 +11,11 @@ extends Resource
 ## The nose steers toward the velocity change needed to fly the wanted direction at
 ## `max_speed`, except within `steering_deadband_deg` of it, where it steers along the
 ## wanted direction itself (no turning across a small error at the speed cap).
+## Rocket: unguided, constant `speed` along its launch axis until `max_travel` / `lifetime`;
+## no turning or avoidance (the turn, ejection and avoidance values are unused).
 
-@export var kind := &"torpedo" # torpedo, missile
-@export var speed := 12.0 # u/s (torpedo, constant)
+@export var kind := &"torpedo" # torpedo, missile, rocket
+@export var speed := 12.0 # u/s (torpedo, rocket; constant)
 @export var turn_rate_deg := 4.0 # °/s (torpedo; missile powered pursuit)
 @export var arming_distance := 6.0 # u straight before guidance (torpedo)
 @export var eject_speed := 5.0 # u/s (missile)

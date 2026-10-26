@@ -14,7 +14,7 @@ const Weapon := preload("res://game/weapons/weapon.gd")
 const Turret := preload("res://game/weapons/turret.gd")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const BASTIONS := ["ForwardBastionHardpoint", "AftBastionHardpoint"]
-const EMPTY := ["BarrageHardpoint", "WayfarerHardpoint"]
+const EMPTY := ["WayfarerHardpoint"]
 const PDC_MOUNTS := ["ForwardPortPDCHardpoint", "ForwardStarboardPDCHardpoint", "AftPortPDCHardpoint", "AftStarboardPDCHardpoint"]
 const RANGE := 40.0 # u, test target distance (inside the 45 u effective range)
 const EPS := 0.000001
@@ -211,15 +211,16 @@ func _installation() -> void:
 		installed = (installed and weapon != null and mount.get_child_count() == 1 and weapon.scene_file_path == NC90_SCENE.resource_path
 			and weapon.config == NC90 and weapon.transform.is_equal_approx(Transform3D.IDENTITY) and mount.accepts(weapon.config)
 			and weapon.hardpoint == mount and weapon.yaw_limit_deg() == 120.0 and combat.weapons.has(weapon))
-	_check("two NC-90 Bastions: one on each centerline hardpoint, at identity, accepted, hardpoint limits +/-120 deg (plus four Kestrels)", installed
-		and combat.weapons.size() == 6 and combat.incompatible.is_empty())
+	_check("two NC-90 Bastions: one on each centerline hardpoint, at identity, accepted, hardpoint limits +/-120 deg (plus four Kestrels and one Barrage)", installed
+		and combat.weapons.size() == 7 and combat.incompatible.is_empty())
 	var fwd := ff01.get_node("Weapons/ForwardBastionHardpoint")
 	var aft := ff01.get_node("Weapons/AftBastionHardpoint")
 	_check("hardpoints unchanged: forward (0, 0.55, -3) yaw 0, aft (0, 0.55, 3) yaw 180",
 		fwd.position.is_equal_approx(Vector3(0, 0.55, -3)) and fwd.basis.is_equal_approx(Basis.IDENTITY)
 		and aft.position.is_equal_approx(Vector3(0, 0.55, 3)) and aft.basis.is_equal_approx(Basis(Vector3.UP, PI)))
-	_check("Barrage and Wayfarer stay empty; the four PDC hardpoints carry PDC-20 Kestrels (pdc_test)", EMPTY.all(func(n: String) -> bool:
+	_check("Wayfarer stays empty; the Barrage carries the RL-8 (rocket_test); the four PDC hardpoints carry PDC-20 Kestrels (pdc_test)", EMPTY.all(func(n: String) -> bool:
 		return ff01.get_node("Weapons/%s" % n).get_child_count() == 0 and ff01.get_node("Weapons/%s" % n).weapon() == null)
+		and ff01.get_node("Weapons/BarrageHardpoint").weapon().config.display_name == "RL-8 Barrage"
 		and PDC_MOUNTS.all(func(n: String) -> bool: return ff01.get_node("Weapons/%s" % n).weapon().config.display_name == "PDC-20 Kestrel"))
 	var separate: bool = _bastion(BASTIONS[0]).config == _bastion(BASTIONS[1]).config and _bastion(BASTIONS[0]).rounds_left() == 40 and _bastion(BASTIONS[1]).rounds_left() == 40
 	_check("both share the one NC-90 configuration with their own 40-round stock", separate)

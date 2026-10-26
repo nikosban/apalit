@@ -10,6 +10,7 @@ const MAIN := preload("res://main.tscn")
 const Hardpoint := preload("res://game/weapons/hardpoint.gd")
 const BASTION := "res://game/weapons/nc90_bastion.tscn"
 const KESTREL := "res://game/weapons/pdc20_kestrel.tscn"
+const BARRAGE := "res://game/weapons/rl8_barrage.tscn"
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const Behavior := preload("res://game/behavior/ship_behavior.gd")
 const Profiles := preload("res://game/behavior/weapon_profiles.gd")
@@ -22,7 +23,7 @@ const MOUNTS := {
 	"ForwardStarboardPDCHardpoint": [Vector3(1.3, 0.55, -4), -45.0, 90.0, 0, ["gatling"]],
 	"AftPortPDCHardpoint": [Vector3(-1.3, 0.55, 4), 135.0, 90.0, 0, ["gatling"]],
 	"AftStarboardPDCHardpoint": [Vector3(1.3, 0.55, 4), -135.0, 90.0, 0, ["gatling"]],
-	"BarrageHardpoint": [Vector3(0, 0, -5.85), 0.0, 0.0, 1, []],
+	"BarrageHardpoint": [Vector3(0, 0, -5.85), 0.0, 0.0, 1, ["rocket"]],
 	"WayfarerHardpoint": [Vector3(0, 0.55, 0), 0.0, 160.0, 1, ["missile"]],
 }
 const ORIGINAL := {
@@ -95,15 +96,17 @@ func _authored() -> void:
 		var row: Array = MOUNTS[name]
 		var bastion: bool = name in ["ForwardBastionHardpoint", "AftBastionHardpoint"]
 		var pdc: bool = name.ends_with("PDCHardpoint")
+		var barrage: bool = name == "BarrageHardpoint"
 		var installed: bool = mount.get_child_count() == 0 and mount.weapon() == null
-		if bastion or pdc:
-			installed = mount.get_child_count() == 1 and mount.weapon() != null and mount.weapon().scene_file_path == (BASTION if bastion else KESTREL)
-		_check("%s: exact position, neutral yaw, limit, size, family; %s" % [name, "one NC-90 Bastion installed" if bastion else ("one PDC-20 Kestrel installed" if pdc else "no installed child")],
+		if bastion or pdc or barrage:
+			installed = mount.get_child_count() == 1 and mount.weapon() != null and mount.weapon().scene_file_path == (BASTION if bastion else (KESTREL if pdc else BARRAGE))
+		_check("%s: exact position, neutral yaw, limit, size, family; %s" % [name, "one NC-90 Bastion installed" if bastion else ("one PDC-20 Kestrel installed" if pdc
+			else ("one RL-8 Barrage installed" if barrage else "no installed child"))],
 			mount.get_script() == Hardpoint and mount.position.is_equal_approx(row[0])
 			and mount.basis.is_equal_approx(Basis(Vector3.UP, deg_to_rad(row[1])))
 			and mount.yaw_limit_deg == row[2] and mount.size == row[3] and Array(mount.families) == row[4]
 			and installed)
-	_check("Barrage is fixed and accepts no undefined equipment; shared cone default remains unused",
+	_check("Barrage is fixed and accepts the rocket family; shared cone default remains unused",
 		weapons.get_node("BarrageHardpoint").pitch_min_deg == 0.0 and weapons.get_node("BarrageHardpoint").pitch_max_deg == 0.0
 		and weapons.get_node("BarrageHardpoint").cone_deg == 15.0)
 	var model := unit.get_node("Model")
@@ -238,8 +241,8 @@ func _load() -> void:
 		if ship != subject:
 			clear = clear and subject.get_node("Locomotion").planar_position.distance_to(ship.get_node("Locomotion").planar_position) > follower.ship_radius + ship.get_node("RouteFollower").ship_radius
 	_check("authored spawn clears every ship footprint and every asteroid with planning clearance", clear)
-	_check("two installed Bastions and four Kestrels, no incompatible weapons, Mid-range and Close Quarters profiles, no shots; full initial fuel",
-		CombatShip.of(subject).weapons.size() == 6 and CombatShip.of(subject).incompatible.is_empty()
+	_check("two installed Bastions, four Kestrels and one Barrage, no incompatible weapons, Mid-range and Close Quarters profiles, no shots; full initial fuel",
+		CombatShip.of(subject).weapons.size() == 7 and CombatShip.of(subject).incompatible.is_empty()
 		and Profiles.available(CombatShip.of(subject)) == [Profiles.Profile.MID, Profiles.Profile.CLOSE] and scene.projectiles.spawned == 0 and scene.projectiles.launched == 0
 		and subject.get_node("Fuel").fuel == 400.0)
 	_check("FF-01 resolves the arena's existing navigation, collision, contacts and projectile services",
@@ -304,8 +307,8 @@ func _selection_and_movement() -> void:
 		and not locomotion.has_destination and locomotion.collision_count == 0 and stays_planar)
 	_check("existing fuel accounting charges actual movement at the unchanged consumption rate",
 		absf(fuel_before - subject.get_node("Fuel").fuel - traveled) < 0.01)
-	_check("movement emits the existing thruster effects; the two Bastions and four Kestrels stay installed",
-		scene.get_node("ThrusterView").plumes_of(subject).size() == 2 and CombatShip.of(subject).weapons.size() == 6
+	_check("movement emits the existing thruster effects; the two Bastions, four Kestrels and the Barrage stay installed",
+		scene.get_node("ThrusterView").plumes_of(subject).size() == 2 and CombatShip.of(subject).weapons.size() == 7
 		and scene.projectiles.spawned == 0 and scene.projectiles.launched == 0)
 
 
@@ -338,5 +341,5 @@ func _commands() -> void:
 	_check("waypoints use the same command interface", scene.orders.waypoint([subject], Vector2(-18, -55), false) == 1
 		and behavior.command == Behavior.Command.WAYPOINTS)
 	scene.orders.cancel([subject])
-	_check("combat-related orders keep the two Bastions and four Kestrels and produce no projectiles (Combat not stepped here)", CombatShip.of(subject).weapons.size() == 6
+	_check("combat-related orders keep the two Bastions, four Kestrels and the Barrage and produce no projectiles (Combat not stepped here)", CombatShip.of(subject).weapons.size() == 7
 		and scene.projectiles.spawned == 0 and scene.projectiles.launched == 0)
