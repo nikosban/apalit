@@ -16,8 +16,10 @@ extends Node3D
 ##   solution valid (intercept within the projectile's lifetime and travel), 12 firing
 ##   path clear (no asteroid, own hull, friendly hull or hulk in the way).
 ## A shot leaves the muzzle along the muzzle's forward axis (the barrel), so visual
-## direction and projectile direction are the same; it uses one round of the stock and
-## registers the attack (threats).
+## direction and projectile direction are the same, deviated by at most the configuration's
+## `dispersion_max_deg` (Cannon family; drawn from `rng` after authorization, so it never
+## changes whether the weapon fires); it uses one round of the stock and registers the
+## attack (threats).
 ##
 ## Ammunition (v0.3): `ammo` is the stock outside the magazine (the whole stock for
 ## weapons without one), `magazine` the rounds ready to fire. An empty magazine starts a
@@ -60,6 +62,7 @@ var reloads := 0
 var idle_reloads := 0
 var idle_time := 0.0
 var actionable := false
+var rng := RandomNumberGenerator.new() # Dispersion draws (randomized at start; tests may set its seed).
 
 @onready var ship := _owner_ship()
 @onready var combat = ship.get_node("Combat")
@@ -68,6 +71,7 @@ var actionable := false
 func _ready() -> void:
 	if get_parent() != null and get_parent().has_method("accepts"):
 		hardpoint = get_parent()
+	rng.randomize()
 	if config != null:
 		if config.magazine_size > 0:
 			magazine = mini(config.magazine_size, capacity())
@@ -402,12 +406,28 @@ func _use_round() -> void:
 		ammo -= 1
 
 
+## `direction` deviated by a random angle within a cone of half-angle `max_deg`, uniform
+## over the cone's solid angle (cos θ uniform, azimuth uniform); unchanged, with no draw,
+## when `max_deg` <= 0.
+static func disperse(direction: Vector3, max_deg: float, generator: RandomNumberGenerator) -> Vector3:
+	if max_deg <= 0.0:
+		return direction
+	var axis := direction.normalized()
+	var cos_theta := generator.randf_range(cos(deg_to_rad(max_deg)), 1.0)
+	var sin_theta := sqrt(maxf(0.0, 1.0 - cos_theta * cos_theta))
+	var phi := generator.randf() * TAU
+	var u := axis.cross(Vector3.UP if absf(axis.dot(Vector3.UP)) < 0.99 else Vector3.RIGHT).normalized()
+	var v := axis.cross(u)
+	return (axis * cos_theta + (u * cos(phi) + v * sin(phi)) * sin_theta) * direction.length()
+
+
 func _fire(target: Node3D) -> void:
 	var origin := muzzle.global_transform
 	var direction := -origin.basis.z.normalized()
 	var id := -1
 	if combat.projectiles != null:
-		id = combat.projectiles.spawn(ship, combat.faction, origin.origin, direction * config.projectile_speed,
+		var shell_direction := disperse(direction, config.dispersion_max_deg, rng)
+		id = combat.projectiles.spawn(ship, combat.faction, origin.origin, shell_direction * config.projectile_speed,
 			config.damage, config.max_travel(), config.projectile_lifetime, target, config.projectile_style,
 			config.resolved_penetration(), config.armor_damage)
 	_use_round()

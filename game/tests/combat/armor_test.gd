@@ -47,6 +47,7 @@ func _initialize() -> void:
 	await _physical_round()
 	await _physical_ordnance()
 	await _station()
+	_non_finite()
 	_sequence()
 	await _invalid_runtime()
 	scene.free()
@@ -198,8 +199,10 @@ func _configuration() -> void:
 		combat.durability == FF01_DURABILITY and combat.durability_errors.is_empty() and combat.health == HULL and combat.max_health == HULL
 		and combat.armor == ARMOR and combat.max_armor == ARMOR and combat.armor_resistance == RESISTANCE and CombatHud.hull_text(combat) == "Hull 160 / 160")
 	var mounts := ff01.get_node("Weapons").get_children()
-	_check("FF-01's eight hardpoints stay empty (no weapons installed)", mounts.size() == 8
-		and mounts.all(func(m: Node) -> bool: return m.weapon() == null) and combat.weapons.is_empty() and combat.incompatible.is_empty())
+	var bastions := ["ForwardBastionHardpoint", "AftBastionHardpoint"]
+	_check("FF-01: NC-90 Bastions on the two centerline hardpoints only; the other six stay empty", mounts.size() == 8
+		and mounts.all(func(m: Node) -> bool: return (m.weapon() != null) == bastions.has(String(m.name)))
+		and combat.weapons.size() == 2 and combat.incompatible.is_empty())
 	var others := true
 	for ship: Node in scene.get_node("Ships").get_children():
 		if ship != ff01:
@@ -327,6 +330,32 @@ func _station() -> void:
 		done.size() == 1 and done[0].outcome == "damage" and projectiles.damage_events.get(id, 0) == 1 and hull.health == 88.0)
 	station.queue_free()
 	await physics_frame
+
+
+# --- N: non-finite hit inputs ------------------------------------------------------
+
+func _non_finite() -> void:
+	print("\n=== N non-finite hit inputs are rejected (errors below are expected)")
+	var combat = _reset_ff01()
+	combat.health = 150.0
+	combat.armor = 50.0
+	var events: Array = []
+	var record := func(amount: float, _id: int) -> void: events.append(amount)
+	combat.damaged.connect(record)
+	var cases := {"penetration NAN": [BASE, NAN, ARMOR_DAMAGE], "penetration INF": [BASE, INF, ARMOR_DAMAGE],
+		"penetration -INF": [BASE, -INF, ARMOR_DAMAGE], "armor damage NAN": [BASE, PEN, NAN], "armor damage INF": [BASE, PEN, INF],
+		"armor damage -INF": [BASE, PEN, -INF], "armor damage NAN, penetration unset": [BASE, null, NAN],
+		"damage NAN": [NAN, PEN, ARMOR_DAMAGE], "damage INF": [INF, null, 0.0], "penetration not a number": [BASE, "20", ARMOR_DAMAGE]}
+	for label: String in cases:
+		var v: Array = cases[label]
+		var applied: bool = combat.take_hit(v[0], -1, v[1], v[2])
+		_check("%s: rejected (%s); hull %.1f, armor %.1f unchanged, no damaged event" % [label, CombatShip.hit_input_error(v[0], v[1], v[2]), combat.health, combat.armor],
+			not applied and combat.health == 150.0 and combat.armor == 50.0 and events.is_empty() and combat.alive)
+	var zero: bool = combat.take_hit(BASE, -1, 0.0, ARMOR_DAMAGE)
+	_check("explicit penetration 0 still applies (hull 150.0, armor 50 -> 44)", zero and combat.health == 150.0 and combat.armor == 44.0 and events == [0.0])
+	var unset: bool = combat.take_hit(BASE, -1)
+	_check("unset penetration still bypasses armor (hull 150 -> 138, armor 44)", unset and combat.health == 138.0 and combat.armor == 44.0 and events == [0.0, 12.0])
+	combat.damaged.disconnect(record)
 
 
 # --- Synthetic sequence to destruction ----------------------------------------------

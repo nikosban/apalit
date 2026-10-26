@@ -181,7 +181,7 @@ func _case_dimensions() -> void:
 	_free()
 
 
-# Keep the authored field, six armed ships and unarmed FF-01 for this case. Only the test's live
+# Keep the authored field, six armed ships and FF-01 (two NC-90 Bastions) for this case. Only the test's live
 # instance is controlled: stop weapons and the commander, then exercise actual
 # commands, navigation, avoidance, locomotion and Behavior beyond the old boundary.
 func _case_combat_arena() -> void:
@@ -204,10 +204,10 @@ func _case_combat_arena() -> void:
 	_check("Combat Test: navigation maps are ready for every authored ship", ready)
 	var names: Array = scene.get_node("Ships").get_children().map(func(ship: Node) -> String: return str(ship.name))
 	var original := ["Gunship", "Destroyer", "Gunship2", "HostileDestroyer", "HostileGunship", "HostileGunship2"]
-	_check("Combat Test: the six original armed ships plus unarmed FF-01, and no stations",
+	_check("Combat Test: the six original armed ships plus FF-01 with its two NC-90 Bastions, and no stations",
 		names == original + ["FF01"]
 		and original.all(func(name: String) -> bool: return not CombatShip.of(_ship(name)).weapons.is_empty())
-		and CombatShip.of(_ship("FF01")).weapons.is_empty()
+		and CombatShip.of(_ship("FF01")).weapons.size() == 2
 		and scene.get_node("Stations").get_child_count() == 0)
 	var rect := Rect2(-380, -380, 760, 760)
 	_check("Combat Test: 36 authored asteroids; navigation, command bounds, camera, Strategic View and ground cover 760 by 760",

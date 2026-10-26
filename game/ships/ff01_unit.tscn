@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://game/weapons/hardpoint.gd" id="3_hardpoint"]
 [ext_resource type="Script" path="res://game/behavior/ship_behavior.gd" id="4_behavior"]
 [ext_resource type="Resource" path="res://game/ships/ff01_durability.tres" id="5_durability"]
+[ext_resource type="PackedScene" path="res://game/weapons/nc90_bastion.tscn" id="6_bastion"]
 
 [node name="FF01" instance=ExtResource("1_archetype")]
 metadata/display_name = "FF-01"
@@ -39,12 +40,16 @@ size = 1
 families = PackedStringArray("cannon")
 yaw_limit_deg = 120.0
 
+[node name="NC90Bastion" parent="Weapons/ForwardBastionHardpoint" instance=ExtResource("6_bastion")]
+
 [node name="AftBastionHardpoint" type="Node3D" parent="Weapons"]
 transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0.55, 3)
 script = ExtResource("3_hardpoint")
 size = 1
 families = PackedStringArray("cannon")
 yaw_limit_deg = 120.0
+
+[node name="NC90Bastion" parent="Weapons/AftBastionHardpoint" instance=ExtResource("6_bastion")]
 
 [node name="ForwardPortPDCHardpoint" type="Node3D" parent="Weapons"]
 position = Vector3(-1.3, 0.55, -4)

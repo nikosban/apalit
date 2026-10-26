@@ -28,6 +28,9 @@ extends Resource
 @export var projectile_lifetime := 2.5 # s
 @export var projectile_style := &"shell" # shell, tracer
 @export var alignment_tolerance_deg := 3.0
+## Cannon family: maximum angular deviation (half-angle of a cone, uniform over its solid
+## angle) of each shell from the barrel at the moment of firing (Weapon.disperse); 0 = none.
+@export var dispersion_max_deg := 0.0
 @export var firing_cone_deg := 12.0 # fixed weapons: ± around the bow
 @export var yaw_limit_deg := 160.0 # turrets: ± around the mount's forward
 @export var pitch_min_deg := -15.0

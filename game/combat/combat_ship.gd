@@ -298,6 +298,10 @@ func on_fired(weapon: Node, at: Node3D) -> void:
 func take_hit(amount: float, projectile_id: int, penetration: Variant = null, armor_damage := 0.0) -> bool:
 	if not alive:
 		return false
+	var invalid := hit_input_error(amount, penetration, armor_damage)
+	if invalid != "":
+		push_error("%s: hit %d rejected: %s (hull and armor unchanged)" % [ship.name, projectile_id, invalid])
+		return false
 	var hit := resolve_hit(amount, penetration, armor_damage, armor, max_armor, armor_resistance)
 	armor = hit.armor
 	health = maxf(0.0, health - hit.hull_damage)
@@ -305,6 +309,21 @@ func take_hit(amount: float, projectile_id: int, penetration: Variant = null, ar
 	if health <= 0.0:
 		destroy()
 	return true
+
+
+## Why take_hit() must reject these inputs (non-finite damage, armor damage or configured
+## penetration, or a penetration that is neither null nor a number), or "" when usable.
+static func hit_input_error(amount: float, penetration: Variant, armor_damage: float) -> String:
+	if not is_finite(amount):
+		return "non-finite damage %s" % str(amount)
+	if not is_finite(armor_damage):
+		return "non-finite armor damage %s" % str(armor_damage)
+	if penetration != null:
+		if typeof(penetration) != TYPE_FLOAT and typeof(penetration) != TYPE_INT:
+			return "penetration is not a number (%s)" % str(penetration)
+		if not is_finite(float(penetration)):
+			return "non-finite penetration %s" % str(penetration)
+	return ""
 
 
 ## Armor resolution for one impact, from the pre-impact armor condition. `penetration` null =

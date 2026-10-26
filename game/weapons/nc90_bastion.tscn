@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/weapons/turret.gd" id="1_turret"]
+[ext_resource type="Resource" path="res://game/weapons/nc90_bastion.tres" id="2_config"]
+
+[node name="NC90Bastion" type="Node3D"]
+editor_description = "NC-90 Bastion: Cannon-family turret (turret.gd) configured by nc90_bastion.tres. Install as the only child of a cannon hardpoint, at identity; the hardpoint supplies the traverse and elevation limits. Blockout geometry from base_diameter / body_height / barrel_length."
+script = ExtResource("1_turret")
+config = ExtResource("2_config")
+base_diameter = 0.5
+body_height = 0.25
+barrel_length = 0.75
