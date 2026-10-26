@@ -16,6 +16,9 @@ extends Resource
 @export var family := &"fixed" # fixed, cannon, gatling, torpedo, missile (hardpoint compatibility)
 @export var size := 1 # 0 small, 1 medium, 2 large (hardpoint compatibility)
 @export var damage := 10.0
+@export var has_penetration := false # false: penetration unconfigured, damage bypasses armor (legacy)
+@export var penetration := 0.0 # used only when has_penetration (0 = no hull damage)
+@export var armor_damage := 0.0 # armor condition removed per hit (0 = none)
 @export var cooldown := 1.0 # s between shots (reload for weapons without a magazine)
 @export var weapon_range := 45.0 # u; maximum range: authorization and acquisition
 @export var effective_range := 0.0 # u; 0 = weapon_range (no degradation)
@@ -36,6 +39,11 @@ extends Resource
 @export var reload_time := 0.0 # s, magazine refill (empty or idle)
 @export var idle_reload_delay := 0.25 # s without an actionable shot before an idle refill
 @export var ordnance: Resource # Launchers: the guided ordnance's values (OrdnanceConfig).
+
+
+## Penetration for the damage pipeline: null when unconfigured, else the configured value.
+func resolved_penetration() -> Variant:
+	return penetration if has_penetration else null
 
 
 func max_travel() -> float:

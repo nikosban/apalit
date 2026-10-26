@@ -1,0 +1,9 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://game/combat/durability_config.gd" id="1_durability"]
+
+[resource]
+script = ExtResource("1_durability")
+max_hull = 160.0
+max_armor = 100.0
+armor_resistance = 30.0

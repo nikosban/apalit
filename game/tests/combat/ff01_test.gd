@@ -73,9 +73,14 @@ func _authored() -> void:
 		var b := reference.get_node(name)
 		var same: bool = a.get_script() == b.get_script()
 		for prop in b.get_property_list():
-			if prop.usage & PROPERTY_USAGE_STORAGE:
+			# Combat.durability is FF-01's own configuration (checked below).
+			if prop.usage & PROPERTY_USAGE_STORAGE and not (name == "Combat" and prop.name == "durability"):
 				same = same and a.get(prop.name) == b.get(prop.name)
 		_check("%s uses the existing script and Destroyer baseline settings" % name, same)
+	_check("Combat durability is ff01_durability.tres (160 / 100 / 30); the Destroyer has none",
+		unit.get_node("Combat").durability == preload("res://game/ships/ff01_durability.tres") and reference.get_node("Combat").durability == null
+		and unit.get_node("Combat").durability.max_hull == 160.0 and unit.get_node("Combat").durability.max_armor == 100.0
+		and unit.get_node("Combat").durability.armor_resistance == 30.0)
 	_check("footprint 6.2, clearance 1.0, size class 3, separation 1.0, fuel 400 / consumption 1.0",
 		unit.get_node("RouteFollower").ship_radius == 6.2 and unit.get_node("RouteFollower").clearance_margin == 1.0
 		and unit.get_node("Avoidance").size_class == 3 and unit.get_node("Avoidance").separation_margin == 1.0
@@ -267,8 +272,8 @@ func _selection_and_movement() -> void:
 		and scene.selection()._parts.has(subject) and scene._markers.has(subject))
 	var panel := scene.get_node("ShipPanel")
 	await process_frame
-	_check("unarmed FF-01 panel: hull 150, command controls, zero profiles and zero weapon rows",
-		panel.ship == subject and panel._hull.text == "Hull: 150 / 150" and panel._combat.visible
+	_check("unarmed FF-01 panel: hull 160, command controls, zero profiles and zero weapon rows",
+		panel.ship == subject and panel._hull.text == "Hull: 160 / 160" and panel._combat.visible
 		and panel._profile.item_count == 0 and panel._weapons.text.is_empty())
 	var destination := Vector3(-18, 0, -40)
 	await _look_at(destination)

@@ -408,7 +408,8 @@ func _fire(target: Node3D) -> void:
 	var id := -1
 	if combat.projectiles != null:
 		id = combat.projectiles.spawn(ship, combat.faction, origin.origin, direction * config.projectile_speed,
-			config.damage, config.max_travel(), config.projectile_lifetime, target, config.projectile_style)
+			config.damage, config.max_travel(), config.projectile_lifetime, target, config.projectile_style,
+			config.resolved_penetration(), config.armor_damage)
 	_use_round()
 	cooldown_left = config.cooldown
 	shots += 1

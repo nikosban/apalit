@@ -42,6 +42,8 @@ var id := 0
 var kind := &"torpedo"
 var config: Resource # OrdnanceConfig
 var damage := 0.0
+var penetration: Variant = null # null = unconfigured (bypasses armor)
+var armor_damage := 0.0
 var owner_ship: Node3D
 var owner_id := 0
 var owner_name := ""
@@ -84,6 +86,8 @@ func setup(new_id: int, owner_node: Node3D, new_faction: int, weapon_config: Res
 	config = weapon_config.ordnance
 	kind = config.kind
 	damage = weapon_config.damage
+	penetration = weapon_config.resolved_penetration()
+	armor_damage = weapon_config.armor_damage
 	owner_ship = owner_node
 	owner_id = owner_node.get_instance_id()
 	owner_name = String(owner_node.name)

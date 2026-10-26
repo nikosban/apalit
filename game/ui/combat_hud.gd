@@ -150,7 +150,7 @@ static func describe(ship: Node3D) -> String:
 static func hull_text(combat: Node) -> String:
 	if not combat.alive:
 		return "Hull: DESTROYED"
-	return "Hull %d / %d" % [roundi(combat.health), roundi(combat.rules.hull_health)]
+	return "Hull %d / %d" % [roundi(combat.health), roundi(combat.max_health)]
 
 
 ## The resolved target: "name (manual | auto) - state", plus a held manual target that is
@@ -212,7 +212,7 @@ func _draw_bars() -> void:
 		if not combat.alive:
 			_bars.draw_string(ThemeDB.fallback_font, origin, "DESTROYED", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 0.6, 0.3, alpha))
 			continue
-		var share: float = clampf(combat.health / combat.rules.hull_health, 0.0, 1.0)
+		var share: float = clampf(combat.health / combat.max_health, 0.0, 1.0) if combat.max_health > 0.0 else 0.0
 		_bars.draw_rect(Rect2(origin, BAR_SIZE), Color(0, 0, 0, 0.6 * alpha))
 		_bars.draw_rect(Rect2(origin, Vector2(BAR_SIZE.x * share, BAR_SIZE.y)), Color(CombatShip.FACTION_COLORS[combat.faction].lerp(Color.WHITE, 0.2), alpha))
 		_bars.draw_rect(Rect2(origin, BAR_SIZE), Color(1, 1, 1, 0.5 * alpha), false, 1.0)

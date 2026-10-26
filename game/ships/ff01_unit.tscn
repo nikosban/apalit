@@ -4,6 +4,7 @@
 [ext_resource type="PackedScene" path="res://game/ships/ff01.tscn" id="2_model"]
 [ext_resource type="Script" path="res://game/weapons/hardpoint.gd" id="3_hardpoint"]
 [ext_resource type="Script" path="res://game/behavior/ship_behavior.gd" id="4_behavior"]
+[ext_resource type="Resource" path="res://game/ships/ff01_durability.tres" id="5_durability"]
 
 [node name="FF01" instance=ExtResource("1_archetype")]
 metadata/display_name = "FF-01"
@@ -92,6 +93,9 @@ position = Vector3(0, 0.55, 0)
 script = ExtResource("3_hardpoint")
 size = 1
 families = PackedStringArray("missile")
+
+[node name="Combat" parent="." index="7"]
+durability = ExtResource("5_durability")
 
 [node name="Behavior" type="Node" parent="."]
 script = ExtResource("4_behavior")

@@ -63,7 +63,9 @@ func _ready() -> void:
 	process_physics_priority = 3
 
 
-func spawn(owner_ship: Node3D, faction: int, origin: Vector3, velocity: Vector3, damage: float, max_travel: float, lifetime: float, target: Node3D, style: StringName = &"shell") -> int:
+## `penetration` null = unconfigured (bypasses armor); both armor values only reach ship hulls.
+func spawn(owner_ship: Node3D, faction: int, origin: Vector3, velocity: Vector3, damage: float, max_travel: float, lifetime: float, target: Node3D, style: StringName = &"shell",
+		penetration: Variant = null, armor_damage := 0.0) -> int:
 	var id := _next_id
 	_next_id += 1
 	var node := MeshInstance3D.new()
@@ -76,6 +78,7 @@ func spawn(owner_ship: Node3D, faction: int, origin: Vector3, velocity: Vector3,
 	node.global_transform = Transform3D(Basis.looking_at(direction, up), origin)
 	var record := {"id": id, "node": node, "owner_id": owner_ship.get_instance_id(), "owner_name": String(owner_ship.name),
 		"faction": faction, "position": origin, "origin": origin, "velocity": velocity, "damage": damage,
+		"penetration": penetration, "armor_damage": armor_damage,
 		"max_travel": max_travel, "lifetime": lifetime, "traveled": 0.0, "age": 0.0, "style": style,
 		"target_name": String(target.name) if target != null and is_instance_valid(target) else ""}
 	active.append(record)
@@ -117,7 +120,7 @@ func _advance_ordnance(node: Node3D, delta: float) -> void:
 			ship_name = String(ship.name)
 			var combat = CombatShip.of(ship)
 			if combat.alive and combat.faction != node.faction:
-				if combat.take_hit(node.damage, node.id):
+				if combat.take_hit(node.damage, node.id, node.penetration, node.armor_damage):
 					damage_events[node.id] = damage_events.get(node.id, 0) + 1
 				outcome = "damage"
 			else:
@@ -238,7 +241,7 @@ func _hit(record: Dictionary, hit: Dictionary) -> void:
 		ship_name = String(ship.name)
 		var combat = CombatShip.of(ship)
 		if combat.alive and combat.faction != record.faction:
-			if combat.take_hit(record.damage, record.id):
+			if combat.take_hit(record.damage, record.id, record.penetration, record.armor_damage):
 				damage_events[record.id] = damage_events.get(record.id, 0) + 1
 			outcome = "damage"
 		else:
