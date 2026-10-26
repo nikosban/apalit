@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://game/behavior/ship_behavior.gd" id="4_behavior"]
 [ext_resource type="Resource" path="res://game/ships/ff01_durability.tres" id="5_durability"]
 [ext_resource type="PackedScene" path="res://game/weapons/nc90_bastion.tscn" id="6_bastion"]
+[ext_resource type="PackedScene" path="res://game/weapons/pdc20_kestrel.tscn" id="7_kestrel"]
 
 [node name="FF01" instance=ExtResource("1_archetype")]
 metadata/display_name = "FF-01"
@@ -59,6 +60,8 @@ size = 0
 families = PackedStringArray("gatling")
 yaw_limit_deg = 90.0
 
+[node name="PDC20Kestrel" parent="Weapons/ForwardPortPDCHardpoint" instance=ExtResource("7_kestrel")]
+
 [node name="ForwardStarboardPDCHardpoint" type="Node3D" parent="Weapons"]
 position = Vector3(1.3, 0.55, -4)
 rotation = Vector3(0, -0.7853981633974483, 0)
@@ -66,6 +69,8 @@ script = ExtResource("3_hardpoint")
 size = 0
 families = PackedStringArray("gatling")
 yaw_limit_deg = 90.0
+
+[node name="PDC20Kestrel" parent="Weapons/ForwardStarboardPDCHardpoint" instance=ExtResource("7_kestrel")]
 
 [node name="AftPortPDCHardpoint" type="Node3D" parent="Weapons"]
 position = Vector3(-1.3, 0.55, 4)
@@ -75,6 +80,8 @@ size = 0
 families = PackedStringArray("gatling")
 yaw_limit_deg = 90.0
 
+[node name="PDC20Kestrel" parent="Weapons/AftPortPDCHardpoint" instance=ExtResource("7_kestrel")]
+
 [node name="AftStarboardPDCHardpoint" type="Node3D" parent="Weapons"]
 position = Vector3(1.3, 0.55, 4)
 rotation = Vector3(0, -2.356194490192345, 0)
@@ -82,6 +89,8 @@ script = ExtResource("3_hardpoint")
 size = 0
 families = PackedStringArray("gatling")
 yaw_limit_deg = 90.0
+
+[node name="PDC20Kestrel" parent="Weapons/AftStarboardPDCHardpoint" instance=ExtResource("7_kestrel")]
 
 [node name="BarrageHardpoint" type="Node3D" parent="Weapons"]
 editor_description = "Reserved for RL-8 Barrage, fixed along -Z. No family is accepted until rocket equipment is defined; cone remains the unused shared default."
