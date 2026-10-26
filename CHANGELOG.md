@@ -11,6 +11,26 @@ after they are written.
 
 A reusable unguided Rocket family (`rocket_launcher.gd`, rocket kind in `ordnance.gd`) with the RL-8 Barrage (`rl8_barrage.tres` / `.tscn`: committed 8-rocket salvos at 0.12 s on a locked world-space direction, 3° dispersion, 48 rockets, 5 s cooldown, 30 u/s over 60 u, 4 hull / penetration 8 / 1 armor) is installed on FF-01's Barrage hardpoint, and rockets are intercepted only by Gatling-family rounds (Kestrels and legacy Gatlings, under the existing missile priority rule) while cannon shells pass through them (`baa7484`). `rocket_test` passed 72/72 and two full regressions matched two baselines apart from updated FF-01 loadout checks and the three known failures; accepted by the owner after play validation.
 
+## 2026-10-26 — Stage 3: PDC family and PDC-20 Kestrel
+
+A reusable PDC family (`pdc.gd`, extending the Gatling mount) with the PDC-20 Kestrel (`pdc20_kestrel.tres` / `.tscn`: 0.2 hull / penetration 1, 0.08 s, 25 u, 70 u/s tracers, 40-round magazine of 400, 3 s reload, 2.5° physical dispersion) is installed on FF-01's four PDC hardpoints; mounts select independently with own-ship before ally protection, torpedoes before missiles except a missile arriving under 1.5 s and earlier, and the Gatling's selection order moved into an overridable `_defense_before()` (`94a7a37`, `pdc_test`); accepted by the owner.
+
+## 2026-10-26 — Stage 2: Cannon family and NC-90 Bastion
+
+A reusable Cannon family (`turret.gd` with per-mount seeded `Weapon.disperse()`, uniform over the cone's solid angle) with the NC-90 Bastion (`nc90_bastion.tres` / `.tscn`: 12 hull / penetration 20 / armor damage 6, 2.5 s, 75 u with 45 u effective range, 40 rounds, 0.5° dispersion) is installed on FF-01's forward and aft centerline hardpoints, and `take_hit()` now rejects non-finite damage inputs (`586ac21`, `cannon_test`); accepted by the owner.
+
+## 2026-10-26 — Stage 1: Global armor and damage resolution
+
+Ships may carry a `DurabilityConfig` (hull, armor condition, armor resistance; FF-01: 160 / 100 / 30 in `ff01_durability.tres`), and every hit resolves through one global formula from the pre-impact condition (hull damage = base × p / (p + resistance × condition / max), armor condition reduced by the hit's armor damage), while unconfigured penetration keeps legacy weapons bypassing armor and every other ship at hull 150 (`f152f8b`, `armor_test`); accepted by the owner.
+
+## 2026-10-26 — Combat Test arena cleanup and expansion
+
+`combat_test.tscn` became a standalone 760 × 760 arena (navigation, command bounds, camera, Strategic View and ground at ±380) with the 36 Test Arena asteroids unchanged, no stations and only the six armed ships plus FF-01, instead of inheriting `main.tscn` (`4006e65`); the unarmed Frigate panel check moved from it to the Test Arena (`090d1f2`); accepted by the owner.
+
+## 2026-10-26 — FF-01 Frigate blockout
+
+New `ff01.tscn` primitive hull (12 × 3 × 1.1 u, bow −Z) and `ff01_unit.tscn` warship variant (Destroyer handling and footprint, `Behavior`) with eight empty, named hardpoints for the planned loadout (two cannon, four PDC, Barrage and Wayfarer), placed in the Combat Test arena and covered by `ff01_test` (`4006e65`); accepted by the owner.
+
 ## 2026-10-25 — I01 combat-positioning boundary mismatch resolved
 
 Combat positioning and edge diagnostics now share the configured StaticNavigation boundary resolved through RouteFollower's `navigation_path`, replacing the production 135 u limit while preserving footprint and clearance semantics, movement and combat rules, and the independent E05 fixture boundary; accepted by the owner, with no further combat tuning authorized by this fix. Verification passed all 76 new boundary checks and compared 28 existing suites plus four scene smoke runs against two pre-change baselines: only the known navigation, obstruction and fleet-focus failures remain open, and P02 and integrated battle measurement changes were reproduced as boundary effects.
