@@ -1,8 +1,8 @@
 extends SceneTree
 ## Combat migration M7: the integrated production scenes. Run with a fixed step:
 ##   <godot console> --headless --path . --fixed-fps 60 -s res://game/tests/combat/combat_scene_test.gd
-## On game/scenes/combat_test.tscn (main.tscn plus a second player Gunship and a hostile
-## Destroyer and two Gunships under the minimal HostileCommander):
+## On game/scenes/combat_test.tscn (the standalone combat arena, three player warships
+## and a hostile Destroyer and two Gunships under the minimal HostileCommander):
 ##   S1 the commander's orders run on the hostile ships' own Behavior (Attack-Move, Guard,
 ##      Aggressive); the fleet starts beyond sensor range, hidden by the fog of war
 ##   S2 the full battle with the player's warships Aggressive (as the E05 passive runs):
@@ -39,6 +39,7 @@ func _initialize() -> void:
 	await process_frame
 	await _s1_s2()
 	await _s5_controls()
+	await _s5_unarmed_panel()
 	await _s3_pause()
 	await _s4_dilation()
 	await _s6_produced()
@@ -217,10 +218,10 @@ func _s5_controls() -> void:
 	rig.zoom_distance = 20.0
 	rig._apply_zoom()
 	await process_frame
-	# Ship panel: hull for every ship, combat section for armed ships only.
+	# Armed ship panels remain covered on the combat arena itself.
 	var panel: Node = scene.get_node("ShipPanel")
 	var rows := {}
-	for name in ["Gunship", "Destroyer", "Frigate"]:
+	for name in ["Gunship", "Destroyer"]:
 		scene.selection().set_selection([_ship(name)])
 		await process_frame
 		var items := []
@@ -228,14 +229,23 @@ func _s5_controls() -> void:
 			items.append(panel._profile.get_item_text(i))
 		rows[name] = [panel._hull.text, panel._combat.visible, items]
 	print("  panel: %s" % str(rows))
-	_check("ship panel: hull for every ship; Combat only for armed ships, with the loadout's profiles (Gunship: Mid-range, Close Quarters; Destroyer: all three)",
-		rows.Gunship == ["Hull: 150 / 150", true, ["Mid-range", "Close Quarters"]] and rows.Destroyer == ["Hull: 150 / 150", true, ["Siege", "Mid-range", "Close Quarters"]]
-		and rows.Frigate == ["Hull: 150 / 150", false, []])
+	_check("armed ship panels: hull and Combat with the loadout's profiles (Gunship: Mid-range, Close Quarters; Destroyer: all three)",
+		rows.Gunship == ["Hull: 150 / 150", true, ["Mid-range", "Close Quarters"]] and rows.Destroyer == ["Hull: 150 / 150", true, ["Siege", "Mid-range", "Close Quarters"]])
 	scene.selection().set_selection([gunship])
 	await process_frame
 	panel._tactic.item_selected.emit(panel._tactic.get_item_index(CombatShip.Stance.AGGRESSIVE))
 	_check("the panel's tactic selector sets the tactic through CombatOrders", CombatShip.of(gunship).stance == CombatShip.Stance.AGGRESSIVE
 		and scene.orders.history[-1].channel == "engagement")
+
+
+func _s5_unarmed_panel() -> void:
+	print("\n=== S5 unarmed panel on the Test Arena")
+	await _load(MAIN)
+	scene.selection().set_selection([_ship("Frigate")])
+	await process_frame
+	var panel: Node = scene.get_node("ShipPanel")
+	_check("unarmed Frigate panel: hull 150, no Combat section and no weapon profiles",
+		panel._hull.text == "Hull: 150 / 150" and not panel._combat.visible and panel._profile.item_count == 0)
 
 
 # Sets up the economy on main.tscn: mining, a refinery slot, a ship under construction,
