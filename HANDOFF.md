@@ -1029,15 +1029,14 @@ distribution, logistics balance, models and UI polish.
   replacement, moved aside, held during docking); no suites were run. Out of scope:
   `hostile_fleet`'s candidate loop now sees real refusals, unverified.
 - Weapon-profile removal (2026-10-27) test limits: `command_test`, `e05_behavior_test`,
-  `positioning_boundary_test`, `ff01_test` and `combat_scene_test` were parse-checked,
-  not run. Their Behavior ships now use FF-01 positioning, so movement measurements may
-  differ. Retained checks that depended on the deleted engagement path, kept unchanged
-  for owner review: C11 (requests must name the manual target; FF-01 requests read
-  "cannon …"), E05 V1 "every pursuit request named a hostile in contact" (its request
-  pattern no longer matches, so it is vacuous) and V8 Aggressive "pursuit stopped"
-  (that log came only from the deleted path). `positioning_boundary_test`
-  `_case_engagement` now checks only "station beyond 135, routable": the band and
-  line-of-fire validity (`_station_ok`) and profile fallbacks were removed.
+  `positioning_boundary_test`, `ff01_test` and `combat_scene_test` were not run as whole
+  suites; their Behavior ships now use FF-01 positioning, so movement measurements may
+  differ. The checks that depended on the deleted engagement path now verify state:
+  C11 (engaged target is only the manual target), E05 V1 (every accepted combat
+  objective was for a hostile in contact), V8 (no request after contact loss; the
+  deleted path's "pursuit stopped" stop is gone) and `_case_engagement` (objective
+  beyond 135, routable, `_position_ok` and line of fire; band and fallback criteria
+  removed). Each passed in a focused run only.
 - Legacy-cleanup test limits: `combat_positioning_test`'s "authored asteroids produce
   a real navigation detour" check fails with the FF-01 opponent (routes reach 2 points,
   3 required). Before the cleanup it passed with a single 3-point route, at its

@@ -403,10 +403,14 @@ func _case_manual_target_pursuit() -> void:
 	await _sense()
 	scene.orders.assign_target([_ship("FF01B")], _ship("HostileFF01C"))
 	scene.orders.set_stance([_ship("FF01B")], AGGRESSIVE)
-	await _run(3.0)
-	var requests := _requests("FF01B")
-	_check("pursuit toward the manual target: %s" % (requests[0] if not requests.is_empty() else "no request"),
-		not requests.is_empty() and requests.all(func(line: String) -> bool: return line.contains("HostileFF01C")) and _c("FF01B").target == _ship("HostileFF01C"))
+	var b = _b("FF01B")
+	var engaged: Array[String] = []
+	await _run(3.0, func() -> void:
+		var current: Node3D = b._combat_target
+		if current != null and not engaged.has(String(current.name)):
+			engaged.append(String(current.name)))
+	_check("pursuit toward the manual target: engaged %s, %d combat objective(s)" % [str(engaged), b.combat_objectives.size()],
+		engaged == ["HostileFF01C"] and not b.combat_objectives.is_empty() and _c("FF01B").target == _ship("HostileFF01C"))
 
 
 ## Defensive priority: an attacker of the ship itself before an attacker of an ally.

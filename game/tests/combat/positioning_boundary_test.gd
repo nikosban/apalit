@@ -301,8 +301,10 @@ func _case_engagement(mode: String) -> void:
 			scene.orders.attack_move([g], Vector2(200, -130))
 	b.set_physics_process(true)
 	await _run(2.0)
-	var positioned: bool = b.has_station and b.station.x > 135
-	_check("%s: engagement station beyond 135 is requested and routable" % mode,
+	# The objective's validity as the retained implementation chose it: on the map, clear
+	# of asteroids and with a line of fire to the (stationary) target.
+	var positioned: bool = b.has_station and b.station.x > 135 and b._position_ok(b.station) and b.line_clear(b.station, Vector2(200, -90))
+	_check("%s: engagement station beyond 135 is requested, routable and valid" % mode,
 		positioned and _route_ends_at(g, b.station))
 	if mode == "Attack-Move":
 		_check("Attack-Move engagement still respects its route leash",

@@ -147,7 +147,7 @@ func _shots_at_ships(name: String) -> Array:
 
 
 # Per-ship sampler for a battle: target switches, time engaged and in band, every
-# movement request with whether its named target was in contact.
+# accepted combat objective with whether its engaged target was in contact.
 class Stats:
 	var name := ""
 	var switches := 0
@@ -155,6 +155,8 @@ class Stats:
 	var in_band := 0.0
 	var informed := true
 	var seen_requests := 0
+	var objectives := 0
+	var last_objective := -INF
 
 
 func _sample(stats: Dictionary) -> void:
@@ -171,13 +173,12 @@ func _sample(stats: Dictionary) -> void:
 			var d: float = c.distance_to(t)
 			if not band.is_empty() and d >= band.near and d <= band.far:
 				s.in_band += 1.0 / 60.0
-		if b.move_requests > s.seen_requests:
-			var line: String = _requests(b).back()
-			var named := RegEx.create_from_string("(?:approach|from) (Hostile\\w+)").search(line)
-			if named != null:
-				var other := _ship(named.get_string(1))
-				s.informed = s.informed and other != null and scene.contacts.observable(PLAYER, other)
-			s.seen_requests = b.move_requests
+		if not b.combat_objectives.is_empty() and b.combat_objectives.back().time > s.last_objective:
+			var other = b._combat_target # Untyped: a freed engaged ship stays a checkable value.
+			s.informed = s.informed and is_instance_valid(other) and scene.contacts.observable(PLAYER, other)
+			s.objectives += 1
+			s.last_objective = b.combat_objectives.back().time
+		s.seen_requests = b.move_requests
 
 
 # --- V1 ----------------------------------------------------------------------------------
@@ -210,6 +211,7 @@ func _v1_aggressive_battle() -> void:
 	print("Battle: %s; first shot %.1f s" % [battle.result.replace("\n", " | ") if battle.finished else "unfinished at %.0f s" % elapsed, battle.pacing.first_shot])
 	var lines: Array[String] = []
 	var all_requests := 0
+	var objectives := 0
 	var informed := true
 	for name: String in PLAYER_SHIPS:
 		var s: Stats = stats[name]
@@ -217,11 +219,12 @@ func _v1_aggressive_battle() -> void:
 		var requests: int = b.move_requests if b != null else s.seen_requests
 		all_requests += requests
 		informed = informed and s.informed
+		objectives += s.objectives
 		lines.append("%s: %d requests (%.2f /min), %d target switches, engaged %.0f s, in band %.0f s" % [name, requests,
 			requests * 60.0 / maxf(elapsed, 1.0), s.switches, s.engaged, s.in_band])
 	print("\n".join(lines))
-	_check("the player ships pursued and fought on their own (%d requests over %.0f s); every pursuit request named a hostile in contact" % [all_requests, elapsed],
-		battle.pacing.first_shot >= 0.0 and all_requests > 0 and informed)
+	_check("the player ships pursued and fought on their own (%d requests over %.0f s); all %d combat objectives were for a hostile in contact" % [all_requests, elapsed, objectives],
+		battle.pacing.first_shot >= 0.0 and all_requests > 0 and objectives > 0 and informed)
 	_check("a Move given mid-battle kept its destination against autonomous pursuit", moved[0] and moved[1])
 
 
@@ -402,9 +405,9 @@ func _v8_contact_loss() -> void:
 	b = _b("FF01B")
 	await _until(5.0, func() -> bool: return b.move_requests > 0)
 	var approached: int = b.move_requests
+	var objectives: int = b.combat_objectives.size()
 	scene.contacts.set_contact(PLAYER, _ship("HostileFF01B"), false)
 	_put("HostileFF01B", Vector2(-10, 40), WEST)
 	await _run(8.0)
-	var later := _requests(b).slice(approached)
-	_check("Aggressive pursuit stopped on contact loss (%s); nothing toward the hidden live position" % " | ".join(b.log.filter(func(l: String) -> bool: return l.contains("pursuit stopped"))),
-		approached >= 1 and b.log.any(func(l: String) -> bool: return l.contains("pursuit stopped")) and later.all(func(l: String) -> bool: return l.contains("stop")))
+	_check("Aggressive pursuit after contact loss: nothing requested toward the hidden live position (%d request(s) before, %d after)" % [approached, b.move_requests - approached],
+		approached >= 1 and objectives >= 1 and b.move_requests == approached and b.combat_objectives.size() == objectives)
