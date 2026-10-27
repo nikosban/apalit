@@ -182,6 +182,11 @@ func _load() -> void:
 	ff01 = scene.get_node("Ships/FF01")
 	for i in 3:
 		await physics_frame
+	# Test-owned positions, independent of the authored Combat Test spawns.
+	for staged: Array in [[ff01, Vector2(-260, -260)], [scene.get_node("Ships/HostileFF01"), Vector2(260, -260)]]:
+		staged[0].get_node("Locomotion").place(staged[1], 0.0)
+		staged[0].get_node("Avoidance").reset()
+	await physics_frame
 
 
 func _reset_ff01() -> Node:

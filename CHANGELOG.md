@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-27 — Combat Test isolation
+
+`armor_test` places its own FF-01s instead of relying on the authored spawns and passes 52/52; `rocket_test` and `guided_missile_test` drop one unrelated Combat Test roster/asteroid/sector assertion each (parse-checked, not run).
+
 ## 2026-10-27 — Combat Test repositioning and test cleanup
 
 The Combat Test FF-01s move to X = −150 / +150, outside sensor range, facing as before (`9edd0fb`). `ff01_test`, `combat_scene_test` and `positioning_boundary_test` drop 18 scene-dependent assertions and place their own ships, with no gameplay changes (`e9dfb5b`); the three suites pass 45, 25 and 76 checks.

@@ -228,7 +228,6 @@ func _installation() -> void:
 		# Include the entire missile's length, not just the collision centre.
 		clear = clear and local.y - WAYFARER.ordnance.length * 0.5 > 0.55
 	_check("four distinct vertical cells; every ejection trajectory and missile tail clears the FF-01 hull", launcher.muzzles.size() == 4 and distinct.size() == 4 and clear)
-	_check("the two Combat Test FF-01s plus the test observer and target, 36 asteroids and Combat Test +/-380 preserved", scene.get_node("Ships").get_child_count() == 4 and scene.get_node("Asteroids").ids().size() == 36 and scene.get_node("StaticNavigation").map_half_size == 380.0)
 	var bearings := true
 	for direction: Vector2 in [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2.DOWN]:
 		_place(victim, SITE + direction * 60)

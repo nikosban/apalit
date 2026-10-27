@@ -1123,12 +1123,14 @@ distribution, logistics balance, models and UI polish.
   removed (`ff01_test` `_preserved_arena()` and its spawn-clearance check;
   `positioning_boundary_test` `_case_combat_arena()`); these suites set their own
   ship positions (`combat_scene_test`: FF-01s at ±45 facing each other; `ff01_test`:
-  `FF01` at (−45, 0)) and do not depend on the authored spawns. Other suites that load `combat_test.tscn` were not re-run after the
-  ±150 repositioning.
+  `FF01` at (−45, 0)) and do not depend on the authored spawns. Combat Test isolation (2026-10-27): `armor_test`
+  stages its own ships (`FF01` (−260, −260), `HostileFF01` (260, −260)) and passes 52/52; `rocket_test` and
+  `guided_missile_test` each drop one scene-content assertion (roster, 36 asteroids, ±380), parse-checked only, not
+  run. Other suites that load `combat_test.tscn` were not re-run after the ±150 repositioning.
 - Legacy cleanup verification (2026-10-27, focused: only suites whose fixtures or
   dependencies changed, plus a resource-reference check with no missing references):
   FF-01 weapon suites `ff01_test` 52, `armor_test` 52, `cannon_test` 45, `pdc_test` 63,
-  `rocket_test` 71, `guided_missile_test` 69, `launch_profiles_test` 48,
+  `rocket_test` 71 (now 70 checks), `guided_missile_test` 69 (now 68), `launch_profiles_test` 48,
   `barrage_trajectory_test` 148, `positioning_boundary_test` 86, `combat_scene_test`
   25, `time_test` 37, `e05_behavior_test` 10, `shipyard_runtime_test` 25 and
   `thruster_view_test` 22 checks pass; `fleet_test` 41/42 and `combat_positioning_test`

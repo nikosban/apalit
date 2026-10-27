@@ -24,7 +24,6 @@ const PDC := preload("res://game/weapons/pdc.gd")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const KESTRELS := ["ForwardPortPDCHardpoint", "ForwardStarboardPDCHardpoint", "AftPortPDCHardpoint", "AftStarboardPDCHardpoint"]
 const BASTIONS := ["ForwardBastionHardpoint", "AftBastionHardpoint"]
-const COMBAT_TEST_SHIPS := ["FF01", "HostileFF01"]
 const SITE_CLEARANCE := 85.0
 const HOSTILE := 1
 const TICK := 1.0 / 60.0
@@ -967,11 +966,6 @@ func _measurement() -> void:
 	combat.health = combat.max_health
 	combat.armor = combat.max_armor
 	_check("measurement ran: every launched rocket ended intercepted, on a hull or missed", totals.size() == 9)
-	# Arena unchanged.
-	var names := scene.get_node("Ships").get_children().map(func(s: Node) -> String: return String(s.name))
-	_check("Combat Test ships unchanged (plus the test's own victim and ally FF-01s), 36 asteroids, navigation half-size 380",
-		COMBAT_TEST_SHIPS.all(func(n: String) -> bool: return names.has(n)) and names.size() == COMBAT_TEST_SHIPS.size() + 2
-		and scene.get_node("Asteroids").ids().size() == 36 and scene.get_node("StaticNavigation").map_half_size == 380.0)
 
 
 func _threat_config(kind: StringName, damage: float, reach: float) -> Resource:
