@@ -101,8 +101,8 @@ the lab era) and the layout contract in section 3.
   longer inherits `main.tscn`): integrated combat on a 760 × 760 sector
   (`map_half_size` 380, camera and Strategic View follow ±380), the 36 Test Arena
   asteroids unchanged, no stations; two `ff01_unit` instances only: player `FF01` at
-  (−45, 1.5, 0) facing +X and `HostileFF01` at (45, 1.5, 0) facing −X (90 u apart,
-  inside the 100 u sensor range), symmetric about the sector centre. `HostileFF01`
+  (−150, 1.5, 0) facing +X and `HostileFF01` at (150, 1.5, 0) facing −X (300 u apart,
+  outside the 100 u sensor range), symmetric about the sector centre. `HostileFF01`
   overrides `Combat` faction 1 / stance Aggressive (Editable Children); no
   `HostileCommander`, so it acts on its own Behavior (Aggressive pursuit of the
   nearest contact, FF-01 combat positioning).
@@ -1019,8 +1019,9 @@ distribution, logistics balance, models and UI polish.
   `last_known()` assigns each lost contact to a typed `Node3D` loop variable before
   its `is_instance_valid()` check, so a destroyed contact raises "Trying to assign
   invalid previously freed instance" (via `tactical_markers._draw_markers` →
-  `movement_lab.draw_contact_memory`). Seen as 9 script errors in `combat_scene_test`;
-  its checks pass.
+  `movement_lab.draw_contact_memory`). Seen as 9 script errors in `combat_scene_test`
+  during the legacy cleanup; none in the 2026-10-27 test-cleanup run, but the defect is
+  unchanged.
 - Legacy-cleanup test limits: `combat_positioning_test`'s "authored asteroids produce
   a real navigation detour" check fails with the FF-01 opponent (routes reach 2 points,
   3 required). Before the cleanup it passed with a single 3-point route, at its
@@ -1117,6 +1118,13 @@ distribution, logistics balance, models and UI polish.
   10 guard, `station_docking_test` deliberate `cancel()`, tri-dock navigation edge
   warnings. Verification scope follows `AGENTS.md` steps C and D. No runner script is
   kept.
+- Combat Test test cleanup (2026-10-27, `e9dfb5b`): `ff01_test` 45, `combat_scene_test`
+  25 and `positioning_boundary_test` 76 checks pass. 18 scene-dependent assertions were
+  removed (`ff01_test` `_preserved_arena()` and its spawn-clearance check;
+  `positioning_boundary_test` `_case_combat_arena()`); these suites set their own
+  ship positions (`combat_scene_test`: FF-01s at ±45 facing each other; `ff01_test`:
+  `FF01` at (−45, 0)) and do not depend on the authored spawns. Other suites that load `combat_test.tscn` were not re-run after the
+  ±150 repositioning.
 - Legacy cleanup verification (2026-10-27, focused: only suites whose fixtures or
   dependencies changed, plus a resource-reference check with no missing references):
   FF-01 weapon suites `ff01_test` 52, `armor_test` 52, `cannon_test` 45, `pdc_test` 63,
@@ -1135,7 +1143,8 @@ distribution, logistics balance, models and UI polish.
   flight traces are identical to baseline. Rendered inspection and final profiles
   are accepted by the owner. PDC offense fixtures isolate other weapon families.
   Logs/measurements: `archive/barrage_travel70_verification_2026-10-26/` (local only).
-- `combat/positioning_boundary_test.gd`: 86/86 checks pass (76 at I01), covering configured sector
+- `combat/positioning_boundary_test.gd`: 76/76 checks pass (Combat Test case removed in
+  the test cleanup), covering configured sector
   sizes, the follower's navigation reference, footprint and clearance margins, Guard,
   engagement, Defensive positioning and group waypoints. I01 verification compared
   28 existing suites and four scene smoke runs against two pre-change baselines:

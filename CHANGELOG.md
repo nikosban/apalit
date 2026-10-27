@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-27 — Combat Test repositioning and test cleanup
+
+The Combat Test FF-01s move to X = −150 / +150, outside sensor range, facing as before (`9edd0fb`). `ff01_test`, `combat_scene_test` and `positioning_boundary_test` drop 18 scene-dependent assertions and place their own ships, with no gameplay changes (`e9dfb5b`); the three suites pass 45, 25 and 76 checks.
+
 ## 2026-10-27 — Legacy ship cleanup
 
 The legacy Frigate, Gunship and Destroyer are removed with their hull and variant scenes, legacy weapon configurations, the combat lab with E01–E04 / P01–P03, and their dedicated tests; retained scenes and shared-system tests now use the Miner, Transporter and FF-01, with the ship architecture and shared systems unchanged. Known limits: `combat_positioning_test`'s detour check (sensitive to the new opponent) and the pre-existing `fleet_test` hostile-focus failure stay open, E05 balance and duration assertions only print measurements, and the `sensors.gd` `last_known()` freed-contact script error is recorded as a separate production task.
