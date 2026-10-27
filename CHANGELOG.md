@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-27 — Weapon profiles removed
+
+The Siege / Mid-range / Close Quarters weapon profiles are removed (`weapon_profiles.gd`, `set_profile()`, the panel selector, the P key, the commander export), together with the profile-driven engagement path and the `combat_positioning` flag, so FF-01's cannon-derived positioning is the only engagement implementation and every eligible weapon still fires on its own. `combat_positioning_test` scores 39/40 (the known detour failure); E05, command and boundary suites were parse-checked only.
+
 ## 2026-10-27 — Move command results (O22)
 
 A single-ship `issue_move()` / `CombatOrders.move()` now reports `_order()`'s actual result (refused replacements false, docking-held orders true), and `_move_single()` no longer reports an accepted moved-aside order as refused; movement behavior unchanged, verified by a focused temporary reproduction only.

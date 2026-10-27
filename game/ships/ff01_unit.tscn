@@ -119,7 +119,6 @@ durability = ExtResource("5_durability")
 
 [node name="Behavior" type="Node" parent="."]
 script = ExtResource("4_behavior")
-combat_positioning = true
 combat_weapon_family = &"cannon"
 combat_min_distance = 27.0
 combat_max_distance = 45.0

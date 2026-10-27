@@ -116,7 +116,7 @@ static func inspect_text(ships: Array, target: Node3D) -> String:
 
 
 ## A ship's combat channels as text (tests, debugging): hull, movement, tactic and point
-## defense, command and profile (Behavior), target and its state, each weapon's state and
+## defense, command (Behavior), target and its state, each weapon's state and
 ## ammunition, confirmed threats.
 static func describe(ship: Node3D) -> String:
 	var combat = CombatShip.of(ship)

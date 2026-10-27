@@ -1,6 +1,6 @@
 extends SceneTree
-## Behavior prototype v0.1: lightweight command-interaction checks (Commands, Tactics,
-## Weapon Profiles) on small fixtures built from E05 (three FF-01s per side) with its
+## Behavior prototype v0.1: lightweight command-interaction checks (Commands, Tactics)
+## on small fixtures built from E05 (three FF-01s per side) with its
 ## hostile fleet controller off.
 ## Run with a fixed step:
 ##   <godot console> --headless --path . --fixed-fps 60 -s res://game/tests/combat/command_test.gd
@@ -8,7 +8,6 @@ extends SceneTree
 const E05 := preload("res://game/tests/combat/fixtures/e05_fleet.tscn")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const Behavior := preload("res://game/behavior/ship_behavior.gd")
-const Profiles := preload("res://game/behavior/weapon_profiles.gd")
 const Docking := preload("res://game/stations/docking.gd")
 const TS := CombatShip.TargetState
 const EAST := -PI * 0.5
@@ -16,7 +15,6 @@ const WEST := PI * 0.5
 const HOLD := 0
 const DEFENSIVE := 1
 const AGGRESSIVE := 2
-const P := Profiles.Profile
 
 var scene: Node3D
 var _checks := 0
@@ -33,8 +31,6 @@ func _initialize() -> void:
 	await _case_reacquire()
 	await _case_guard_cancellation()
 	await _case_guard_destroyed()
-	await _case_profiles()
-	await _case_profile_does_not_gate_fire()
 	await _case_manual_target_pursuit()
 	await _case_defensive_priority()
 	await _case_ownership()
@@ -80,12 +76,10 @@ func _load() -> void:
 		_put(name, corners[name], EAST)
 		scene.orders.set_stance([_ship(name)], HOLD)
 	# Test conditions. FF01B and FF01C stand in for the former escorts: their Wayfarer
-	# launcher is out of action, so their longest reach is the cannons' (Mid-range and Close
-	# Quarters available, Mid-range requested). The player ships outlast hostile fire: the
-	# cases check command handling, not damage.
+	# launcher is out of action, so their longest reach is the cannons'. The player ships
+	# outlast hostile fire: the cases check command handling, not damage.
 	for name: String in ["FF01B", "FF01C"]:
 		_ship(name).get_node("Weapons/WayfarerHardpoint").weapon().enabled = false
-		scene.orders.set_profile([_ship(name)], P.MID)
 	for name: String in ["FF01A", "FF01B", "FF01C"]:
 		_c(name).health = 100000.0
 	await _sense()
@@ -336,7 +330,7 @@ func _case_reacquire() -> void:
 
 # --- Guard ---------------------------------------------------------------------------------
 
-## Every replacing command ends Guard for good; tactic and profile stay.
+## Every replacing command ends Guard for good; the tactic stays.
 func _case_guard_cancellation() -> void:
 	print("\n=== C7 Guard cancellation")
 	await _load()
@@ -367,12 +361,12 @@ func _case_guard_cancellation() -> void:
 		var ended: bool = b.command != Behavior.Command.GUARD and b.guard_target == null
 		await _run(1.5)
 		var stays: bool = b.command != Behavior.Command.GUARD and b.guard_target == null
-		var kept: bool = _c("FF01B").stance == AGGRESSIVE and b.requested_profile == P.MID
+		var kept: bool = _c("FF01B").stance == AGGRESSIVE
 		results.append("%s %s" % [kind, "ok" if guarding and ended and stays and kept else "FAILED"])
 		all_ok = all_ok and guarding and ended and stays and kept
 		o.cancel(g)
 		await _run(0.3)
-	_check("Guard ended for good by %s; stance and profile kept" % ", ".join(results), all_ok)
+	_check("Guard ended for good by %s; stance kept" % ", ".join(results), all_ok)
 
 
 ## The protected ship's destruction ends Guard in that tick; no automatic new target.
@@ -388,60 +382,13 @@ func _case_guard_destroyed() -> void:
 	await _run(2.0)
 	var guards := [_b("FF01B"), _b("FF01C")]
 	var stances: Array = guards.map(func(g: Node) -> int: return g.combat.stance)
-	var profiles: Array = guards.map(func(g: Node) -> int: return g.requested_profile)
 	var guarding: bool = guards.all(func(g: Node) -> bool: return g.command == Behavior.Command.GUARD)
 	_c("FF01A").destroy()
 	var same_call: bool = guards.all(func(g: Node) -> bool: return g.command == Behavior.Command.NONE and g.guard_target == null)
 	await _run(3.0)
 	_check("both Guards ended inside the destroy() call; 3 s later still unassigned (FF01C not taken as a new target)",
 		guarding and same_call and guards.all(func(g: Node) -> bool: return g.command != Behavior.Command.GUARD and g.guard_target == null))
-	_check("stances and requested profiles kept", guards.map(func(g: Node) -> int: return g.combat.stance) == stances and guards.map(func(g: Node) -> int: return g.requested_profile) == profiles)
-
-
-# --- Weapon Profiles -------------------------------------------------------------------------
-
-func _case_profiles() -> void:
-	print("\n=== C9 Profile availability and fallback")
-	await _load()
-	var ff01b = _c("FF01B")
-	var ff01a = _c("FF01A")
-	var refused: int = scene.orders.set_profile([_ship("FF01B")], P.SIEGE)
-	_check("availability from installed weapons: FF01B %s, FF01A %s; Siege refused for the FF01B (%d taken)" % [str(Profiles.available(ff01b)), str(Profiles.available(ff01a)), refused],
-		Profiles.available(ff01b) == [P.MID, P.CLOSE] and Profiles.available(ff01a) == [P.SIEGE, P.MID, P.CLOSE] and refused == 0 and _b("FF01B").requested_profile == P.MID)
-	var b = _b("FF01A")
-	scene.orders.set_profile([_ship("FF01A")], P.SIEGE)
-	for w in ff01a.weapons:
-		if Profiles.category(w) == P.SIEGE:
-			w.ammo = 0
-			w.magazine = 0
-	var mid: int = b.effective()
-	var mid_reason: String = b.fallback_reason
-	for w in ff01a.weapons:
-		if Profiles.category(w) == P.MID:
-			w.ammo = 0
-	var close: int = b.effective()
-	_check("FF01A requested Siege: long-range empty -> %s (%s); cannon empty too -> %s; request still Siege" % [Profiles.NAMES[mid], mid_reason, Profiles.NAMES[close]],
-		mid == P.MID and mid_reason == "no ammunition" and close == P.CLOSE and b.requested_profile == P.SIEGE)
-	for w in _c("FF01C").weapons:
-		if Profiles.category(w) == P.MID:
-			w.enabled = false
-	_check("a point-defense-only ship (cannons and rockets out of action) offers Close Quarters only: %s; fallback order from Mid-range %s" % [str(Profiles.available(_c("FF01C"))), str(Profiles.fallback_order(P.MID))],
-		Profiles.available(_c("FF01C")) == [P.CLOSE] and Profiles.fallback_order(P.MID) == [P.MID, P.CLOSE, P.SIEGE])
-
-
-## A profile chooses positions only: under Close Quarters the cannon still fires at 50 u.
-func _case_profile_does_not_gate_fire() -> void:
-	print("\n=== C10 Profiles do not gate fire")
-	await _load()
-	_put("FF01B", Vector2(-60, 100), EAST)
-	_put("HostileFF01B", Vector2(-10, 100), WEST)
-	await _sense()
-	scene.orders.set_profile([_ship("FF01B")], P.CLOSE)
-	scene.orders.set_stance([_ship("FF01B")], AGGRESSIVE)
-	var cannon: Node = _ship("FF01B").get_node("Weapons/ForwardBastionHardpoint").weapon()
-	await _run(5.0)
-	_check("Close Quarters requested, target at 50 u: the cannon fired anyway (%d shots) while the ship closed in (%d requests)" % [cannon.shots, _b("FF01B").move_requests],
-		cannon.shots > 0 and _b("FF01B").move_requests >= 1)
+	_check("stances kept", guards.map(func(g: Node) -> int: return g.combat.stance) == stances)
 
 
 # --- Tactics ---------------------------------------------------------------------------------
@@ -626,7 +573,7 @@ func _case_without_behavior() -> void:
 	await physics_frame
 	var g := [scene.ship("FF01B")]
 	var counts := [scene.orders.attack(g, scene.ship("HostileFF01B")), scene.orders.guard(g, scene.ship("FF01A")), scene.orders.cancel(g),
-		scene.orders.attack_move(g, Vector2.ZERO), scene.orders.request(g, "Dock"), scene.orders.set_profile(g, P.MID)]
+		scene.orders.attack_move(g, Vector2.ZERO), scene.orders.request(g, "Dock")]
 	_check("E05 ships take none of the behavior commands (%s); no target set, no Behavior view" % str(counts),
 		counts.all(func(n: int) -> bool: return n == 0) and CombatShip.of(g[0]).manual_target == null and not scene.has_node("BehaviorView"))
 

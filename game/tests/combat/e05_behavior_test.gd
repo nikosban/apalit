@@ -1,5 +1,5 @@
 extends SceneTree
-## Behavior prototype: E05 validation situations V1–V8 with the Behavior layer on the
+## Behavior prototype: E05 validation situations V1–V6 and V8 with the Behavior layer on the
 ## player ships (as the lab plays E05). Run with a fixed step:
 ##   <godot console> --headless --path . --fixed-fps 60 -s res://game/tests/combat/e05_behavior_test.gd
 ## Battle runs use the scripted hostile fleet; the focused cases switch it off and place
@@ -8,7 +8,6 @@ extends SceneTree
 const E05 := preload("res://game/tests/combat/fixtures/e05_fleet.tscn")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const Behavior := preload("res://game/behavior/ship_behavior.gd")
-const Profiles := preload("res://game/behavior/weapon_profiles.gd")
 const TS := CombatShip.TargetState
 const EAST := -PI * 0.5
 const WEST := PI * 0.5
@@ -16,7 +15,6 @@ const HOLD := 0
 const DEFENSIVE := 1
 const AGGRESSIVE := 2
 const PLAYER := 0
-const P := Profiles.Profile
 const PLAYER_SHIPS := ["FF01A", "FF01B", "FF01C"]
 
 var scene: Node3D
@@ -38,7 +36,6 @@ func _initialize() -> void:
 	await _v4_guard_in_battle()
 	await _v5_attack_move()
 	await _v6_waypoints()
-	await _v7_fallback()
 	await _v8_contact_loss()
 	_free()
 	print("RESULT: %s (%d of %d checks failed)" % ["PASS" if _failures == 0 else "FAIL", _failures, _checks])
@@ -79,11 +76,10 @@ func _load(quiet: bool) -> void:
 		_put(name, corners[name], EAST)
 		scene.orders.set_stance([_ship(name)], HOLD)
 	# Test conditions (quiet cases). FF01B and FF01C stand in for the former escorts: their
-	# Wayfarer launcher is out of action, so their longest reach is the cannons' (Mid-range
-	# requested). The player ships outlast hostile fire: the cases check behavior, not damage.
+	# Wayfarer launcher is out of action, so their longest reach is the cannons'. The player
+	# ships outlast hostile fire: the cases check behavior, not damage.
 	for name: String in ["FF01B", "FF01C"]:
 		_ship(name).get_node("Weapons/WayfarerHardpoint").weapon().enabled = false
-		scene.orders.set_profile([_ship(name)], P.MID)
 	for name: String in ["FF01A", "FF01B", "FF01C"]:
 		CombatShip.of(_ship(name)).health = 100000.0
 	await _sense()
@@ -171,11 +167,10 @@ func _sample(stats: Dictionary) -> void:
 		var t: Node3D = c.target
 		if t != null and c.target_status(t) == TS.VALID:
 			s.engaged += 1.0 / 60.0
-			if b.effective_profile >= 0:
-				var band := Profiles.band(c, b.effective_profile)
-				var d: float = c.distance_to(t)
-				if not band.is_empty() and d >= band.near and d <= band.far:
-					s.in_band += 1.0 / 60.0
+			var band: Dictionary = b.combat_band()
+			var d: float = c.distance_to(t)
+			if not band.is_empty() and d >= band.near and d <= band.far:
+				s.in_band += 1.0 / 60.0
 		if b.move_requests > s.seen_requests:
 			var line: String = _requests(b).back()
 			var named := RegEx.create_from_string("(?:approach|from) (Hostile\\w+)").search(line)
@@ -215,19 +210,17 @@ func _v1_aggressive_battle() -> void:
 	print("Battle: %s; first shot %.1f s" % [battle.result.replace("\n", " | ") if battle.finished else "unfinished at %.0f s" % elapsed, battle.pacing.first_shot])
 	var lines: Array[String] = []
 	var all_requests := 0
-	var reversals := 0
 	var informed := true
 	for name: String in PLAYER_SHIPS:
 		var s: Stats = stats[name]
 		var b = _b(name)
 		var requests: int = b.move_requests if b != null else s.seen_requests
 		all_requests += requests
-		reversals += b.direction_changes if b != null else 0
 		informed = informed and s.informed
-		lines.append("%s: %d requests (%.2f /min), %d reversals, %d target switches, engaged %.0f s, in band %.0f s, fallbacks %s" % [name, requests,
-			requests * 60.0 / maxf(elapsed, 1.0), b.direction_changes if b != null else -1, s.switches, s.engaged, s.in_band, str(b.fallbacks) if b != null else "(destroyed)"])
+		lines.append("%s: %d requests (%.2f /min), %d target switches, engaged %.0f s, in band %.0f s" % [name, requests,
+			requests * 60.0 / maxf(elapsed, 1.0), s.switches, s.engaged, s.in_band])
 	print("\n".join(lines))
-	_check("the player ships pursued and fought on their own (%d requests over %.0f s, %d reversals); every pursuit request named a hostile in contact" % [all_requests, elapsed, reversals],
+	_check("the player ships pursued and fought on their own (%d requests over %.0f s); every pursuit request named a hostile in contact" % [all_requests, elapsed],
 		battle.pacing.first_shot >= 0.0 and all_requests > 0 and informed)
 	_check("a Move given mid-battle kept its destination against autonomous pursuit", moved[0] and moved[1])
 
@@ -379,33 +372,6 @@ func _v6_waypoints() -> void:
 	var collisions: Array = group.map(func(s: Node3D) -> int: return s.get_node("Locomotion").collision_count)
 	_check("the group flew all 3 waypoints (orders %s, legs %s, every request a leg) and ended near the last one (%s); closest bounding circles %.1f u apart, collisions %s" % [str(taken), str(legs), ", ".join(ends), gap[0], str(collisions)],
 		done and taken == [2, 2, 2] and legs == [3, 3] and only_legs and bs.all(func(b: Node) -> bool: return b._here().distance_to(points[2]) < 12.0) and collisions == [0, 0])
-
-
-# --- V7 ----------------------------------------------------------------------------------
-
-## The FF01A (Siege) fights a hostile; its long-range ammunition runs out mid-fight.
-func _v7_fallback() -> void:
-	print("\n=== V7 Weapon Profile fallback (ammunition)")
-	await _load(true)
-	_put("FF01A", Vector2(-80, 100), EAST)
-	_put("HostileFF01B", Vector2(10, 100), WEST) # 90 u
-	await _sense()
-	scene.orders.set_stance([_ship("FF01A")], AGGRESSIVE)
-	scene.orders.set_profile([_ship("FF01A")], P.SIEGE)
-	var b = _b("FF01A")
-	await _run(12.0)
-	var before: int = b.effective_profile
-	for w in _c("FF01A").weapons:
-		if Profiles.category(w) == P.SIEGE:
-			w.ammo = 0
-			w.magazine = 0
-	var changes_before: int = b.fallbacks.size()
-	await _run(20.0)
-	var requests := _requests(b)
-	print("  profile changes: %s; requests: %s" % [str(b.fallbacks), str(requests)])
-	_check("Siege until the long-range rounds ran out, then Mid-range (%s), request kept Siege; %d profile change(s) after, %d reversals" % [b.fallback_reason, b.fallbacks.size() - changes_before, b.direction_changes],
-		before == P.SIEGE and b.effective_profile == P.MID and b.fallback_reason == "no ammunition" and b.requested_profile == P.SIEGE
-		and b.fallbacks.size() - changes_before == 1 and b.direction_changes <= 1 and requests.any(func(l: String) -> bool: return l.contains("Mid-range band")))
 
 
 # --- V8 ----------------------------------------------------------------------------------

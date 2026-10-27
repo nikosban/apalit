@@ -46,7 +46,7 @@ static func apply(arena: Node, index: int) -> String:
 	_place(ha, 88, -16, WEST); _place(hb, 76, -30, WEST); _place(hc, 74, -4, WEST)
 	o.set_stance([a, b, c, ha, hb, hc], AGGRESSIVE)
 	# Played with the Behavior layer, the player ships get their Behavior node (commands,
-	# tactics, weapon profiles). The hostile fleet stays under HostileFleet, its commander:
+	# tactics). The hostile fleet stays under HostileFleet, its commander:
 	# autonomous Behavior movement would compete with its station orders.
 	if arena.behavior_layer:
 		for ship: Node3D in [a, b, c]:

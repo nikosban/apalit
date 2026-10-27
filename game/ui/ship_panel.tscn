@@ -72,18 +72,6 @@ layout_mode = 2
 size_flags_horizontal = 3
 tooltip_text = "F1 Passive, F2 Defensive, F3 Aggressive"
 
-[node name="ProfileRow" type="HBoxContainer" parent="Panel/Layout/Scroll/Body/Combat"]
-layout_mode = 2
-
-[node name="Label" type="Label" parent="Panel/Layout/Scroll/Body/Combat/ProfileRow"]
-layout_mode = 2
-text = "Weapon profile"
-
-[node name="Profile" type="OptionButton" parent="Panel/Layout/Scroll/Body/Combat/ProfileRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-tooltip_text = "Only the profiles the installed weapons support (P: next)"
-
 [node name="Command" type="Label" parent="Panel/Layout/Scroll/Body/Combat"]
 layout_mode = 2
 autowrap_mode = 3

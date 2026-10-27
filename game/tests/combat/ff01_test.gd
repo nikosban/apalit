@@ -13,7 +13,6 @@ const BARRAGE := "res://game/weapons/rl8_barrage.tscn"
 const WAYFARER := "res://game/weapons/gcm4_wayfarer.tscn"
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const Behavior := preload("res://game/behavior/ship_behavior.gd")
-const Profiles := preload("res://game/behavior/weapon_profiles.gd")
 const EPS := 0.00001
 ## Test-owned starting position (facing +X); independent of the authored Combat Test spawns.
 const SPAWN := Vector3(-45, 1.5, 0)
@@ -88,8 +87,8 @@ func _authored() -> void:
 			same = same and a.get(prop) == handling[prop]
 		_check("%s uses the existing script, the shared defaults and the large-hull handling" % name, same)
 	var behavior := unit.get_node("Behavior")
-	_check("FF-01 opts into cannon positioning (off by default) with the approved editable prototype parameters",
-		behavior.combat_positioning and not defaults.combat_positioning and behavior.combat_weapon_family == &"cannon"
+	_check("FF-01 cannon positioning with the approved editable prototype parameters",
+		behavior.combat_weapon_family == &"cannon"
 		and behavior.combat_min_distance == 27.0 and behavior.combat_max_distance == 45.0 and behavior.combat_nominal_distance == 38.25
 		and behavior.combat_tangential_speed == 1.5 and behavior.combat_decision_interval == 0.5 and behavior.combat_order_interval == 1.0)
 	_check("FF-01 exposes a continuous transition region and limits cannon-facing adjustment to its flight course",
@@ -193,9 +192,9 @@ func _load() -> void:
 		await physics_frame
 	_check("FF-01 navigation map is ready at planning radius 7.2", ready and follower.planning_radius() == 7.2)
 	var subject := scene.get_node("Ships/FF01")
-	_check("two Bastions, four Kestrels, one Barrage and one Wayfarer, no incompatible weapons, Siege, Mid-range and Close Quarters profiles, no shots; full initial fuel",
+	_check("two Bastions, four Kestrels, one Barrage and one Wayfarer, no incompatible weapons, no shots; full initial fuel",
 		CombatShip.of(subject).weapons.size() == 8 and CombatShip.of(subject).incompatible.is_empty()
-		and Profiles.available(CombatShip.of(subject)) == [Profiles.Profile.SIEGE, Profiles.Profile.MID, Profiles.Profile.CLOSE] and scene.projectiles.spawned == 0 and scene.projectiles.launched == 0
+		and scene.projectiles.spawned == 0 and scene.projectiles.launched == 0
 		and subject.get_node("Fuel").fuel == 400.0)
 	_check("FF-01 resolves the arena's existing navigation, collision, contacts and projectile services",
 		follower._navigation == navigation and subject.get_node("Locomotion")._collision == scene.get_node("PlanarCollision")
@@ -234,9 +233,9 @@ func _selection_and_movement() -> void:
 		and scene.selection()._parts.has(subject) and scene._markers.has(subject))
 	var panel := scene.get_node("ShipPanel")
 	await process_frame
-	_check("FF-01 panel: hull 160, command controls, the Siege, Mid-range and Close Quarters profiles, two NC-90 and four PDC-20 weapon rows",
+	_check("FF-01 panel: hull 160, command controls, two NC-90 and four PDC-20 weapon rows",
 		panel.ship == subject and panel._hull.text == "Hull: 160 / 160" and panel._combat.visible
-		and panel._profile.item_count == 3 and panel._weapons.text.count("NC-90 Bastion") == 2 and panel._weapons.text.count("PDC-20 Kestrel") == 4)
+		and panel._weapons.text.count("NC-90 Bastion") == 2 and panel._weapons.text.count("PDC-20 Kestrel") == 4)
 	var destination := Vector3(-18, 0, -40)
 	await _look_at(destination)
 	await _click(MOUSE_BUTTON_RIGHT, destination)

@@ -1,6 +1,5 @@
 extends SceneTree
-## Stage 6B. Fixed 60 Hz production movement/weapon integration. Optional
-## -- baseline measures the unmodified profile behavior under identical conditions.
+## Stage 6B. Fixed 60 Hz production movement/weapon integration.
 const Harness := preload("res://game/tests/combat/fixtures/combat_positioning_harness.gd")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const Behavior := preload("res://game/behavior/ship_behavior.gd")
@@ -15,12 +14,10 @@ class RefusalArena:
 var harness: Node
 var checks := 0
 var failures := 0
-var baseline := false
 
 
 func _initialize() -> void:
 	await process_frame
-	baseline = OS.get_cmdline_user_args().has("baseline")
 	if OS.get_cmdline_user_args().has("course"):
 		await _course_comparison()
 		_free()
@@ -46,13 +43,12 @@ func _initialize() -> void:
 		return
 	for side in [1, -1]:
 		await _engagement(side)
-	if not baseline:
-		await _commands()
-		await _lifecycle()
-		await _availability_and_refusal()
-		await _dynamic_and_boundaries()
-		await _docking()
-		await _ordinary_damage_and_faction()
+	await _commands()
+	await _lifecycle()
+	await _availability_and_refusal()
+	await _dynamic_and_boundaries()
+	await _docking()
+	await _ordinary_damage_and_faction()
 	_free()
 	print("RESULT: %s (%d of %d checks failed)" % ["PASS" if failures == 0 else "FAIL", failures, checks])
 	quit(1 if failures > 0 else 0)
@@ -75,7 +71,7 @@ func _load(start := Vector2(-240, -240), target_at := Vector2(-160, -240), side 
 	_free()
 	harness = Harness.new()
 	root.add_child(harness)
-	await harness.setup(root, not baseline, start, target_at, side)
+	await harness.setup(root, start, target_at, side)
 
 
 func _run(seconds: float) -> void:
@@ -92,10 +88,7 @@ func _engagement(side: int) -> void:
 	var band_samples: Array = harness.samples.filter(func(s: Dictionary) -> bool: return s.distance <= 45.0 and s.distance >= 27.0)
 	stats["first_band"] = band_samples[0].time if not band_samples.is_empty() else -1.0
 	stats["side"] = side
-	stats["baseline"] = baseline
 	print("MEASURE " + JSON.stringify(stats))
-	if baseline:
-		return
 	_check("side %d: complete 60 s measurement; detected denominator %.2f s, unobstructed %.2f s" % [side, stats.detected_seconds, stats.unobstructed_seconds],
 		stats.seconds >= 59.9 and stats.detected_seconds >= 59.9 and stats.unobstructed_seconds >= 59.9)
 	_check("side %d: band %.1f%% >=70%%" % [side, stats.band * 100.0], stats.band >= 0.7)
@@ -279,12 +272,6 @@ func _availability_and_refusal() -> void:
 		weapon.ammo = 20
 	await _run(2.0)
 	_check("restored availability reevaluates while Attack owns command", lo.combat_control)
-	var side: int = b.combat_side
-	var band: Dictionary = b.combat_band()
-	for profile in [0, 1, 2]:
-		harness.arena.orders.set_profile([ship], profile)
-		await _run(0.5)
-	_check("legacy profile changes do not select FF-01 band or broadside", b.combat_band() == band and b.combat_side == side)
 	harness.arena.orders.move([ship], Vector2(-280, -250))
 	var explicit_destination: Vector2 = lo.destination
 	for weapon in cannons:
@@ -295,7 +282,7 @@ func _availability_and_refusal() -> void:
 	harness = Harness.new()
 	harness.arena_override = RefusalArena
 	root.add_child(harness)
-	await harness.setup(root, true, Vector2(-240, -240), Vector2(-202, -240))
+	await harness.setup(root, Vector2(-240, -240), Vector2(-202, -240))
 	ship = harness.subject
 	b = ship.get_node("Behavior")
 	harness.arena.orders.attack([ship], harness.enemy)
@@ -347,17 +334,16 @@ func _obstacle_case() -> void:
 	print("OBSTACLE TRACE " + JSON.stringify(harness.subject.get_node("Behavior").log))
 	_check("authored asteroids produce a real navigation detour without penetration", max_points >= 3
 		and harness.samples.all(func(s: Dictionary) -> bool: return s.clearance >= -0.001 and s.ship_gap >= -0.001 and s.edge >= -0.001))
-	if not baseline:
-		var stats: Dictionary = harness.statistics(40.0)
-		var behavior: Node = harness.subject.get_node("Behavior")
-		print("OBSTACLE FLIGHT " + JSON.stringify(harness.flight_statistics(40.0, 60.0)))
-		# Stage 6B.1 prioritizes forward flight. One bounded braking turn is allowed
-		# only for the logged committed escape from an obstructed approach. This is
-		# distinct from repeated stop/rotate cycles in ordinary unobstructed engagement.
-		var justified_pause: bool = stats.stops == 0 or (stats.stops == 1 and behavior.combat_side_changes == 1
-			and behavior.log.any(func(line: String) -> bool: return line.contains("committed opposite approach")))
-		_check("detour retains contact, useful motion and cannon opportunities; any pause is one justified escape", stats.detected_seconds >= 59.9 and stats.band >= 0.7
-			and stats.one >= 0.8 and stats.both >= 0.6 and stats.moving >= 0.7 and justified_pause)
+	var stats: Dictionary = harness.statistics(40.0)
+	var behavior: Node = harness.subject.get_node("Behavior")
+	print("OBSTACLE FLIGHT " + JSON.stringify(harness.flight_statistics(40.0, 60.0)))
+	# Stage 6B.1 prioritizes forward flight. One bounded braking turn is allowed
+	# only for the logged committed escape from an obstructed approach. This is
+	# distinct from repeated stop/rotate cycles in ordinary unobstructed engagement.
+	var justified_pause: bool = stats.stops == 0 or (stats.stops == 1 and behavior.combat_side_changes == 1
+		and behavior.log.any(func(line: String) -> bool: return line.contains("committed opposite approach")))
+	_check("detour retains contact, useful motion and cannon opportunities; any pause is one justified escape", stats.detected_seconds >= 59.9 and stats.band >= 0.7
+		and stats.one >= 0.8 and stats.both >= 0.6 and stats.moving >= 0.7 and justified_pause)
 
 
 func _docking() -> void:
@@ -365,7 +351,7 @@ func _docking() -> void:
 	harness = Harness.new()
 	harness.with_station = true
 	root.add_child(harness)
-	await harness.setup(root, true, Vector2(-270, -240), Vector2(-245, -290))
+	await harness.setup(root, Vector2(-270, -240), Vector2(-245, -290))
 	var ship: Node3D = harness.subject
 	var b: Node = ship.get_node("Behavior")
 	var lo: Node = ship.get_node("Locomotion")
@@ -400,7 +386,7 @@ func _ordinary_damage_and_faction() -> void:
 	_free()
 	harness = Harness.new()
 	root.add_child(harness)
-	await harness.setup(root, true, Vector2(-240, -240), Vector2(-202, -240), 1, false)
+	await harness.setup(root, Vector2(-240, -240), Vector2(-202, -240), 1, false)
 	var ship: Node3D = harness.subject
 	harness.arena.orders.attack([ship], harness.enemy)
 	await _run(45.0)
@@ -411,7 +397,7 @@ func _ordinary_damage_and_faction() -> void:
 	harness = Harness.new()
 	harness.reverse_factions = true
 	root.add_child(harness)
-	await harness.setup(root, true, Vector2(-240, -240), Vector2(-202, -240))
+	await harness.setup(root, Vector2(-240, -240), Vector2(-202, -240))
 	ship = harness.subject
 	var taken: int = harness.arena.orders.attack([ship], harness.enemy)
 	await _run(8.0)

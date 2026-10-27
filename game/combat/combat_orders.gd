@@ -8,7 +8,7 @@ extends Node
 ##   targeting: assign_target(), clear_target();
 ##   engagement: set_stance();
 ##   command (behavior prototype, ships with a Behavior node only): attack(), guard(),
-##              attack_move(), waypoint(), request(), cancel(), set_profile().
+##              attack_move(), waypoint(), request(), cancel().
 ## A group order overwrites that channel on every addressed ship, including earlier
 ## individual orders; other channels stay as they are. Destroyed ships take no orders.
 ## Returns the number of ships that took the order (move: whether it was given).
@@ -108,10 +108,6 @@ func request(ships: Array, kind: String) -> int:
 
 func cancel(ships: Array) -> int:
 	return _behavior("cancel", ships, func(b: Node) -> bool: return b.order_cancel())
-
-
-func set_profile(ships: Array, profile: int) -> int:
-	return _behavior("profile %d" % profile, ships, func(b: Node) -> bool: return b.set_profile(profile))
 
 
 func _with_behavior(ships: Array) -> Array:

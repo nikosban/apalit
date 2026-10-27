@@ -23,14 +23,12 @@ extends CanvasLayer
 ## editor (TransportEditor) beside the panel.
 ## Combat migration: Status shows the hull (every ship has one; "DESTROYED" for a hulk).
 ## Combat (armed ships only, those with a Behavior: no empty weapon panel on an unarmed
-## ship): the tactic and the weapon profile (only those the installed weapons support;
-## the effective one and why, when it fell back) as selectors issuing CombatOrders, the
-## current command, the target and its state, and every weapon's state and ammunition.
+## ship): the tactic as a selector issuing CombatOrders, the current command, the target
+## and its state, and every weapon's state and ammunition.
 
 const ShipSelection := preload("res://game/selection/ship_selection.gd")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const CombatHud := preload("res://game/ui/combat_hud.gd")
-const Profiles := preload("res://game/behavior/weapon_profiles.gd")
 const Scanner := preload("res://game/survey/scanner.gd")
 const MiningOperation := preload("res://game/mining/mining_operation.gd")
 const Cargo := preload("res://game/cargo/cargo.gd")
@@ -89,7 +87,6 @@ var _named: Node3D = null # The ship the name field was filled for.
 @onready var _hull: Label = $Panel/Layout/Scroll/Body/Status/Health
 @onready var _combat: Control = $Panel/Layout/Scroll/Body/Combat
 @onready var _tactic: OptionButton = $Panel/Layout/Scroll/Body/Combat/TacticRow/Tactic
-@onready var _profile: OptionButton = $Panel/Layout/Scroll/Body/Combat/ProfileRow/Profile
 @onready var _command: Label = $Panel/Layout/Scroll/Body/Combat/Command
 @onready var _combat_target: Label = $Panel/Layout/Scroll/Body/Combat/Target
 @onready var _weapons: Label = $Panel/Layout/Scroll/Body/Combat/Weapons
@@ -129,9 +126,6 @@ func _ready() -> void:
 	_tactic.item_selected.connect(func(index: int) -> void:
 		if _orders != null and ship != null:
 			_orders.set_stance([ship], _tactic.get_item_id(index)))
-	_profile.item_selected.connect(func(index: int) -> void:
-		if _orders != null and ship != null:
-			_orders.set_profile([ship], _profile.get_item_id(index)))
 	_on_selection_changed()
 
 
@@ -172,14 +166,7 @@ func _update_combat() -> void:
 		return
 	if _tactic.selected != _tactic.get_item_index(combat.stance) and not _tactic.get_popup().visible:
 		_tactic.select(_tactic.get_item_index(combat.stance))
-	if _profile.item_count > 0 and not _profile.get_popup().visible:
-		var index := _profile.get_item_index(behavior.requested_profile)
-		if index >= 0 and _profile.selected != index:
-			_profile.select(index)
-	var command: String = behavior.describe().split("  |  ")[0]
-	if behavior.effective_profile >= 0 and behavior.effective_profile != behavior.requested_profile:
-		command += "\nProfile in use: %s%s" % [Profiles.NAMES[behavior.effective_profile], " (%s)" % behavior.fallback_reason if behavior.fallback_reason != "" else ""]
-	_command.text = command
+	_command.text = behavior.describe()
 	_combat_target.text = "Target: %s" % CombatHud.target_text(combat)
 	_weapons.text = "\n".join(CombatHud.weapon_lines(combat))
 
@@ -312,12 +299,8 @@ func _on_selection_changed() -> void:
 	_activity.visible = ship.get_node_or_null("Mining") != null or _transport_of(ship) != null
 	_dock_status.visible = _docking_of(ship) != null
 	_cargo_section.visible = ship.get_node_or_null("Cargo") != null
-	# Combat: armed ships (with a Behavior) only; the profile list is the loadout's.
+	# Combat: armed ships (with a Behavior) only.
 	_combat.visible = ship.get_node_or_null("Behavior") != null and CombatShip.of(ship) != null and _orders != null
-	_profile.clear()
-	if _combat.visible:
-		for profile: int in Profiles.available(CombatShip.of(ship)):
-			_profile.add_item(Profiles.NAMES[profile], profile)
 	var scanner := scanner_of(ship)
 	_equipment.text = scanner.kind_name() if scanner != null else "No scanner"
 	_scan.visible = scanner != null

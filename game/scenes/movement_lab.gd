@@ -46,7 +46,7 @@ extends Node3D
 ##     Ctrl + right-click a hostile = Attack, a friendly ship = Guard it, the ground =
 ##     Attack-Move; Shift + right-click the ground = add a waypoint (ships with Behavior);
 ##     F1 / F2 / F3 tactic Passive / Defensive / Aggressive; Backspace clear the manual
-##     target; X cancel the command; P next available weapon profile; T attack-target
+##     target; X cancel the command; T attack-target
 ##     selection (0.25x; left-click a hostile; Esc or right-click elsewhere cancels);
 ##     hold Alt weapon ranges; G tactical grid (only with `tactical_grid_available`);
 ##     F10 combat debug overlay; F8 cycles the skybox experiment (A / B / C); F7
@@ -81,7 +81,6 @@ const TacticalGrid := preload("res://game/presentation/tactical_grid.gd")
 const StrategicView := preload("res://game/presentation/strategic_view.gd")
 const SectorEnvironment := preload("res://game/presentation/sector_environment.gd")
 const BehaviorView := preload("res://game/presentation/behavior_view.gd")
-const Profiles := preload("res://game/behavior/weapon_profiles.gd")
 const PLAYER_FACTION := 0
 ## Children that keep processing while paused (input, camera, UI, presentation); every
 ## other child is simulation and pauses.
@@ -967,23 +966,6 @@ func _combat_key(code: Key, _shift: bool = false) -> bool:
 				return false
 			if orders.cancel(selected) > 0:
 				_show_notice("Orders canceled")
-		KEY_P:
-			if not _behavior_selected():
-				return false
-			# The next profile any selected ship supports, after the first ship's request; a
-			# ship whose loadout does not support it keeps its own (never assigned silently).
-			var current: int = selected[0].get_node("Behavior").requested_profile
-			var offered: Array[int] = []
-			for each: Node in selected:
-				for profile: int in Profiles.available(CombatShip.of(each)):
-					if not offered.has(profile):
-						offered.append(profile)
-			offered.sort()
-			if not offered.is_empty():
-				var next: int = offered[(offered.find(current) + 1) % offered.size()]
-				var count: int = orders.set_profile(selected, next)
-				_show_notice("Weapon profile: %s (%d of %d ships%s)" % [Profiles.NAMES[next], count, selected.size(),
-					"" if count == selected.size() else "; the others do not support it and keep theirs"])
 		_:
 			return false
 	return true

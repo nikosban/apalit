@@ -1,5 +1,5 @@
 extends Node
-## Commands, Tactics and Weapon Profiles for one armed ship (node `Behavior`, in the
+## Commands and Tactics for one armed ship (node `Behavior`, in the
 ## armed variant (FF-01); migrated from the behavior prototype v0.1 accepted in
 ## P01–P03 and E05). Friendly and hostile ships run the same code; a hostile ship's
 ## commands come from its commander. It never moves, turns or fires the ship itself: it
@@ -25,20 +25,18 @@ extends Node
 ##     contact) while in contact; Defensive keeps the defended area around the point where
 ##     it became idle (local firing positions only, never a pursuit); Hold Fire (Passive)
 ##     does nothing.
-##   3 Weapon Profile: where Aggressive pursuit and Attack hold their target (band), and
-##     the idle turn that brings a weapon's arc onto it. Never under Guard or a Move.
-## Decisions every DECISION_INTERVAL; a new movement request only when the wanted point
+## Decisions every combat_decision_interval; a new movement request only when the wanted point
 ## moved by more than a tolerance, and not more often than MIN_ORDER_INTERVAL.
 ## Information: only targets in the faction's contact (Combat.target_status() VALID); a
 ## lost Attack target leaves only its last position seen while in contact.
-## FF-01 opts into cannon-derived radial/tangential objectives and one-step combat
-## heading/speed inputs. Its interrupted Attack transfers a live designation to the
+## Aggressive pursuit and Attack hold their target with cannon-derived radial/tangential
+## objectives (combat_band()) and one-step combat heading/speed inputs; weapons fire
+## independently of that band. An interrupted Attack transfers a live designation to the
 ## manual-target channel, revokes Attack authorization, and inhibits idle resumption.
 
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const RouteFollower := preload("res://game/navigation/route_follower.gd")
 const StaticNavigation := preload("res://game/navigation/static_navigation.gd")
-const Profiles := preload("res://game/behavior/weapon_profiles.gd")
 const Docking := preload("res://game/stations/docking.gd")
 const CombatObstacles := preload("res://game/combat/combat_obstacles.gd")
 const TS := CombatShip.TargetState
@@ -53,13 +51,6 @@ const MIN_ORDER_INTERVAL := 1.0 # s between two movement requests (engagement, d
 const RESTATION := 8.0 # u an engagement station must move before it is requested again
 const ROCK_CLEARANCE := 3.0 # u between a footprint and an asteroid
 const SIGHT_MARGIN := 0.5 # u added to asteroid radii for a line of fire
-const ROTATION_STEP := 15.0 # ° between engagement stations tried around the target
-const MAX_ROTATION := 120.0 # °
-const FALLBACK_HOLD := 5.0 # s a profile without a reachable station is skipped
-const MAX_FALLBACK_HOLD := 40.0 # s
-const MAX_RETREATS := 3 # open-range requests in a row (each within RETREAT_WINDOW) before falling back
-const RETREAT_WINDOW := 4.0 # s
-const RETREAT_REACH := 30.0 # u: a standoff position farther from the ship is not pursued (cornered)
 const HEADING_TOLERANCE := 5.0 # °
 ## Defensive (provisional, to be tuned in play).
 const DEFENSE_RADIUS := 12.0 # u around the anchor a defender may reposition within
@@ -82,7 +73,6 @@ const COMBAT_ALIGNED_DEG := 25.0 # Stage 6B.2: combat throttle stays full within
 const COMBAT_CAP_EASE := 0.5 # Stage 6B.2: share of reverse acceleration the tactical combat cap may fall by per second.
 
 @export_group("Autonomous combat positioning")
-@export var combat_positioning := false # Opt-in on FF-01 only; shared across factions.
 @export var combat_weapon_family := &"cannon"
 @export var combat_min_distance := 27.0
 @export var combat_max_distance := 45.0
@@ -121,9 +111,6 @@ var _combat_inhibited := false # An interrupted Attack never resumes through idl
 var _combat_visible_route := false # Candidate-query diagnostic; existing navigation paths only.
 
 var command := Command.NONE
-var requested_profile := Profiles.Profile.SIEGE
-var effective_profile := -1
-var fallback_reason := ""
 var guard_target: Node3D = null
 var guard_slot := -1
 var attack_target: Node3D = null
@@ -144,15 +131,12 @@ var _route_start := Vector2.ZERO
 var _route_resolved := Vector2.ZERO
 var _route := PackedVector2Array() # Attack-Move: the route last planned to the destination.
 var _owns_target := false # The Attack set the manual target (and clears it when it ends).
-var _pursued: Node3D = null # The target of the last engagement request (Aggressive pursuit).
 var log: Array[String] = []
 # Measurements.
 var move_requests := 0
 var heading_requests := 0
-var direction_changes := 0 # approach <-> open-range reversals
 var reposition_requests := 0 # Defensive local firing positions
 var guard_reassignments := 0
-var fallbacks: Array[String] = []
 var firing_time := 0.0 # s with a valid firing opportunity (a weapon in state Valid)
 var max_anchor_distance := 0.0
 var guard_time := 0.0 # s under Guard
@@ -163,12 +147,6 @@ var _plans_seen := 0
 var _own_request := Vector2.INF
 var _last_order := -INF
 var _last_heading := INF
-var _direction := 0
-var _blocked_until := {} # profile -> time
-var _block_reason := {} # profile -> why it is skipped
-var _block_hold := {} # profile -> current skip duration (s)
-var _retreats := 0
-var _last_retreat := -INF
 var _last_threat := -INF
 var _slot_blocked := 0.0
 var _last_stance := -1
@@ -192,9 +170,6 @@ func _ready() -> void:
 	assert(_navigation != null, "Behavior requires StaticNavigation at RouteFollower.navigation_path")
 	process_physics_priority = -3 # After the sensors, before scripted orders, RouteFollower and Locomotion.
 	_plans_seen = follower.plans
-	var available := Profiles.available(combat)
-	if not available.is_empty():
-		requested_profile = available[0]
 	_last_stance = combat.stance
 	if arena.has_signal("command_given"):
 		arena.command_given.connect(_on_command_given)
@@ -326,24 +301,13 @@ func request_replacement(kind: String) -> bool:
 
 
 ## Cancel: the command and everything it owns end (Guard, the Attack's target, waypoints);
-## a ship under way brakes to a stop; tactic and profile stay.
+## a ship under way brakes to a stop; the tactic stays.
 func order_cancel() -> bool:
 	if not combat.alive:
 		return false
 	_replace("Cancel")
-	if combat_positioning:
-		_combat_inhibited = true
+	_combat_inhibited = true
 	_stop()
-	return true
-
-
-func set_profile(profile: int) -> bool:
-	# Stage 6B UI debt: FF-01 still exposes this legacy selector; its positioning ignores it.
-	if not Profiles.available(combat).has(profile):
-		return false
-	requested_profile = profile
-	_blocked_until.clear()
-	_note("profile %s" % Profiles.NAMES[profile])
 	return true
 
 
@@ -380,19 +344,14 @@ func _physics_process(delta: float) -> void:
 	if _clock > 0.000001:
 		_update_combat_facing(delta)
 		return
-	_clock += maxf(combat_decision_interval, 0.05) if combat_positioning else DECISION_INTERVAL
+	_clock += maxf(combat_decision_interval, 0.05)
 	match command:
 		Command.NONE:
-			if combat_positioning and _combat_inhibited:
+			if _combat_inhibited:
 				_update_combat_facing(delta)
 				return
 			if combat.stance == CombatShip.Stance.AGGRESSIVE:
-				var target := _pursuit_target()
-				if target == null and _moving() and is_instance_valid(_pursued) and combat.target_status(_pursued) == TS.CONTACT_LOST:
-					_note("contact lost with %s: pursuit stopped" % _pursued.name)
-					_pursued = null
-					_stop() # No hidden position is followed.
-				_engage(target)
+				_combat_engage(_pursuit_target(), false)
 			elif combat.stance == CombatShip.Stance.DEFENSIVE:
 				_defend()
 		Command.ATTACK:
@@ -450,12 +409,11 @@ func _replace(by: String) -> void:
 	if command == Command.GUARD:
 		_end_guard("canceled by %s" % by)
 	elif command == Command.ATTACK:
-		var retain := combat_positioning and by in ["Move", "Waypoint Move"]
+		var retain: bool = by in ["Move", "Waypoint Move"]
 		_end_attack("replaced by %s" % by, retain, by not in ["Move", "Waypoint Move"])
 	elif command != Command.NONE:
 		_note("%s replaced by %s" % [COMMAND_NAMES[command], by])
-	if combat_positioning:
-		_release_combat(false)
+	_release_combat(false)
 	command = Command.NONE
 	waypoints.clear()
 	encounter = null
@@ -485,13 +443,12 @@ func _end_guard(why: String) -> void:
 	_set_anchor()
 
 
-# Attack authorization ends here. FF-01 Move/Waypoint replacements transfer a live
+# Attack authorization ends here. Move/Waypoint replacements transfer a live
 # designation to independent manual targeting; every other owned designation ends.
 func _end_attack(why: String, retain_target := false, stop_owned := true) -> void:
 	_note("attack ended: %s" % why)
-	if combat_positioning:
-		_release_combat(stop_owned)
-		_combat_inhibited = true
+	_release_combat(stop_owned)
+	_combat_inhibited = true
 	if is_instance_valid(attack_target):
 		if combat.attack_target == attack_target:
 			combat.attack_target = null
@@ -535,15 +492,13 @@ func _request_move(point: Vector2, why: String, through := PackedVector2Array())
 		return false # A scene without the production command layer: the layer stays passive.
 	_own_request = point
 	var accepted: bool = arena.autonomous_move(ship, point, through) if not through.is_empty() else arena.autonomous_move(ship, point)
-	# Keep legacy callers' behavior; FF-01 uses the actual acceptance result, never
-	# mistakes an older active leg for an accepted replacement, and logs only success.
-	var given: bool = accepted if combat_positioning else (locomotion.has_destination or follower.status == RouteFollower.RouteStatus.WAITING)
+	# The actual acceptance result: an older active leg is never mistaken for an accepted
+	# replacement, and only success is logged.
 	_plans_seen = follower.plans
 	_own_request = follower.requested
-	if not given:
+	if not accepted:
 		return false
-	if combat_positioning:
-		_combat_leg = false # The caller explicitly marks accepted combat objectives.
+	_combat_leg = false # The caller explicitly marks accepted combat objectives.
 	station = point
 	_resolved = locomotion.destination if locomotion.has_destination else point
 	has_station = true
@@ -569,7 +524,7 @@ func _request_heading(heading: float) -> void:
 
 # --- Engagement (Aggressive pursuit, Attack) ---------------------------------------------
 
-## Installed primary weapons, independent of profiles and temporary firing timers.
+## Installed primary weapons, independent of temporary firing timers.
 func combat_weapons() -> Array:
 	return combat.weapons.filter(func(w: Node) -> bool: return w.config.family == combat_weapon_family and w.enabled and w.offensive_reach() > 0.0)
 
@@ -606,6 +561,9 @@ func _combat_note(why: String) -> void:
 		_note("combat: " + why)
 
 
+## The engagement (Aggressive pursuit, Attack, an Attack-Move encounter): holds `target`
+## in combat_band(). `on_route` (Attack-Move): positions only within ATTACK_MOVE_LEASH of
+## the route. Returns whether the ship is engaging rather than travelling.
 func _combat_engage(target: Node3D, on_route: bool) -> bool:
 	if target == null or combat.target_status(target) != TS.VALID:
 		return false
@@ -811,8 +769,6 @@ func _combat_choose_heading(target: Node3D, weapons: Array, travel: Vector2) -> 
 
 
 func _update_combat_facing(delta: float) -> void:
-	if not combat_positioning:
-		return
 	if not _combat_owns_leg() or investigating or not is_instance_valid(_combat_target) \
 			or combat.target_status(_combat_target) != TS.VALID or combat_weapons().is_empty():
 		locomotion.release_combat_motion()
@@ -903,75 +859,6 @@ func _pursuit_target() -> Node3D:
 	return best
 
 
-## Holds `target` in the effective profile's band: approach beyond the band (unless one
-## of the profile's weapons can already engage, or the target is within their reach with
-## a clear line, where a turn does), open the distance inside it, otherwise stay and turn
-## a weapon's arc onto it. A standoff position more than RETREAT_REACH away, or repeated
-## retreats that do not restore the band, make the next profile take over for a while.
-## `on_route` (Attack-Move): positions only within ATTACK_MOVE_LEASH of the route, and
-## travel goes on when none is needed or allowed. Returns whether the ship is engaging
-## (holding or moving for the target) rather than travelling.
-func _engage(target: Node3D, on_route := false) -> bool:
-	if combat_positioning:
-		return _combat_engage(target, on_route)
-	if target == null or combat.target_status(target) != TS.VALID:
-		return false
-	var profile := effective()
-	if profile < 0:
-		return false
-	var band := Profiles.band(combat, profile)
-	var here := _here()
-	var there := _planar(target)
-	var distance := here.distance_to(there)
-	var need := 0
-	if distance < band.near:
-		need = -1
-	elif distance > band.far and not _capable(Profiles.usable(combat, profile), target) \
-			and (distance > band.reach - Profiles.RANGE_MARGIN or not line_clear(here, there)):
-		need = 1 # Beyond reach or blocked; within reach a turn is enough.
-	var travelling: bool = on_route and _moving() and _on_route()
-	if need == 0:
-		if travelling:
-			return false # Fires on the way.
-		if not _moving():
-			_orient(target, Profiles.usable(combat, profile))
-		return true
-	if _moving() and has_station and not _on_route() and _station_ok(station, there, band):
-		return true # The position under way still works.
-	if now() - _last_order < MIN_ORDER_INTERVAL - 0.000001:
-		return not travelling
-	var stations := _stations(there, here, band.station)
-	if stations.is_empty():
-		_position_fallback(profile, "no reachable position")
-		return false
-	if on_route:
-		stations = stations.filter(func(point: Vector2) -> bool: return _route_offset(point) <= ATTACK_MOVE_LEASH)
-		if stations.is_empty():
-			return false # Off the leash: travel on.
-	if need < 0 and stations[0].distance_to(here) > RETREAT_REACH:
-		_position_fallback(profile, "no standoff position nearby")
-		return false
-	if need < 0:
-		# Opening the range again while the last retreat has not restored the band: the
-		# target is faster or the ship is cornered; the next profile is tried instead.
-		_retreats = _retreats + 1 if now() - _last_retreat <= RETREAT_WINDOW else 1
-		_last_retreat = now()
-		if _retreats > MAX_RETREATS:
-			_retreats = 0
-			_position_fallback(profile, "standoff not held")
-			return false
-	for point: Vector2 in stations:
-		var why := "%s %s at %.0f u (%s band %.0f-%.0f u)" % ["approach" if need > 0 else "open range from", target.name, distance, Profiles.NAMES[profile], band.near, band.far]
-		if _request_move(point, why):
-			if _direction != 0 and need != _direction:
-				direction_changes += 1
-			_direction = need
-			_pursued = target
-			return true
-	_position_fallback(profile, "no reachable position")
-	return false
-
-
 # --- Attack-Move and Waypoint Move ---------------------------------------------------------
 
 func _attack_move() -> void:
@@ -979,7 +866,7 @@ func _attack_move() -> void:
 	if combat.stance == CombatShip.Stance.AGGRESSIVE and combat.target != null \
 			and combat.target_status(combat.target) == TS.VALID and combat.stance_allows(combat.target) == TS.VALID:
 		enemy = combat.target
-	if enemy != null and _engage(enemy, true):
+	if enemy != null and _combat_engage(enemy, true):
 		if encounter != enemy:
 			_note("encounter with %s on the way" % enemy.name)
 		encounter = enemy
@@ -1056,22 +943,6 @@ func _detect_docking() -> void:
 		_note("docking ended")
 
 
-## The profile has no usable position: skipped for FALLBACK_HOLD, doubled each time it
-## fails again right after being retried (at most MAX_FALLBACK_HOLD).
-func _position_fallback(profile: int, why: String) -> void:
-	var again: bool = now() - _blocked_until.get(profile, -INF) <= DECISION_INTERVAL * 2.0 + 0.000001
-	_block_hold[profile] = minf(_block_hold.get(profile, FALLBACK_HOLD) * 2.0, MAX_FALLBACK_HOLD) if again else FALLBACK_HOLD
-	_blocked_until[profile] = now() + _block_hold[profile]
-	_block_reason[profile] = why
-
-
-# A station still serves: in the band from the target's current position, on the map,
-# clear of asteroids, with a clear line of fire.
-func _station_ok(point: Vector2, there: Vector2, band: Dictionary) -> bool:
-	var distance := point.distance_to(there)
-	return distance >= band.near and distance <= band.far and _position_ok(point) and line_clear(point, there)
-
-
 func _attack() -> void:
 	var target := attack_target
 	if not is_instance_valid(target) or combat.target_status(target) in [TS.INVALID, TS.DESTROYED, TS.NOT_HOSTILE]:
@@ -1081,18 +952,17 @@ func _attack() -> void:
 		if investigating:
 			_note("contact reacquired: %s" % target.name)
 		investigating = false
-		_engage(target)
+		_combat_engage(target, false)
 		return
 	if not has_last_known:
 		_end_attack("contact lost, no last known position")
 		return
 	if not investigating:
-		if combat_positioning:
-			_release_combat(true)
+		_release_combat(true)
 		investigating = true
 		if not _request_move(last_known, "investigate last known position of %s" % target.name):
 			_end_attack("last known position unreachable")
-		elif combat_positioning:
+		else:
 			_combat_leg = true
 			_combat_request = follower.requested
 		return
@@ -1105,38 +975,6 @@ func _note_contact() -> void:
 	if is_instance_valid(attack_target) and combat.target_status(attack_target) == TS.VALID:
 		last_known = _planar(attack_target)
 		has_last_known = true
-
-
-## Effective profile now: the requested one if it can still fire and has had a reachable
-## station, else the next in fallback order. Records every change with its reason.
-func effective() -> int:
-	var chosen := -1
-	var reason := ""
-	for profile: int in Profiles.fallback_order(requested_profile):
-		if Profiles.usable(combat, profile).is_empty():
-			if profile == requested_profile:
-				reason = "no ammunition"
-			continue
-		if _blocked_until.get(profile, -INF) > now():
-			if profile == requested_profile:
-				reason = _block_reason.get(profile, "no reachable position")
-			continue
-		chosen = profile
-		break
-	if chosen < 0:
-		for profile: int in Profiles.fallback_order(requested_profile):
-			if not Profiles.usable(combat, profile).is_empty():
-				chosen = profile
-				break
-	if chosen != effective_profile:
-		var text := "%s -> %s" % ["none" if effective_profile < 0 else Profiles.NAMES[effective_profile], "none" if chosen < 0 else Profiles.NAMES[chosen]]
-		if chosen != requested_profile and reason != "":
-			text += " (%s)" % reason
-		fallbacks.append("%.1f %s" % [now(), text])
-		_note("profile " + text)
-	effective_profile = chosen
-	fallback_reason = reason if chosen != requested_profile else ""
-	return chosen
 
 
 func _capable(weapons: Array, target: Node3D) -> bool:
@@ -1166,21 +1004,6 @@ func _orient(target: Node3D, weapons: Array) -> void:
 			best = turn
 			best_heading = heading
 	_request_heading(best_heading)
-
-
-# Stations at `distance` from the target around the line target -> ship, rotated by up to
-# ±MAX_ROTATION in ROTATION_STEP steps: on the map, clear of asteroids, clear line of
-# fire; nearest to the ship first.
-func _stations(target: Vector2, here: Vector2, distance: float) -> Array[Vector2]:
-	var found: Array[Vector2] = []
-	var axis := (here - target).normalized() if here.distance_to(target) > 0.01 else Vector2.RIGHT
-	var steps := int(MAX_ROTATION / ROTATION_STEP)
-	for k in range(-steps, steps + 1):
-		var point := target + axis.rotated(deg_to_rad(ROTATION_STEP * k)) * distance
-		if _position_ok(point) and line_clear(point, target):
-			found.append(point)
-	found.sort_custom(func(a: Vector2, b: Vector2) -> bool: return a.distance_to(here) < b.distance_to(here))
-	return found
 
 
 # --- Defensive ---------------------------------------------------------------------------
@@ -1430,10 +1253,4 @@ func describe() -> String:
 			text += " to (%.0f, %.0f)%s" % [destination.x, destination.y, " - engaging %s" % encounter.name if is_instance_valid(encounter) else ""]
 		Command.WAYPOINTS:
 			text += " (%d waypoint%s left)" % [waypoints.size(), "" if waypoints.size() == 1 else "s"]
-	var profile := "Profile: %s" % Profiles.NAMES[requested_profile]
-	if effective_profile >= 0 and effective_profile != requested_profile:
-		profile += " -> %s%s" % [Profiles.NAMES[effective_profile], " (%s)" % fallback_reason if fallback_reason != "" else ""]
-	var available := Profiles.available(combat)
-	if available.size() < 3:
-		profile += " [only %s]" % ", ".join(available.map(func(p: int) -> String: return Profiles.NAMES[p]))
-	return "%s  |  %s" % [text, profile]
+	return text

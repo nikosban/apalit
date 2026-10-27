@@ -10,15 +10,13 @@ const ENCOUNTER := preload("res://game/tests/combat/fixtures/encounter_arena.tsc
 const COMBAT_TEST := preload("res://game/scenes/combat_test.tscn")
 const STATION := preload("res://game/stations/station.tscn")
 const UNIT := preload("res://game/ships/ff01_unit.tscn")
-## Test ships added to every loaded scene: name -> faction. Subject and Partner run the
-## standard Behavior path (FF-01's opt-in combat positioning off). Subject has its Wayfarer
-## and Barrage out of action and holds the Mid-range profile (cannons and point defense
-## only), so engagements approach and an asteroid obstructs all of its offensive fire.
+## Test ships added to every loaded scene: name -> faction. Subject has its Wayfarer and
+## Barrage out of action (cannons and point defense only), so engagements approach and an
+## asteroid obstructs all of its offensive fire.
 const TEST_SHIPS := {"Subject": 0, "Partner": 0, "Enemy": 1}
 const Behavior := preload("res://game/behavior/ship_behavior.gd")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const Navigation := preload("res://game/navigation/static_navigation.gd")
-const Profiles := preload("res://game/behavior/weapon_profiles.gd")
 const EPS := 0.01
 
 var scene: Node3D
@@ -121,7 +119,6 @@ func _load(packed: PackedScene, rock_point: Variant = null, with_station := fals
 			ship.get_node("Behavior").set_physics_process(false)
 	for launcher: String in ["WayfarerHardpoint", "BarrageHardpoint"]:
 		_ship("Subject").get_node("Weapons/" + launcher).weapon().enabled = false
-	_b("Subject").set_profile(Profiles.Profile.MID)
 	for frame in 120:
 		var ready := true
 		for ship in scene.get_node("Ships").get_children():
@@ -143,7 +140,6 @@ func _add_test_ships(target: Node) -> void:
 		ship.name = name
 		ship.position.y = 1.5
 		ship.get_node("Combat").faction = TEST_SHIPS[name]
-		ship.get_node("Behavior").combat_positioning = false
 		target.get_node("Ships").add_child(ship)
 
 
@@ -305,10 +301,9 @@ func _case_engagement(mode: String) -> void:
 			scene.orders.attack_move([g], Vector2(200, -130))
 	b.set_physics_process(true)
 	await _run(2.0)
-	var band := Profiles.band(b.combat, b.requested_profile)
-	var positioned: bool = b.has_station and b.station.x > 135 and b._station_ok(b.station, Vector2(200, -90), band)
-	_check("%s: engagement station beyond 135 is requested, routable and retained as valid" % mode,
-		positioned and _route_ends_at(g, b.station) and b.fallbacks.size() <= 1)
+	var positioned: bool = b.has_station and b.station.x > 135
+	_check("%s: engagement station beyond 135 is requested and routable" % mode,
+		positioned and _route_ends_at(g, b.station))
 	if mode == "Attack-Move":
 		_check("Attack-Move engagement still respects its route leash",
 			b.encounter == enemy and b._route_offset(b.station) <= Behavior.ATTACK_MOVE_LEASH)

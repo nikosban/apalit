@@ -12,7 +12,7 @@ extends SceneTree
 ##      reference and no orphan node afterwards
 ##   S5 controls: a right-click on a visible hostile targets it (no MOVE); at Tactical zoom
 ##      the markers pick own ships and never select a hostile; the ship panel shows the hull
-##      and, for armed ships only, tactic, the loadout's profiles and weapons
+##      and, for armed ships only, tactic and weapons
 ## On main.tscn (the economy running):
 ##   S3 pause (Space): simulation clock, mining, refining, ship construction, fuel and
 ##      movement stop; a right-click MOVE is taken at once without anything moving; the
@@ -26,7 +26,6 @@ const COMBAT_TEST := preload("res://game/scenes/combat_test.tscn")
 const MAIN := preload("res://main.tscn")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const Behavior := preload("res://game/behavior/ship_behavior.gd")
-const Profiles := preload("res://game/behavior/weapon_profiles.gd")
 const SimClock := preload("res://game/time/sim_clock.gd")
 const DT := 1.0 / 60.0
 const PLAYER_FLEET := ["FF01"]
@@ -228,13 +227,10 @@ func _s5_controls() -> void:
 	var panel: Node = scene.get_node("ShipPanel")
 	scene.selection().set_selection([ff01_ship])
 	await process_frame
-	var items := []
-	for i in panel._profile.item_count:
-		items.append(panel._profile.get_item_text(i))
-	var row := [panel._hull.text, panel._combat.visible, items]
+	var row := [panel._hull.text, panel._combat.visible]
 	print("  panel: %s" % str(row))
-	_check("armed ship panel: hull and Combat with the FF-01 loadout's profiles (Siege, Mid-range, Close Quarters)",
-		row == ["Hull: 160 / 160", true, ["Siege", "Mid-range", "Close Quarters"]])
+	_check("armed ship panel: hull and Combat",
+		row == ["Hull: 160 / 160", true])
 	scene.selection().set_selection([ff01_ship])
 	await process_frame
 	panel._tactic.item_selected.emit(panel._tactic.get_item_index(CombatShip.Stance.AGGRESSIVE))
@@ -248,8 +244,8 @@ func _s5_unarmed_panel() -> void:
 	scene.selection().set_selection([_ship("Miner1")])
 	await process_frame
 	var panel: Node = scene.get_node("ShipPanel")
-	_check("unarmed Miner1 panel: hull 150, no Combat section and no weapon profiles",
-		panel._hull.text == "Hull: 150 / 150" and not panel._combat.visible and panel._profile.item_count == 0)
+	_check("unarmed Miner1 panel: hull 150, no Combat section",
+		panel._hull.text == "Hull: 150 / 150" and not panel._combat.visible)
 
 
 # Sets up the economy on main.tscn: mining, a refinery slot, a ship under construction,

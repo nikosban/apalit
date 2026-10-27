@@ -40,7 +40,7 @@ class ViewProbe:
 func _ready() -> void:
 	process_physics_priority = 4 # Observe committed movement and the same tick's shots.
 	if run_demo:
-		await setup(self, true, Vector2(-240, -240), Vector2(-160, -240), demo_side)
+		await setup(self, Vector2(-240, -240), Vector2(-160, -240), demo_side)
 		arena.selection().set_selection([subject])
 		arena.orders.attack([subject], enemy)
 		if demo_moving_target and not OS.get_cmdline_user_args().has("stationary"):
@@ -53,7 +53,7 @@ func _ready() -> void:
 		rig.follow(subject)
 
 
-func setup(parent: Node, prototype: bool, start: Vector2, target_at: Vector2, side := 1, sustained := true) -> void:
+func setup(parent: Node, start: Vector2, target_at: Vector2, side := 1, sustained := true) -> void:
 	arena = ARENA.instantiate()
 	arena.get_node("Asteroids").session_seed = 20261026
 	if arena_override != null:
@@ -72,9 +72,6 @@ func setup(parent: Node, prototype: bool, start: Vector2, target_at: Vector2, si
 	if reverse_factions:
 		subject.get_node("Combat").faction = 1
 		enemy.get_node("Combat").faction = 0
-	var behavior := subject.get_node("Behavior")
-	if behavior.get("combat_positioning") != null:
-		behavior.combat_positioning = prototype
 	parent.add_child(arena)
 	var probe := ViewProbe.new()
 	probe.harness = self

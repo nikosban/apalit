@@ -10,7 +10,7 @@ navigation, local avoidance and collision enforcement; a resource economy (aster
 survey, automated mining, stations with station-controlled docking, fuel, repeating
 transport assignments, a two-slot refinery, a Shipyard building Mining and Transport
 ships); production combat on every ship (hull, factions, weapon loadouts on the
-FF-01 warship, Commands / Tactics / Weapon Profiles, faction-shared sensors
+FF-01 warship, Commands / Tactics, faction-shared sensors
 and fog of war, a minimal hostile commander); global pause and time dilation;
 continuous camera zoom with Local / Tactical semantic zoom and a Strategic View; a
 Sector Showcase scene with environment rendering; a themed inspector UI and reusable
@@ -562,9 +562,9 @@ Combat behaviour is frozen as accepted (section 6).
   propulsion off, route / avoidance / fuel / scanner / docking / mining / transport
   stopped, `Docking.abandon()`, deselected; a 2 s hulk, then removal
   (`Avoidance.forget()`, contacts and Selection unregistered) and free.
-- FF-01 autonomous combat positioning (Stage 6B, `ship_behavior.gd`, opt-in
-  `combat_positioning` on `ff01_unit.tscn` only; values editable in the Behavior's
-  "Autonomous combat positioning" group): cannon-derived band 27–45 u (nominal
+- FF-01 autonomous combat positioning (Stage 6B, `ship_behavior.gd` `_combat_engage()`,
+  the only engagement implementation; values editable in the Behavior's
+  "Autonomous combat positioning" group on `ff01_unit.tscn`): cannon-derived band 27–45 u (nominal
   38.25), tangential 1.5 u/s, decisions 0.5 s, orders 1.0 s, 20 u transition width;
   travel owns the heading and weapon facing may adjust it by at most 8°
   (`COMBAT_ALIGNED_DEG` 25 keeps full throttle near the bow, `COMBAT_CAP_EASE` 0.5
@@ -572,7 +572,7 @@ Combat behaviour is frozen as accepted (section 6).
   interrupted Attack moves a live designation to the manual target. Waypoint Moves
   fly one chained route through every waypoint.
 - `combat_orders.gd` (`CombatOrders`): the one combat command interface (move,
-  target, tactic, Attack, Guard, Attack-Move, Waypoint, Cancel, profile) for player
+  target, tactic, Attack, Guard, Attack-Move, Waypoint, Cancel) for player
   input, the commander and tests.
 - `projectile_system.gd` (`Projectiles`): rounds and guided ordnance, hits against
   hull boxes, asteroids, stations and hostile ordnance (point defense). `ordnance.gd`,
@@ -652,10 +652,10 @@ Combat behaviour is frozen as accepted (section 6).
 - Behavior (`ship_behavior.gd`, `Behavior`, FF-01 of both factions): precedence command (Move, Attack, Guard, Attack-Move, Waypoint, Dock,
   Cancel) > tactic (Aggressive pursues its target in contact; Defensive answers
   attackers from its defended area with local line-of-fire repositioning, 12 u limit,
-  no pursuit, area not drawn; Passive nothing, point defense still fires) > weapon
-  profile (Siege / Mid-range / Close Quarters from the installed weapons, fallback in
-  that order; positioning only, never authorizes or forbids a shot;
-  `weapon_profiles.gd`). Guard and explicit movement override autonomous positioning.
+  no pursuit, area not drawn; Passive nothing, point defense still fires). Aggressive
+  pursuit, Attack and Attack-Move encounters position by the cannon-derived combat band;
+  every eligible installed weapon checks and fires on its own (no weapon profiles).
+  Guard and explicit movement override autonomous positioning.
 - Combat positioning (I01 resolved, accepted 2026-10-25): `_position_ok()` and
   `_unusable_reason()` share `_inside_sector()`, reading `StaticNavigation.map_half_size`
   through the RouteFollower's configured `navigation_path` (required dependency, no
@@ -764,8 +764,8 @@ Combat behaviour is frozen as accepted (section 6).
 - Inspector: `panel_shell` fixed 340 px, bottom right (16 px margin), fixed header,
   scrolling body up to the screen height − 96 px. Ship panel (`ship_panel`, exactly
   one ship): Header (editable name, class), Status (activity, dock with queue
-  position, fuel bar and warnings, hull), Combat (armed ships: tactic and profile
-  selectors, command, effective profile, target, weapons and ammunition), Cargo
+  position, fuel bar and warnings, hull), Combat (armed ships: tactic selector,
+  command, target, weapons and ammunition), Cargo
   (tiles), Actions (Scan Area, mining base selector and Start / Resume, transport,
   Undock, Unload / Load). Start / Resume buttons are disabled only while the station
   moves the ship; from docked they are held and run after the exit (Start Transport at
@@ -801,7 +801,7 @@ Combat behaviour is frozen as accepted (section 6).
 | Ctrl + right-click | Hostile: Attack; friendly ship: Guard; ground: Attack-Move |
 | Shift + right-click ground | Add a waypoint |
 | T | Attack-target selection (0.25x; left-click a hostile; Esc or right-click elsewhere cancels) |
-| X / P / Backspace | Cancel command / next weapon profile / clear manual target |
+| X / Backspace | Cancel command / clear manual target |
 | F1 / F2 / F3 | Passive / Defensive / Aggressive |
 | Alt (hold) / F10 | Weapon ranges / combat debug overlay |
 | Space; − / = | Pause; speed 0.25x / 1x / 2x |
@@ -1026,10 +1026,18 @@ distribution, logistics balance, models and UI polish.
   station control: true; refused: false) instead of inferring it from an older active
   destination; `_move_single()` no longer reports a moved-aside order RouteFollower took
   as "Order not accepted". Verified only by a temporary reproduction (refused and valid
-  replacement, moved aside, held during docking); no suites were run. Out of scope: the
-  legacy `ship_behavior.gd` `_request_move()` fallback (non-`combat_positioning` ships,
-  test-only) still infers acceptance; `hostile_fleet`'s candidate loop now sees real
-  refusals, unverified.
+  replacement, moved aside, held during docking); no suites were run. Out of scope:
+  `hostile_fleet`'s candidate loop now sees real refusals, unverified.
+- Weapon-profile removal (2026-10-27) test limits: `command_test`, `e05_behavior_test`,
+  `positioning_boundary_test`, `ff01_test` and `combat_scene_test` were parse-checked,
+  not run. Their Behavior ships now use FF-01 positioning, so movement measurements may
+  differ. Retained checks that depended on the deleted engagement path, kept unchanged
+  for owner review: C11 (requests must name the manual target; FF-01 requests read
+  "cannon …"), E05 V1 "every pursuit request named a hostile in contact" (its request
+  pattern no longer matches, so it is vacuous) and V8 Aggressive "pursuit stopped"
+  (that log came only from the deleted path). `positioning_boundary_test`
+  `_case_engagement` now checks only "station beyond 135, routable": the band and
+  line-of-fire validity (`_station_ok`) and profile fallbacks were removed.
 - Legacy-cleanup test limits: `combat_positioning_test`'s "authored asteroids produce
   a real navigation detour" check fails with the FF-01 opponent (routes reach 2 points,
   3 required). Before the cleanup it passed with a single 3-point route, at its
@@ -1162,8 +1170,8 @@ distribution, logistics balance, models and UI polish.
   no new errors or warnings. P02 and integrated combat measurement changes are accepted,
   reproducible boundary effects. Logs: `archive/i01_verification_2026-10-25/` (local only).
 - `combat/combat_positioning_test.gd` (Stage 6B, fixtures `combat_positioning_harness.gd`,
-  `combat_positioning_demo.tscn`): 41/41 by default before the legacy cleanup, 40/41
-  since (detour check, section 7); `-- movement` 18/18 (route,
+  `combat_positioning_demo.tscn`): 39/40 by default since the weapon-profile removal
+  (detour check, section 7; the profile-selection check and `baseline` mode are removed); `-- movement` 18/18 (route,
   waypoint and combat continuity), `-- redirect` 23/23 (repeated MOVE commands, open
   and routed; `trace` prints 60 Hz traces). Final Stage 6B regression: only the three
   known failures below; `obstruction_test` check 4's crossing scenario is shifted

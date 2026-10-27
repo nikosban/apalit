@@ -3,14 +3,13 @@ extends Node
 ## faction's armed ships their objectives and commands through CombatOrders, the same
 ## interface the player's input uses. It never moves, aims or fires a ship, plans no
 ## route and reads nothing about other factions: each ship carries the orders out with
-## its own Behavior (Commands, Tactics, Weapon Profiles) on the production movement
+## its own Behavior (Commands, Tactics) on the production movement
 ## systems, exactly as a player ship would. Not a strategic AI: no formations,
 ## reinforcements or plans beyond the configured objectives.
 ##
 ## Configuration (per scene):
 ##   faction      the faction it commands (1: hostile);
 ##   tactic       given once to every ship it commands (-1: keep the ship's own);
-##   profile      requested weapon profile for every ship that supports it (-1: keep);
 ##   escorted / escorts   ship names: each escort Guards the escorted ship while it lives;
 ##   objectives   Attack-Move route points, in order, looping.
 ## Every DECISION_INTERVAL s of simulation time, each live ship of the faction with a
@@ -24,7 +23,6 @@ const DECISION_INTERVAL := 2.0 # s
 
 @export var faction := 1
 @export var tactic := -1
-@export var profile := -1
 @export var escorted := ""
 @export var escorts := PackedStringArray()
 @export var objectives := PackedVector2Array()
@@ -33,7 +31,7 @@ const DECISION_INTERVAL := 2.0 # s
 
 var log: Array[String] = []
 var _next_objective := {} # ship -> index into objectives
-var _configured := {} # ship -> true once tactic and profile are given
+var _configured := {} # ship -> true once its tactic is given
 var _clock := 0.0
 
 @onready var _ships := get_node(ships_path)
@@ -57,8 +55,6 @@ func _physics_process(delta: float) -> void:
 			_configured[ship] = true
 			if tactic >= 0:
 				_orders.set_stance([ship], tactic)
-			if profile >= 0:
-				_orders.set_profile([ship], profile)
 		if behavior.command != Behavior.Command.NONE:
 			continue
 		var protected: Node3D = _ships.get_node_or_null(escorted) if escorted != "" else null
