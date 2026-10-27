@@ -22,8 +22,8 @@ const Station := preload("res://game/stations/station.gd")
 const Fuel := preload("res://game/fuel/fuel.gd")
 const ShipLocomotion := preload("res://game/locomotion/ship_locomotion.gd")
 const DT := 1.0 / 60.0
-const SHIPS := ["Frigate", "Gunship", "Destroyer", "Miner1", "Miner2", "Transporter"]
-const PARK := {"Frigate": Vector2(40, 30), "Gunship": Vector2(40, 15), "Destroyer": Vector2(40, -5), "Miner1": Vector2(40, -20),
+const SHIPS := ["Miner3", "Transporter2", "Miner1", "Miner2", "Transporter"]
+const PARK := {"Miner3": Vector2(40, 30), "Transporter2": Vector2(40, 15), "Miner1": Vector2(40, -20),
 	"Miner2": Vector2(40, -32), "Transporter": Vector2(-80, 30)}
 const NEAR_A := Vector2(-10, -40) # East of the loading station, off its approach lanes.
 const SEED := 20261014
@@ -44,6 +44,12 @@ var _notices: Array[String] = []
 func _initialize() -> void:
 	await process_frame
 	_main = MAIN.instantiate()
+	# Stand-ins for the retired warships, on their former spawn points.
+	for added: Array in [["Miner3", "res://game/ships/miner_unit.tscn", Vector3(-12, 1.5, 0)], ["Transporter2", "res://game/ships/transporter_unit.tscn", Vector3(0, 1.5, 0)]]:
+		var ship: Node3D = load(added[1]).instantiate()
+		ship.name = added[0]
+		ship.position = added[2]
+		_main.get_node("Ships").add_child(ship)
 	root.add_child(_main)
 	_a = _main.get_node("Stations/Station")
 	_b = _main.get_node("Stations/Station2")
@@ -118,12 +124,14 @@ func _test_geometry() -> void:
 	_check("graybox with its %d thruster parts: %.2f long (Z) x %.2f wide, larger than the sections alone, symmetric" % [thrusters.size(), total.size.z, total.size.x],
 		thrusters.size() == 9 and total.size.z > bounds.size.z and total.size.x > bounds.size.x and absf(total.get_center().x) < 0.001 and total.encloses(bounds))
 	_check("collision radius %.1f u encloses the hull (farthest corner %.2f u)" % [radius, farthest], radius >= farthest and radius - farthest < 0.5)
+	# The medium-hull profile, stated explicitly.
 	var same := true
-	for property in ["max_speed", "max_reverse_speed", "max_lateral_speed", "forward_accel", "reverse_accel", "lateral_accel", "max_turn_rate_deg", "turn_accel_deg"]:
-		same = same and _node("Transporter", "Locomotion").get(property) == _node("Gunship", "Locomotion").get(property)
-	_check("movement: the Gunship's locomotion profile, clearance margin and size class", same
-		and _node("Transporter", "RouteFollower").clearance_margin == _node("Gunship", "RouteFollower").clearance_margin
-		and _node("Transporter", "Avoidance").size_class == _node("Gunship", "Avoidance").size_class)
+	var profile := {"max_speed": 4.5, "max_reverse_speed": 2.5, "max_lateral_speed": 2.0, "forward_accel": 3.0, "reverse_accel": 1.5,
+		"lateral_accel": 1.2, "max_turn_rate_deg": 60.0, "turn_accel_deg": 90.0}
+	for property: String in profile:
+		same = same and _node("Transporter", "Locomotion").get(property) == profile[property]
+	_check("movement: medium-hull locomotion profile (4.5 u/s, 60 deg/s), clearance margin 1 and size class 2", same
+		and _node("Transporter", "RouteFollower").clearance_margin == 1.0 and _node("Transporter", "Avoidance").size_class == 2)
 	# Phase 4: a third station on the same layout, the Shipyard (Station2 and the Shipyard
 	# are station scenes that inherit Station's layout scene).
 	var base_of := func(station: Node) -> String:
@@ -377,24 +385,24 @@ func _test_manual_override_and_resume() -> void:
 func _test_shared_slots() -> void:
 	_reset()
 	var transport := _transport()
-	_place("Frigate", Vector2(-10, -40))
-	_place("Gunship", Vector2(-62, -40))
-	_docking("Frigate").dock(_a)
-	_docking("Gunship").dock(_a)
-	_until(func() -> bool: return _docking("Frigate").state == Docking.State.DOCKED and _docking("Gunship").state == Docking.State.DOCKED, 60 * 90)
+	_place("Miner3", Vector2(-10, -40))
+	_place("Transporter2", Vector2(-62, -40))
+	_docking("Miner3").dock(_a)
+	_docking("Transporter2").dock(_a)
+	_until(func() -> bool: return _docking("Miner3").state == Docking.State.DOCKED and _docking("Transporter2").state == Docking.State.DOCKED, 60 * 90)
 	_a.storage.add(METAL, 400)
 	_configure(400, 0)
 	_place("Transporter", Vector2(-36, 20))
 	transport.start()
 	_until(func() -> bool: return transport.activity() == "Waiting for Dock" and not _locomotion("Transporter").has_destination, 60 * 60)
 	var queued := _a.queue_position(_ship("Transporter")) == 0 and _a.hold_of(_ship("Transporter")) >= 0
-	# The east berth is released (the Frigate leaves): before stage 2b the Transporter
+	# The east berth is released (the Miner3 leaves): before stage 2b the Transporter
 	# stalled permanently against it across the route from Hold1 (the west berth was used
 	# here instead); the controlled exit now leaves away from the waiting ship.
-	_docking("Frigate").undock()
+	_docking("Miner3").undock()
 	var loaded := _until(func() -> bool: return transport.status == TransportOperation.Status.DELIVERING, 60 * 180)
 	_check("17. both slots taken: queued at a holding position (Waiting for Dock), docks once a slot is released, loads and leaves",
-		queued and loaded >= 0 and _docking("Gunship").state == Docking.State.DOCKED and _cargo("Transporter").quantity() == 400)
+		queued and loaded >= 0 and _docking("Transporter2").state == Docking.State.DOCKED and _cargo("Transporter").quantity() == 400)
 
 
 # 19: empty fuel holds the ship with its assignment; refueled it carries on.

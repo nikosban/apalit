@@ -19,8 +19,8 @@ const Docking := preload("res://game/stations/docking.gd")
 const Station := preload("res://game/stations/station.gd")
 const Fuel := preload("res://game/fuel/fuel.gd")
 const DT := 1.0 / 60.0
-const SHIPS := ["Frigate", "Gunship", "Destroyer", "Miner1", "Miner2"]
-const PARK := {"Frigate": Vector2(40, 30), "Gunship": Vector2(40, 15), "Destroyer": Vector2(40, -5), "Miner1": Vector2(40, -20), "Miner2": Vector2(40, -32)}
+const SHIPS := ["FF01", "Transporter", "Miner1", "Miner2"]
+const PARK := {"FF01": Vector2(40, -5), "Transporter": Vector2(40, 15), "Miner1": Vector2(40, -20), "Miner2": Vector2(40, -32)}
 const SEED := 20261014
 const ASTEROID := 19 # Nearest the station (as in docking_test).
 const NEAR := Vector2(-60, -12) # Miner start near that asteroid.
@@ -38,6 +38,10 @@ var _notices: Array[String] = []
 func _initialize() -> void:
 	await process_frame
 	_main = MAIN.instantiate()
+	var ff01: Node3D = load("res://game/ships/ff01_unit.tscn").instantiate() # A non-mining ship that docks.
+	ff01.name = "FF01"
+	ff01.position = Vector3(14, 1.5, 0)
+	_main.get_node("Ships").add_child(ff01)
 	root.add_child(_main)
 	_station = _main.get_node("Stations/Station")
 	_field = _main.get_node("Asteroids")
@@ -234,13 +238,13 @@ func _test_full_storage() -> void:
 		and _station.storage.quantity() == SMALL_HOLD and _cargo("Miner1").quantity() == 0)
 
 
-# 6, 22: two miners and a docked Frigate share the station's slots and queue.
+# 6, 22: two miners and a docked FF-01 share the station's slots and queue.
 func _test_two_miners() -> void:
 	_reset(SMALL_HOLD)
 	_field.deposit(ASTEROID).reserves = 1000
-	_place("Frigate", Vector2(-10, -40))
-	_docking("Frigate").dock(_station)
-	_until(func() -> bool: return _docking("Frigate").state == Docking.State.DOCKED, 60 * 60)
+	_place("FF01", Vector2(-10, -40))
+	_docking("FF01").dock(_station)
+	_until(func() -> bool: return _docking("FF01").state == Docking.State.DOCKED, 60 * 60)
 	_place("Miner1", NEAR)
 	_place("Miner2", Vector2(-10, 2))
 	for miner in ["Miner1", "Miner2"]:
@@ -260,11 +264,11 @@ func _test_two_miners() -> void:
 			if _mining(miner).activity() == "Returning to Asteroid":
 				back[miner] = true
 		var holders := _station.slots.map(func(slot: Dictionary) -> Node: return slot.ship)
-		reservations_ok = reservations_ok and holders.has(_ship("Frigate")) and not (holders[0] != null and holders[0] == holders[1])
+		reservations_ok = reservations_ok and holders.has(_ship("FF01")) and not (holders[0] != null and holders[0] == holders[1])
 		# Every unit is either aboard a miner or in storage: the two fills plus whatever was mined since.
 		var mined: int = reserves - _field.deposit(ASTEROID).reserves
 		conserved = conserved and _station.storage.quantity() + _cargo("Miner1").quantity() + _cargo("Miner2").quantity() == 2 * SMALL_HOLD + mined
-	_check("6. the second miner queues behind the first (Waiting for Dock); the docked Frigate keeps its slot", waited and reservations_ok)
+	_check("6. the second miner queues behind the first (Waiting for Dock); the docked FF-01 keeps its slot", waited and reservations_ok)
 	# Phase 3: "one lot" became "only the asteroid's resources".
 	var composition: Dictionary = _field.deposit(ASTEROID).composition
 	_check("22. both unloaded and headed back (%.0f s); every tick storage + holds = fills + mined (no duplication or loss), %d of the asteroid's resources" % [ticks * DT,
@@ -304,11 +308,11 @@ func _test_interruptions() -> void:
 	# Traveling: covered by 17. Waiting for a dock: both slots taken.
 	_reset(SMALL_HOLD)
 	var mining := _mining("Miner1")
-	_place("Frigate", Vector2(-10, -40))
-	_place("Gunship", Vector2(-62, -40))
-	_docking("Frigate").dock(_station)
-	_docking("Gunship").dock(_station)
-	_until(func() -> bool: return _docking("Frigate").state == Docking.State.DOCKED and _docking("Gunship").state == Docking.State.DOCKED, 60 * 90)
+	_place("FF01", Vector2(-10, -40))
+	_place("Transporter", Vector2(-62, -40))
+	_docking("FF01").dock(_station)
+	_docking("Transporter").dock(_station)
+	_until(func() -> bool: return _docking("FF01").state == Docking.State.DOCKED and _docking("Transporter").state == Docking.State.DOCKED, 60 * 90)
 	_place("Miner1", NEAR)
 	_fill("Miner1")
 	mining.assign(ASTEROID)

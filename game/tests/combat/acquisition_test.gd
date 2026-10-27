@@ -22,7 +22,7 @@ func _initialize() -> void:
 	await process_frame
 	await _case_reach()
 	await _case_contact()
-	await _case_gunship()
+	await _case_escort_reach()
 	await _case_persistence()
 	await _case_ammunition()
 	await _case_manual()
@@ -52,10 +52,10 @@ func _free() -> void:
 
 ## E05 quiet: scripted fleet off, every ship holding fire and parked in a corner, the
 ## tested ship (`subject`) at (-60, 110) heading east. Every player shot is audited.
-func _load(subject: String = "Destroyer") -> void:
+func _load(subject: String = "FF01A") -> void:
 	_free()
 	scene = E05.instantiate()
-	scene.scenario_index = 4
+	scene.scenario_index = 0
 	root.add_child(scene)
 	scene.get_node("HostileFleet").process_mode = Node.PROCESS_MODE_DISABLED
 	scene.enemy_controller._steps.clear()
@@ -65,8 +65,8 @@ func _load(subject: String = "Destroyer") -> void:
 	await physics_frame
 	while not scene.enemy_controller.started:
 		await physics_frame
-	var corners := {"Destroyer": Vector2(-140, -140), "Gunship": Vector2(-140, 140), "Gunship2": Vector2(-120, 140),
-		"HostileGunship": Vector2(140, -140), "HostileGunship2": Vector2(140, -120), "HostileDestroyer": Vector2(140, 140)}
+	var corners := {"FF01A": Vector2(-140, -140), "FF01B": Vector2(-140, 140), "FF01C": Vector2(-120, 140),
+		"HostileFF01B": Vector2(140, -140), "HostileFF01C": Vector2(140, -120), "HostileFF01A": Vector2(140, 140)}
 	for name: String in corners:
 		_place(name, corners[name], EAST)
 	_place(subject, Vector2(-60, 110), EAST)
@@ -99,71 +99,77 @@ func _combat(name: String) -> Variant:
 	return CombatShip.of(scene.ship(name))
 
 
-## 1, 10: the Destroyer's reach is its longest weapon (110 u); it acquires a detected hostile
-## at 95 u at once, and its weapons still fire only within their own ranges.
+## 1, 10: the FF01A's reach is its longest weapon (the Wayfarer, 90 u); it acquires a
+## detected hostile at 85 u at once, and its weapons still fire only within their own ranges.
 func _case_reach() -> void:
 	print("\n=== A1 weapon-derived reach")
 	await _load()
-	var d = _combat("Destroyer")
-	_place("HostileGunship", Vector2(35, 110), WEST) # 95 u
+	var d = _combat("FF01A")
+	_place("HostileFF01B", Vector2(25, 110), WEST) # 85 u
 	await _sense()
 	d.stance = CombatShip.Stance.AGGRESSIVE
 	await physics_frame
 	await physics_frame
-	var cannon: Node = scene.ship("Destroyer").get_node("Weapons/TowerHardpoint/Cannon")
-	_check("reach %.0f u (longest loadout range: torpedo 110); a detected hostile at %.0f u is acquired at once" % [d.acquisition_reach(), d.distance_to(scene.ship("HostileGunship"))],
-		is_equal_approx(d.acquisition_reach(), 110.0) and d.target == scene.ship("HostileGunship"))
+	var cannon: Node = scene.ship("FF01A").get_node("Weapons/ForwardBastionHardpoint").weapon()
+	_check("reach %.0f u (longest loadout range: Wayfarer 90); a detected hostile at %.0f u is acquired at once" % [d.acquisition_reach(), d.distance_to(scene.ship("HostileFF01B"))],
+		is_equal_approx(d.acquisition_reach(), 90.0) and d.target == scene.ship("HostileFF01B"))
 	for i in 180:
 		await physics_frame
-	_check("acquired at 95 u, the cannon (75 u) still refuses: '%s', no cannon shot" % cannon.reason, cannon.reason.begins_with("Out of range") and cannon.shots == 0)
+	_check("acquired at 85 u, the cannon (75 u) still refuses: '%s', no cannon shot" % cannon.reason, cannon.reason.begins_with("Out of range") and cannon.shots == 0)
 
 
 ## 2, 3: no acquisition without faction contact (beyond sensor range, or behind an asteroid).
 func _case_contact() -> void:
 	print("\n=== A2 sensor contact limits acquisition")
 	await _load()
-	var d = _combat("Destroyer")
-	_place("HostileGunship", Vector2(45, 110), WEST) # 105 u: inside the 110 u reach, beyond the 100 u sensors
+	var d = _combat("FF01A")
+	# Test condition: sensors shorter than the FF-01's 90 u reach, so a hostile can lie
+	# within reach and beyond sensor range.
+	var sensor_range: float = scene.sensors.sensor_range
+	scene.sensors.sensor_range = 80.0
+	_place("HostileFF01B", Vector2(25, 110), WEST) # 85 u: inside the 90 u reach, beyond the 80 u sensors
 	await _sense()
 	d.stance = CombatShip.Stance.AGGRESSIVE
 	for i in 30:
 		await physics_frame
-	_check("hostile at 105 u (within reach, beyond sensor range): not detected, not acquired", not scene.sensors.detected(PLAYER, scene.ship("HostileGunship")) and d.target == null)
+	_check("hostile at 85 u (within reach, beyond sensor range): not detected, not acquired", not scene.sensors.detected(PLAYER, scene.ship("HostileFF01B")) and d.target == null)
+	scene.sensors.sensor_range = sensor_range
 	var big: MeshInstance3D = null
 	for each: MeshInstance3D in scene.get_node("Asteroids").get_children():
 		if big == null or each.scale.x > big.scale.x:
 			big = each
 	var c := Vector2(big.global_position.x, big.global_position.z)
 	var r := big.scale.x * 0.5
-	_place("Destroyer", c + Vector2(-(r + 25.0), 0), EAST)
-	_place("HostileGunship", c + Vector2(r + 12.0, 0), WEST)
+	_place("FF01A", c + Vector2(-(r + 25.0), 0), EAST)
+	_place("HostileFF01B", c + Vector2(r + 12.0, 0), WEST)
 	await _sense()
 	for i in 30:
 		await physics_frame
-	_check("hostile behind an asteroid at %.0f u: no contact, not acquired" % d.distance_to(scene.ship("HostileGunship")),
-		not scene.sensors.detected(PLAYER, scene.ship("HostileGunship")) and d.target == null)
+	_check("hostile behind an asteroid at %.0f u: no contact, not acquired" % d.distance_to(scene.ship("HostileFF01B")),
+		not scene.sensors.detected(PLAYER, scene.ship("HostileFF01B")) and d.target == null)
 
 
-## 4, 5: a Gunship's reach is its own loadout (cannon 75 u); a target needing turret
-## rotation is acquired at once.
-func _case_gunship() -> void:
-	print("\n=== A3 Gunship reach and turret rotation")
-	await _load("Gunship")
-	var g = _combat("Gunship")
-	_place("HostileGunship", Vector2(20, 110), WEST) # 80 u
+## 4, 5: a ship's reach is its own loadout: FF01B with its Wayfarer out of action reaches
+## its cannons' 75 u; a target needing turret rotation is acquired at once.
+func _case_escort_reach() -> void:
+	print("\n=== A3 FF01B reach and turret rotation")
+	await _load("FF01B")
+	scene.ship("FF01B").get_node("Weapons/WayfarerHardpoint").weapon().enabled = false
+	var g = _combat("FF01B")
+	_place("HostileFF01B", Vector2(20, 110), WEST) # 80 u
 	await _sense()
 	g.stance = CombatShip.Stance.AGGRESSIVE
 	for i in 30:
 		await physics_frame
 	var beyond: bool = g.target == null
-	# 70 u at a bearing 120° off the bow: the dorsal cannon has to turn a long way.
-	_place("HostileGunship", Vector2(-60, 110) + Vector2(-35.0, -60.62), WEST)
+	# 70 u at a bearing 120° off the bow: the aft cannon (resting astern) has to turn to it.
+	_place("HostileFF01B", Vector2(-60, 110) + Vector2(-35.0, -60.62), WEST)
 	await _sense()
-	var cannon: Node = scene.ship("Gunship").get_node("Weapons/DorsalHardpoint/Cannon")
+	var cannon: Node = scene.ship("FF01B").get_node("Weapons/AftBastionHardpoint").weapon()
 	await physics_frame
-	var acquired: bool = g.target == scene.ship("HostileGunship")
+	var acquired: bool = g.target == scene.ship("HostileFF01B")
 	var turning: String = cannon.reason
-	_check("Gunship reach %.0f u (cannon 75, Gatling 25): a hostile at 80 u is not acquired; at 70 u, 120° off the bow, acquired at once while the cannon is still turning ('%s')" % [g.acquisition_reach(), turning],
+	_check("FF01B reach %.0f u (cannons 75, rockets 60, point defense 25): a hostile at 80 u is not acquired; at 70 u, 120° off the bow, acquired at once while the cannon is still turning ('%s')" % [g.acquisition_reach(), turning],
 		is_equal_approx(g.acquisition_reach(), 75.0) and beyond and acquired and (turning.begins_with("Tracking") or turning.begins_with("Aligning")))
 
 
@@ -172,15 +178,15 @@ func _case_gunship() -> void:
 func _case_persistence() -> void:
 	print("\n=== A4 target persistence through reloads")
 	await _load()
-	var d = _combat("Destroyer")
-	var first: Node3D = scene.ship("HostileGunship")
-	_place("HostileGunship", Vector2(10, 110), WEST) # 70 u
+	var d = _combat("FF01A")
+	var first: Node3D = scene.ship("HostileFF01B")
+	_place("HostileFF01B", Vector2(10, 110), WEST) # 70 u
 	await _sense()
 	d.stance = CombatShip.Stance.AGGRESSIVE
 	await physics_frame
 	var changes := [0]
 	d.target_changed.connect(func() -> void: changes[0] += 1)
-	_place("HostileGunship2", Vector2(-15, 95), WEST) # nearer, appears later
+	_place("HostileFF01C", Vector2(-15, 95), WEST) # nearer, appears later
 	for i in 60 * 6:
 		if i % 12 == 0:
 			scene.sensors.evaluate()
@@ -197,17 +203,15 @@ func _case_persistence() -> void:
 func _case_ammunition() -> void:
 	print("\n=== A5 empty weapons do not extend the reach")
 	await _load()
-	var d = _combat("Destroyer")
-	var torpedo: Node = scene.ship("Destroyer").get_node("Weapons/BowHardpoint/TorpedoTube")
-	var missiles: Node = scene.ship("Destroyer").get_node("Weapons/DeckHardpoint/MissileCells")
-	torpedo.ammo = 0
+	var d = _combat("FF01A")
+	var missiles: Node = scene.ship("FF01A").get_node("Weapons/WayfarerHardpoint").weapon()
 	missiles.ammo = 3 # less than a 4-missile salvo
-	_place("HostileGunship", Vector2(25, 110), WEST) # 85 u
+	_place("HostileFF01B", Vector2(25, 110), WEST) # 85 u
 	await _sense()
 	d.stance = CombatShip.Stance.AGGRESSIVE
 	for i in 30:
 		await physics_frame
-	_check("torpedoes empty, 3 missiles (no salvo possible): reach %.0f u (cannon), a hostile at 85 u is not acquired" % d.acquisition_reach(),
+	_check("3 missiles (no salvo possible): reach %.0f u (cannon), a hostile at 85 u is not acquired" % d.acquisition_reach(),
 		is_equal_approx(d.acquisition_reach(), 75.0) and d.target == null)
 
 
@@ -215,20 +219,20 @@ func _case_ammunition() -> void:
 func _case_manual() -> void:
 	print("\n=== A6 manual target stays authoritative")
 	await _load()
-	var d = _combat("Destroyer")
-	var far: Node3D = scene.ship("HostileDestroyer")
-	_place("HostileDestroyer", Vector2(55, 110), WEST) # 115 u: beyond the reach
-	_place("Gunship", Vector2(30, 120), EAST) # spots it for the faction
-	_place("HostileGunship", Vector2(-20, 110), WEST) # 40 u, in reach of every weapon but the Gatling
+	var d = _combat("FF01A")
+	var far: Node3D = scene.ship("HostileFF01A")
+	_place("HostileFF01A", Vector2(55, 110), WEST) # 115 u: beyond the reach
+	_place("FF01B", Vector2(30, 120), EAST) # spots it for the faction
+	_place("HostileFF01B", Vector2(-20, 110), WEST) # 40 u, in reach of every weapon but point defense
 	await _sense()
 	d.stance = CombatShip.Stance.AGGRESSIVE
-	scene.orders.assign_target([scene.ship("Destroyer")], far)
+	scene.orders.assign_target([scene.ship("FF01A")], far)
 	var shots_at_other := [0]
 	for w in d.weapons:
 		w.shot.connect(func(_wp: Node, _id: int, t: Node3D, _o: Transform3D) -> void:
-			if t == scene.ship("HostileGunship"):
+			if t == scene.ship("HostileFF01B"):
 				shots_at_other[0] += 1)
-	var locomotion: Node = scene.ship("Destroyer").get_node("Locomotion")
+	var locomotion: Node = scene.ship("FF01A").get_node("Locomotion")
 	for i in 60 * 4:
 		await physics_frame
 	_check("manual target at 115 u (beyond reach) with a hostile at 40 u: target kept, %d shots at the nearer ship, no move order" % shots_at_other[0],
@@ -239,16 +243,16 @@ func _case_manual() -> void:
 func _case_stances() -> void:
 	print("\n=== A7 Defensive and Hold Fire unchanged")
 	await _load()
-	var d = _combat("Destroyer")
-	_place("HostileGunship", Vector2(-10, 110), WEST) # 50 u
+	var d = _combat("FF01A")
+	_place("HostileFF01B", Vector2(-10, 110), WEST) # 50 u
 	await _sense()
 	d.stance = CombatShip.Stance.DEFENSIVE
 	for i in 60:
 		await physics_frame
 	var defensive: bool = d.target == null
-	d.add_threat(scene.ship("HostileGunship"))
+	d.add_threat(scene.ship("HostileFF01B"))
 	await physics_frame
-	var threat_taken: bool = d.target == scene.ship("HostileGunship")
+	var threat_taken: bool = d.target == scene.ship("HostileFF01B")
 	d.set_stance(CombatShip.Stance.HOLD_FIRE)
 	await physics_frame
 	_check("Defensive: a detected hostile at 50 u is not acquired until it is a confirmed threat, then it is; Hold Fire: no target",

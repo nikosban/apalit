@@ -37,7 +37,7 @@ func _check(text: String, ok: bool) -> void:
 
 func _load() -> void:
 	scene = E05.instantiate()
-	scene.scenario_index = 4
+	scene.scenario_index = 0
 	var sensors := scene.get_node("Sensors") # A3 / A4 checks without the fog of war (fog_test covers it)
 	scene.remove_child(sensors)
 	sensors.free()
@@ -139,17 +139,17 @@ func _case_zoom() -> void:
 	_check("at the maximum: Tactical pitch %.2f° (configured %.1f°), pivot %s inside the bounds, camera and the ground under the screen centre and corners finite" % [pitch, _rig().tactical_pitch_degrees, pivot],
 		absf(pitch - _rig().tactical_pitch_degrees) < 0.01 and bounds.has_point(Vector2(pivot.x, pivot.z)) and finite and (centre as Vector3).distance_to(pivot) < 0.01)
 	_check("Tactical view inspects a wider region than zoom 40 (ground on screen %.0f u² vs %.0f u²)" % [view[1], close_area], view[1] > close_area * 2.0)
-	var gunship: Node3D = scene.ship("Gunship")
-	var picked: Node3D = scene.selection().pick_any(_screen(gunship.global_position))
-	scene.selection().set_selection([gunship])
+	var ff01b: Node3D = scene.ship("FF01B")
+	var picked: Node3D = scene.selection().pick_any(_screen(ff01b.global_position))
+	scene.selection().set_selection([ff01b])
 	var at: Vector2 = scene.get_viewport().get_visible_rect().size * Vector2(0.3, 0.6)
 	var ground: Vector3 = Plane(Vector3.UP, 0.0).intersects_ray(_camera().project_ray_origin(at), _camera().project_ray_normal(at))
 	var command: Dictionary = scene.resolve_command(at)
 	scene.selection().set_selection([])
-	_check("interaction at the maximum: full emphasis, the Gunship's marker is picked under it; a right-click resolves to a MOVE at the ground point under the cursor (%s)" % str(command.get("point")),
-		scene.markers.emphasis() == 1.0 and picked == gunship and command.get("kind") == scene.CommandKind.MOVE and (command.point as Vector2).distance_to(Vector2(ground.x, ground.z)) < 0.01)
+	_check("interaction at the maximum: full emphasis, the FF01B's marker is picked under it; a right-click resolves to a MOVE at the ground point under the cursor (%s)" % str(command.get("point")),
+		scene.markers.emphasis() == 1.0 and picked == ff01b and command.get("kind") == scene.CommandKind.MOVE and (command.point as Vector2).distance_to(Vector2(ground.x, ground.z)) < 0.01)
 	var markers = scene.markers
-	var ship: Node3D = scene.ship("Destroyer")
+	var ship: Node3D = scene.ship("FF01A")
 	var states := []
 	for zoom in [40.0, 60.0, 66.0, 60.0, 56.0, 54.0, 40.0]:
 		await _set_zoom(zoom)
@@ -174,8 +174,8 @@ func _case_thrusters() -> void:
 	print("\n=== S1b propulsion effects at every zoom")
 	var view: Node = scene.get_node("ThrusterView")
 	var ships: Array = scene.get_node("Ships").get_children()
-	scene.orders.move([scene.ship("Destroyer")], Vector2(-20, 30))
-	scene.orders.move([scene.ship("Gunship")], Vector2(-30, -30))
+	scene.orders.move([scene.ship("FF01A")], Vector2(-20, 30))
+	scene.orders.move([scene.ship("FF01B")], Vector2(-30, -30))
 	_rig().global_position = Vector3.ZERO
 	await _set_zoom(150.0)
 	for i in 30:
@@ -199,38 +199,38 @@ func _case_markers() -> void:
 	print("\n=== S2 marker interaction")
 	var ships := scene.get_node("Ships")
 	var count := ships.get_child_count()
-	var destroyer: Node3D = scene.ship("Destroyer")
-	var gunship: Node3D = scene.ship("Gunship")
-	var hostile: Node3D = scene.ship("HostileDestroyer")
+	var ff01a: Node3D = scene.ship("FF01A")
+	var ff01b: Node3D = scene.ship("FF01B")
+	var hostile: Node3D = scene.ship("HostileFF01A")
 	_rig().global_position = Vector3.ZERO
 	await _set_zoom(40.0)
-	_rig().global_position = Vector3(destroyer.global_position.x, 0, destroyer.global_position.z)
+	_rig().global_position = Vector3(ff01a.global_position.x, 0, ff01a.global_position.z)
 	await process_frame
-	await _click(_screen(destroyer.global_position))
+	await _click(_screen(ff01a.global_position))
 	var before: Array = scene.selection().selected.duplicate()
 	_rig().global_position = Vector3.ZERO
 	await _set_zoom(150.0)
 	await process_frame
-	_check("a ship selected at zoom 40 stays selected at full Tactical emphasis", scene.markers.emphasis() == 1.0 and scene.selection().selected == before and before == [destroyer])
-	await _click(_screen(gunship.global_position))
-	var one: bool = scene.selection().selected == [gunship]
-	await _click(_screen(destroyer.global_position), MOUSE_BUTTON_LEFT, true)
+	_check("a ship selected at zoom 40 stays selected at full Tactical emphasis", scene.markers.emphasis() == 1.0 and scene.selection().selected == before and before == [ff01a])
+	await _click(_screen(ff01b.global_position))
+	var one: bool = scene.selection().selected == [ff01b]
+	await _click(_screen(ff01a.global_position), MOUSE_BUTTON_LEFT, true)
 	var two: bool = scene.selection().selected.size() == 2
-	_check("markers: a click selects the Gunship, Shift-click adds the Destroyer", one and two)
-	var plans := [gunship.get_node("RouteFollower").plans, destroyer.get_node("RouteFollower").plans]
+	_check("markers: a click selects the FF01B, Shift-click adds the FF01A", one and two)
+	var plans := [ff01b.get_node("RouteFollower").plans, ff01a.get_node("RouteFollower").plans]
 	var history: int = scene.orders.history.size()
 	var goal := Vector3(-40, 0, 40)
 	await _click(_screen(goal), MOUSE_BUTTON_RIGHT)
-	var planned := [gunship.get_node("RouteFollower").plans - plans[0], destroyer.get_node("RouteFollower").plans - plans[1]]
+	var planned := [ff01b.get_node("RouteFollower").plans - plans[0], ff01a.get_node("RouteFollower").plans - plans[1]]
 	_check("markers: a right-click on the ground gives the group MOVE once (route plans per ship %s)" % str(planned),
-		planned == [1, 1] and gunship.get_node("Locomotion").has_destination and destroyer.get_node("Locomotion").has_destination)
+		planned == [1, 1] and ff01b.get_node("Locomotion").has_destination and ff01a.get_node("Locomotion").has_destination)
 	await _click(_screen(hostile.global_position), MOUSE_BUTTON_RIGHT)
-	_check("markers: a right-click on the hostile Destroyer's marker assigns it to both selected ships",
-		CombatShip.of(gunship).manual_target == hostile and CombatShip.of(destroyer).manual_target == hostile)
-	await _click(_screen(gunship.global_position))
+	_check("markers: a right-click on the hostile FF01A's marker assigns it to both selected ships",
+		CombatShip.of(ff01b).manual_target == hostile and CombatShip.of(ff01a).manual_target == hostile)
+	await _click(_screen(ff01b.global_position))
 	scene.begin_target_selection()
-	await _click(_screen(scene.ship("HostileGunship").global_position))
-	_check("markers: target selection and a click on a hostile marker assign it", CombatShip.of(gunship).manual_target == scene.ship("HostileGunship") and not scene.target_selection)
+	await _click(_screen(scene.ship("HostileFF01B").global_position))
+	_check("markers: target selection and a click on a hostile marker assign it", CombatShip.of(ff01b).manual_target == scene.ship("HostileFF01B") and not scene.target_selection)
 	for i in 240:
 		await physics_frame
 	await process_frame
@@ -264,12 +264,12 @@ func _case_grid() -> void:
 	await process_frame
 	_check("G is disabled: still no grid after pressing it twice", scene.grid == null and not scene.has_node("TacticalGrid"))
 	await _set_zoom(40.0)
-	var gunship: Node3D = scene.ship("Gunship")
-	_rig().global_position = Vector3(gunship.global_position.x, 0, gunship.global_position.z)
+	var ff01b: Node3D = scene.ship("FF01B")
+	_rig().global_position = Vector3(ff01b.global_position.x, 0, ff01b.global_position.z)
 	await process_frame
-	await _click(_screen(gunship.global_position))
-	var goal := Vector3(gunship.global_position.x + 8, 0, gunship.global_position.z - 6)
+	await _click(_screen(ff01b.global_position))
+	var goal := Vector3(ff01b.global_position.x + 8, 0, ff01b.global_position.z - 6)
 	await _click(_screen(goal), MOUSE_BUTTON_RIGHT)
-	var destination: Vector2 = gunship.get_node("Locomotion").destination
+	var destination: Vector2 = ff01b.get_node("Locomotion").destination
 	_check("without the grid, a click selects and a right-click moves to the clicked ground point (%.2f u off)" % destination.distance_to(Vector2(goal.x, goal.z)),
-		scene.selection().selected == [gunship] and destination.distance_to(Vector2(goal.x, goal.z)) < 0.5)
+		scene.selection().selected == [ff01b] and destination.distance_to(Vector2(goal.x, goal.z)) < 0.5)

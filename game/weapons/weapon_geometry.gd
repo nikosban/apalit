@@ -183,6 +183,34 @@ static func build_cells(parent: Node3D, width: float, height: float, depth: floa
 	return muzzles
 
 
+## Rocket tube block (Rocket family): `columns` × `rows` tubes along the mount's −Z, centres
+## `spacing` apart and centred on the mount, each `length` long from the mount origin forward
+## with a dark mouth; a housing behind them. One muzzle marker just beyond each mouth (rows
+## top first, each left to right) and an `Aim` marker on the axis at the mouths (fire control).
+## Returns {muzzles, aim}.
+##   Housing, Tube1.., Mouth1.., Muzzle1.., Aim
+static func build_rocket_tubes(parent: Node3D, columns: int, rows: int, spacing: float, length: float, radius: float) -> Dictionary:
+	_box(parent, "Housing", Vector3(columns * spacing + radius, rows * spacing + radius, length * 0.5), Vector3(0, 0, length * 0.25), "mount")
+	var muzzles: Array[Node3D] = []
+	for r in rows:
+		for c in columns:
+			var i := r * columns + c + 1
+			var x := (c - (columns - 1) * 0.5) * spacing
+			var y := ((rows - 1) * 0.5 - r) * spacing
+			_tube(parent, "Tube%d" % i, radius, length, Vector3(x, y, -length * 0.5), "housing")
+			_tube(parent, "Mouth%d" % i, radius * 0.72, length * 0.03, Vector3(x, y, -length + length * 0.012), "muzzle")
+			var marker := Marker3D.new()
+			marker.name = "Muzzle%d" % i
+			marker.position = Vector3(x, y, -length - MUZZLE_GAP)
+			parent.add_child(marker)
+			muzzles.append(marker)
+	var aim := Marker3D.new()
+	aim.name = "Aim"
+	aim.position = Vector3(0, 0, -length - MUZZLE_GAP)
+	parent.add_child(aim)
+	return {"muzzles": muzzles, "aim": aim}
+
+
 ## Guided ordnance model (v0.3), centred on the node, nose toward −Z: body, nose cone,
 ## faction band, rear nozzle and the shared main thruster effect on the nozzle exit
 ## (main_thruster_fx, exhaust +Z); missiles add four fins and four tiny attitude (RCS)

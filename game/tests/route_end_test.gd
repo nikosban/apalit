@@ -6,8 +6,8 @@ extends SceneTree
 ## speed profile otherwise unchanged. Layouts: the twelve plain-MOVE layouts that
 ## stalled in the Stage 6 soaks (Miner1 from asteroid 19's working point to
 ## Station's west approach point, the Transporter or Miner2 parked near the end),
-## and routed approaches around asteroid 19 for the Frigate, Gunship, Transporter
-## and Destroyer past a parked Miner2 beside the final leg. A layout whose
+## and routed approaches around asteroid 19 for Miner1, the Transporter and the
+## FF-01 past a parked Miner2 beside the final leg. A layout whose
 ## destination lies within avoidance's separation of the parked ship is
 ## unreachable: the ship must settle beside it (stopped, no shuttling), and once
 ## the parked ship has left it must complete its order (the Stage 6 soak stall). Physics is stepped manually at 60 Hz in
@@ -20,8 +20,8 @@ const MAIN := preload("res://main.tscn")
 const ShipLocomotion := preload("res://game/locomotion/ship_locomotion.gd")
 const RouteFollower := preload("res://game/navigation/route_follower.gd")
 const DT := 1.0 / 60.0
-const SHIPS := ["Frigate", "Gunship", "Destroyer", "Miner1", "Miner2", "Transporter"]
-const PARK := {"Frigate": Vector2(40, 30), "Gunship": Vector2(40, 15), "Destroyer": Vector2(40, -5), "Miner1": Vector2(40, -20),
+const SHIPS := ["FF01", "Miner1", "Miner2", "Transporter"]
+const PARK := {"FF01": Vector2(40, -5), "Miner1": Vector2(40, -20),
 	"Miner2": Vector2(40, -32), "Transporter": Vector2(-80, 30)}
 const SOAK_START := Vector2(-62.45, -7.0) # Miner1's working point at asteroid 19 (Stage 6 soak).
 const SOAK_TARGET := Vector2(-62.1, -20.0) # Station's west approach point for a Miner.
@@ -40,6 +40,10 @@ var _navigation: Node
 func _initialize() -> void:
 	await process_frame
 	_main = MAIN.instantiate()
+	var ff01: Node3D = load("res://game/ships/ff01_unit.tscn").instantiate() # The large hull.
+	ff01.name = "FF01"
+	ff01.position = Vector3(14, 1.5, 0)
+	_main.get_node("Ships").add_child(ff01)
 	root.add_child(_main)
 	_navigation = _main.get_node("StaticNavigation")
 	_main.get_node("Survey").set_physics_process(false)
@@ -77,7 +81,7 @@ func _initialize() -> void:
 				resumed += 1 if r.arrived_after_leave else 0
 	var round_arrived := 0
 	var round_reachable := 0
-	for mover in ["Frigate", "Gunship", "Transporter", "Destroyer"]:
+	for mover in ["Miner1", "Transporter", "FF01"]:
 		var leg := (ROUND_TARGET - Vector2(-60, -8)).normalized()
 		for along: float in [3.0, 5.0, 8.0]:
 			for lateral: float in [-2.0, 0.0, 2.0]:
@@ -120,7 +124,7 @@ func _test_unobstructed() -> void:
 	var worst := 0.0
 	var all_arrived := true
 	var names: Array[String] = []
-	for mover in ["Frigate", "Gunship", "Transporter", "Destroyer", "Miner1"]:
+	for mover in ["Transporter", "FF01", "Miner1"]:
 		for leg: Array in [[ROUND_START, -PI / 2, ROUND_TARGET], [SOAK_START, PI, SOAK_TARGET], [Vector2(-75, 25), PI, Vector2(-20, -40)]]:
 			if mover != "Miner1" and leg[0] == SOAK_START:
 				continue
@@ -145,19 +149,19 @@ func _test_unobstructed() -> void:
 func _test_redirect() -> void:
 	_reset()
 	_place("Miner2", Vector2(-55.0, -5.0), 0.0) # Beside the final leg, outside the destination's separation.
-	_place("Gunship", ROUND_START, -PI / 2)
-	_follower("Gunship").order(Vector2(-60, 20))
+	_place("Transporter", ROUND_START, -PI / 2)
+	_follower("Transporter").order(Vector2(-60, 20))
 	for i in 60 * 4:
 		_step_route_followers()
 		_step_rest()
-	_follower("Gunship").order(ROUND_TARGET)
+	_follower("Transporter").order(ROUND_TARGET)
 	var ticks := 0
-	while _locomotion("Gunship").has_destination and ticks < 60 * TIME_LIMIT:
+	while _locomotion("Transporter").has_destination and ticks < 60 * TIME_LIMIT:
 		_step_route_followers()
 		_step_rest()
 		ticks += 1
-	_check("7. mid-route redirect to a destination beside a parked ship arrives (%.1f s, %d contacts)" % [ticks * DT, _locomotion("Gunship").collision_count],
-		not _locomotion("Gunship").has_destination and _locomotion("Gunship").planar_position.distance_to(ROUND_TARGET) < 0.1)
+	_check("7. mid-route redirect to a destination beside a parked ship arrives (%.1f s, %d contacts)" % [ticks * DT, _locomotion("Transporter").collision_count],
+		not _locomotion("Transporter").has_destination and _locomotion("Transporter").planar_position.distance_to(ROUND_TARGET) < 0.1)
 
 
 func _run(mover: String, start: Vector2, heading: float, target: Vector2, blocker: String, point: Vector2) -> Dictionary:

@@ -2,7 +2,7 @@ extends SceneTree
 ## Headless Phase 2.5 stage 2b checks on the playable main scene: station-controlled
 ## entry and exit through the stations' Berth nodes, reservations / physical
 ## occupancy / corridor clearance, FIFO hand-overs (incl. the former Hold1 / Hold4
-## deadlocks and the Destroyer's ExitB at Station's west berth), single movement
+## deadlocks and the FF01's ExitB at Station's west berth), single movement
 ## authority, held single and group commands, docked command validation, cancel()
 ## semantics, the panel, and mining / transport / blocked transfers through the
 ## maneuvers. Ship physics is stepped manually at 60 Hz in the game's order (per ship
@@ -20,8 +20,8 @@ const MiningOperation := preload("res://game/mining/mining_operation.gd")
 const TransportOperation := preload("res://game/transport/transport_operation.gd")
 const Inventory := preload("res://game/cargo/inventory.gd")
 const DT := 1.0 / 60.0
-const SHIPS := ["Frigate", "Gunship", "Destroyer", "Miner1", "Miner2", "Transporter"]
-const PARK := {"Frigate": Vector2(40, 30), "Gunship": Vector2(40, 15), "Destroyer": Vector2(40, -5), "Miner1": Vector2(40, -20),
+const SHIPS := ["Miner3", "Transporter2", "FF01", "Miner1", "Miner2", "Transporter"]
+const PARK := {"Miner3": Vector2(40, 30), "Transporter2": Vector2(40, 15), "FF01": Vector2(40, -5), "Miner1": Vector2(40, -20),
 	"Miner2": Vector2(40, -32), "Transporter": Vector2(60, 50)}
 const BOXES := [[Vector2(0, 0), Vector2(4, 3)], [Vector2(6, 0), Vector2(2, 0.6)], [Vector2(-6, 0), Vector2(2, 0.6)]]
 const HEADS := [[Vector2(8.6, 0), Vector2(0.6, 1.0)], [Vector2(-8.6, 0), Vector2(0.6, 1.0)]]
@@ -52,6 +52,12 @@ var _guided_before := {}
 func _initialize() -> void:
 	await process_frame
 	_main = MAIN.instantiate()
+	# Stand-ins for the retired warships, on their former spawn points.
+	for added: Array in [["Miner3", "res://game/ships/miner_unit.tscn", Vector3(-12, 1.5, 0)], ["Transporter2", "res://game/ships/transporter_unit.tscn", Vector3(0, 1.5, 0)], ["FF01", "res://game/ships/ff01_unit.tscn", Vector3(14, 1.5, 0)]]:
+		var ship: Node3D = load(added[1]).instantiate()
+		ship.name = added[0]
+		ship.position = added[2]
+		_main.get_node("Ships").add_child(ship)
 	root.add_child(_main)
 	_a = _main.get_node("Stations/Station")
 	_b = _main.get_node("Stations/Station2")
@@ -90,17 +96,17 @@ func _test_entries() -> void:
 	print("== ENTRY (the other berth reserved by a parked ship, so the berth is forced)")
 	print("ship        berth from    total  entry  alignErr posErr hullGap headGap contacts snaps maxAcc maxTurnAcc authority drift10s visualFwd")
 	var ok_all := true
-	for s in ["Miner1", "Frigate", "Gunship", "Transporter", "Destroyer"]:
+	for s in ["Miner1", "Miner3", "Transporter2", "Transporter", "FF01"]:
 		for berth in 2:
 			var axis: Vector2 = _a.slots[berth].axis
 			var center := _planar(_a)
 			var normal := Vector2(-axis.y, axis.x)
 			var starts := {"front": center + axis * 55.0, "side": center + axis * 14.0 + normal * 40.0, "behind": center - axis * 45.0 + normal * 10.0}
 			for key: String in starts:
-				if s == "Destroyer" and key != "front":
+				if s == "FF01" and key != "front":
 					continue
 				_reset()
-				_a.slots[1 - berth].ship = _ship("Gunship" if s != "Gunship" else "Frigate")
+				_a.slots[1 - berth].ship = _ship("Transporter2" if s != "Transporter2" else "Miner3")
 				_place(s, _nav.closest_point(_n(s, "RouteFollower").planning_radius(), starts[key]))
 				_monitor_reset()
 				var r := _entry(s, _a)
@@ -111,7 +117,7 @@ func _test_entries() -> void:
 				print("%-11s %s     %-7s %5.1f %6.1f %6.2f°  %6.3f %6.2f %6.2f   %d        %d   %.2f   %.1f   %d        %.3f°   %.3f°%s" % [s, BERTH_NAMES[berth], key,
 					r.total, r.entry, r.align, r.pos, _hull_gap, _head_gap, _lo(s).collision_count, _snaps, _max_accel, _max_turn_accel, _authority,
 					held.drift, held.visual, "" if ok else "  <-- FAIL"])
-	_check("every class docks on both berths (3 approach directions; Destroyer from the front): heading on the berth axis <= 0.5° at Docked and after 10 s (visible bow), position <= 0.05 u, no clipping of hull or docking heads, no contacts, snaps or shared control", ok_all)
+	_check("every class docks on both berths (3 approach directions; FF01 from the front): heading on the berth axis <= 0.5° at Docked and after 10 s (visible bow), position <= 0.05 u, no clipping of hull or docking heads, no contacts, snaps or shared control", ok_all)
 
 
 func _entry(s: String, st: Station) -> Dictionary:
@@ -138,10 +144,10 @@ func _test_exits() -> void:
 	print("== EXIT (alone at the station)")
 	print("ship        berth side t_exit t_release release(along,lateral) gapAtRelease prevGap hullGap headGap contacts snaps maxAcc maxTurnAcc authority driftAfter")
 	var ok_all := true
-	for s in ["Miner1", "Transporter", "Destroyer"]:
+	for s in ["Miner1", "Transporter", "FF01"]:
 		for berth in 2:
 			_reset()
-			_a.slots[1 - berth].ship = _ship("Gunship")
+			_a.slots[1 - berth].ship = _ship("Transporter2")
 			_place(s, _nav.closest_point(_n(s, "RouteFollower").planning_radius(), _planar(_a) + _a.slots[berth].axis * 55.0))
 			_entry(s, _a)
 			_a.slots[1 - berth].ship = null
@@ -156,7 +162,7 @@ func _test_exits() -> void:
 				_dk(s).exit_side, r.t_exit, r.t_release, r.along, r.lateral, r.gap_at_release, r.prev_gap, _hull_gap, _head_gap, _lo(s).collision_count, _snaps,
 				_max_accel, _max_turn_accel, _authority, after.drift, "" if ok else "  <-- FAIL"])
 	_check("exits: a valid authored side, the reservation released exactly when the circle leaves the rectangle (gap >= 0 after, < 0 before), occupancy = physical overlap, no clipping, contacts, snaps, shared control or rotation after control returns", ok_all)
-	_check("the Destroyer at Station's west berth has only ExitB (ExitA blocked by an asteroid) and used it", _a.exit_sides(1, 6.2) == [-1])
+	_check("the FF01 at Station's west berth has only ExitB (ExitA blocked by an asteroid) and used it", _a.exit_sides(1, 6.2) == [-1])
 
 
 func _exit(s: String, st: Station, berth: int) -> Dictionary:
@@ -188,13 +194,13 @@ func _exit(s: String, st: Station, berth: int) -> Dictionary:
 func _test_handovers() -> void:
 	print("== HAND-OVERS (A docked east, B docked west, C waits at a hold, the leaver undocks)")
 	var cases := [
-		["Frigate", "Gunship", "Transporter", Vector2(-20, 15), "Frigate", "Hold1 (former deadlock, east)"],
-		["Gunship", "Frigate", "Transporter", Vector2(-52, -55), "Frigate", "Hold4 mirror (west)"],
-		["Transporter", "Frigate", "Gunship", Vector2(-20, 15), "Transporter", "Transporter leaves east, Gunship at Hold1"],
-		["Frigate", "Transporter", "Gunship", Vector2(-52, -55), "Transporter", "Transporter leaves west, Gunship at Hold4"],
-		["Miner1", "Miner2", "Frigate", Vector2(-20, 15), "Miner1", "Miner leaves east, Frigate at Hold1"],
-		["Frigate", "Destroyer", "Transporter", Vector2(-52, -55), "Destroyer", "Destroyer leaves west (ExitB), Transporter at Hold4"],
-		["Frigate", "Destroyer", "Transporter", Vector2(-52, 15), "Destroyer", "Destroyer leaves west (ExitB), Transporter at Hold2"],
+		["Miner3", "Transporter2", "Transporter", Vector2(-20, 15), "Miner3", "Hold1 (former deadlock, east)"],
+		["Transporter2", "Miner3", "Transporter", Vector2(-52, -55), "Miner3", "Hold4 mirror (west)"],
+		["Transporter", "Miner3", "Transporter2", Vector2(-20, 15), "Transporter", "Transporter leaves east, Transporter2 at Hold1"],
+		["Miner3", "Transporter", "Transporter2", Vector2(-52, -55), "Transporter", "Transporter leaves west, Transporter2 at Hold4"],
+		["Miner1", "Miner2", "Miner3", Vector2(-20, 15), "Miner1", "Miner leaves east, Miner3 at Hold1"],
+		["Miner3", "FF01", "Transporter", Vector2(-52, -55), "FF01", "FF01 leaves west (ExitB), Transporter at Hold4"],
+		["Miner3", "FF01", "Transporter", Vector2(-52, 15), "FF01", "FF01 leaves west (ExitB), Transporter at Hold2"],
 	]
 	var ok_all := true
 	for c: Array in cases:
@@ -237,7 +243,7 @@ func _test_handovers() -> void:
 		print("%-52s waits at Hold%d, exit side %+d, released %.1f s, granted %.1f s (rectangle empty, corridor clear: %s), %s, min ship gap %.2f u (%s), contacts %d%s" % [
 			c[5], hold + 1, _dk(leaver).exit_side, released, granted, clean_grant, ("docked %.1f s" % docked) if docked >= 0 else "NOT DOCKED (%s)" % _dk(q).state_name(),
 			_ship_gap, _ship_gap_pair, contacts, "" if ok else "  <-- FAIL"])
-	_check("hand-overs incl. the former Hold1 deadlock, its Hold4 mirror and the Destroyer's ExitB with a ship waiting on either side: every waiting ship docks; granted only with the rectangle empty and the corridor clear, never before the release; 0 contacts; ships >= 1 u apart", ok_all)
+	_check("hand-overs incl. the former Hold1 deadlock, its Hold4 mirror and the FF01's ExitB with a ship waiting on either side: every waiting ship docks; granted only with the rectangle empty and the corridor clear, never before the release; 0 contacts; ships >= 1 u apart", ok_all)
 
 
 # ------------------------------------------------------------------ both berths
@@ -263,7 +269,7 @@ func _test_both_berths() -> void:
 func _test_cancel() -> void:
 	# During station control: refused, the maneuver goes on.
 	_reset()
-	_a.slots[1].ship = _ship("Gunship")
+	_a.slots[1].ship = _ship("Transporter2")
 	_place("Miner1", _planar(_a) + Vector2(55, 0))
 	_dk("Miner1").dock(_a)
 	_until(func() -> bool: return _dk("Miner1").under_control(), 60 * 60)
@@ -274,11 +280,11 @@ func _test_cancel() -> void:
 	# While docked: the request is released, the ship does not move, the berth stays physically occupied.
 	var at := _lo("Miner1").planar_position
 	_dk("Miner1").cancel()
-	_place("Frigate", _nav.closest_point(2.6, _planar(_a) + Vector2(20, 30)))
-	_dk("Frigate").dock(_a)
+	_place("Miner3", _nav.closest_point(2.6, _planar(_a) + Vector2(20, 30)))
+	_dk("Miner3").dock(_a)
 	_steps(600)
 	var still: bool = _lo("Miner1").planar_position == at and not _lo("Miner1").has_destination and _dk("Miner1").state == Docking.State.NONE
-	var blocked: bool = _a.slots[0].ship == _ship("Miner1") and _a.slots[0].leaving and _dk("Frigate").state == Docking.State.WAITING
+	var blocked: bool = _a.slots[0].ship == _ship("Miner1") and _a.slots[0].leaving and _dk("Miner3").state == Docking.State.WAITING
 	_check("cancel() while docked: no movement (cancelling is not undocking), the request released, the berth stays reserved while the ship is inside it, the waiting ship is not granted it", still and blocked)
 
 
@@ -310,7 +316,7 @@ func _test_commands() -> void:
 	# Move during the controlled entry: the entry finishes on the pose, then the exit, then the Move.
 	_reset()
 	selection.set_selection([_ship("Miner1")])
-	_a.slots[1].ship = _ship("Gunship")
+	_a.slots[1].ship = _ship("Transporter2")
 	_place("Miner1", _planar(_a) + Vector2(55, 0))
 	_dk("Miner1").dock(_a)
 	_until(func() -> bool: return _dk("Miner1").under_control(), 60 * 60)
@@ -345,7 +351,7 @@ func _test_commands() -> void:
 func _dock_selected(s: String) -> void:
 	_reset()
 	_main.get_node("Selection").set_selection([_ship(s)])
-	_a.slots[1].ship = _ship("Gunship")
+	_a.slots[1].ship = _ship("Transporter2")
 	_place(s, _planar(_a) + Vector2(55, 0))
 	_dk(s).dock(_a)
 	_until(func() -> bool: return _dk(s).state == Docking.State.DOCKED, 60 * 150)
@@ -359,7 +365,7 @@ func _dock_selected(s: String) -> void:
 func _test_group() -> void:
 	var selection := _main.get_node("Selection")
 	_reset()
-	_a.slots[1].ship = _ship("Destroyer")
+	_a.slots[1].ship = _ship("FF01")
 	_place("Miner1", _planar(_a) + Vector2(55, 0))
 	_dk("Miner1").dock(_a)
 	_until(func() -> bool: return _dk("Miner1").state == Docking.State.DOCKED, 60 * 150)
@@ -367,8 +373,8 @@ func _test_group() -> void:
 	_place("Transporter", _nav.closest_point(5.1, _planar(_a) + Vector2(-55, 0)))
 	_dk("Transporter").dock(_a)
 	_until(func() -> bool: return _dk("Transporter").under_control(), 60 * 90)
-	_place("Frigate", Vector2(10, -30))
-	var ships := [_ship("Frigate"), _ship("Miner1"), _ship("Transporter")]
+	_place("Miner3", Vector2(10, -30))
+	var ships := [_ship("Miner3"), _ship("Miner1"), _ship("Transporter")]
 	selection.set_selection(ships)
 	_frame(Vector2(-5, -25), 45.0)
 	await process_frame
@@ -379,7 +385,7 @@ func _test_group() -> void:
 	var hit: Vector3 = Plane(Vector3.UP, 0.0).intersects_ray(camera.project_ray_origin(screen), camera.project_ray_normal(screen))
 	var expected: Dictionary = _main.get_node("GroupOrders").assign(selection.selected, Vector2(hit.x, hit.z))
 	_right_click(click)
-	var frigate_now: bool = _lo("Frigate").has_destination and _ordered("Frigate", expected)
+	var miner3_now: bool = _lo("Miner3").has_destination and _ordered("Miner3", expected)
 	var miner_exits: bool = _dk("Miner1").state == Docking.State.UNDOCKING and _dk("Miner1").has_held_command()
 	var transporter_held: bool = _dk("Transporter").under_control() and _dk("Transporter").has_held_command()
 	_until(func() -> bool: return not _dk("Miner1").under_control(), 60 * 60)
@@ -389,8 +395,8 @@ func _test_group() -> void:
 	_until(func() -> bool: return _dk("Transporter").state == Docking.State.NONE and not _dk("Transporter").under_control(), 60 * 120)
 	_step()
 	var transporter_dest: bool = _lo("Transporter").has_destination and _ordered("Transporter", expected)
-	_check("group MOVE: the free Frigate goes at once to its assigned destination (%s), the docked Miner leaves under control then goes to its own (%s), the Transporter under control finishes its entry and exit then goes to its own (%s); no RouteFollower order reached a guided ship" % [
-		frigate_now, miner_exits and miner_dest, transporter_held and transporter_dest], frigate_now and miner_exits and miner_dest and transporter_held and transporter_dest
+	_check("group MOVE: the free Miner3 goes at once to its assigned destination (%s), the docked Miner leaves under control then goes to its own (%s), the Transporter under control finishes its entry and exit then goes to its own (%s); no RouteFollower order reached a guided ship" % [
+		miner3_now, miner_exits and miner_dest, transporter_held and transporter_dest], miner3_now and miner_exits and miner_dest and transporter_held and transporter_dest
 		and _guard_counts() == 0)
 	selection.set_selection([])
 
@@ -407,7 +413,7 @@ func _test_panel() -> void:
 	var selection := _main.get_node("Selection")
 	# Under station control: Start / Resume disabled.
 	_reset()
-	_a.slots[1].ship = _ship("Gunship")
+	_a.slots[1].ship = _ship("Transporter2")
 	selection.set_selection([_ship("Miner1")])
 	_mining("Miner1").target = 19
 	_mining("Miner1").status = MiningOperation.Status.CANCELED
@@ -433,7 +439,7 @@ func _test_panel() -> void:
 	transport.set_load_station(_a)
 	transport.set_unload_station(_b)
 	transport.set_requirement(&"iron", 100)
-	_b.slots[1].ship = _ship("Gunship")
+	_b.slots[1].ship = _ship("Transporter2")
 	_place("Transporter", _nav.closest_point(5.1, _planar(_b) + Vector2(55, 0)))
 	_dk("Transporter").dock(_b)
 	_until(func() -> bool: return _dk("Transporter").state == Docking.State.DOCKED, 60 * 150)
@@ -454,7 +460,7 @@ func _test_panel() -> void:
 	transport.set_load_station(_a)
 	transport.set_unload_station(_b)
 	transport.set_requirement(&"iron", 100)
-	_a.slots[1].ship = _ship("Gunship")
+	_a.slots[1].ship = _ship("Transporter2")
 	_place("Transporter", _nav.closest_point(5.1, _planar(_a) + Vector2(55, 0)))
 	_dk("Transporter").dock(_a)
 	_until(func() -> bool: return _dk("Transporter").state == Docking.State.DOCKED, 60 * 150)
@@ -469,7 +475,7 @@ func _test_panel() -> void:
 	transport.set_unload_station(_b)
 	transport.set_requirement(&"iron", 100)
 	_a.storage.add(&"iron", 200)
-	_a.slots[1].ship = _ship("Gunship")
+	_a.slots[1].ship = _ship("Transporter2")
 	_place("Transporter", _nav.closest_point(5.1, _planar(_a) + Vector2(55, 0)))
 	transport.start()
 	_until(func() -> bool: return _dk("Transporter").under_control(), 60 * 90)
@@ -512,7 +518,7 @@ func _test_operations() -> void:
 		_n("Transporter", "RouteFollower").plans - plans], delivered >= 0 and _b.storage.quantity_of(&"iron") == 300 and _contacts() == 0)
 	_reset()
 	_cargo("Miner1").add(&"iron", 200)
-	_a.slots[1].ship = _ship("Gunship")
+	_a.slots[1].ship = _ship("Transporter2")
 	_place("Miner1", _planar(_a) + Vector2(55, 0))
 	_dk("Miner1").dock(_a)
 	_until(func() -> bool: return _dk("Miner1").state == Docking.State.DOCKED, 60 * 150)

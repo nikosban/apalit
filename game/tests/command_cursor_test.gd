@@ -39,6 +39,10 @@ var _ships: Array[String] = []
 func _initialize() -> void:
 	await process_frame
 	_main = MAIN.instantiate()
+	var ff01: Node3D = load("res://game/ships/ff01_unit.tscn").instantiate() # A ship without mining.
+	ff01.name = "FF01"
+	ff01.position = Vector3(14, 1.5, 0)
+	_main.get_node("Ships").add_child(ff01)
 	var navigation := _main.get_node("StaticNavigation")
 	var obstacles: NodePath = navigation.obstacles_path
 	var script := GDScript.new()
@@ -77,20 +81,20 @@ func _test_basic() -> void:
 	var ground := _screen(Vector3(10, 0, -12))
 	_selection.set_selection([])
 	_check("nothing selected: the arrow, and a right-click gives no order", _cursor.update(ground, true, DT) == CommandCursor.Cursor.NONE)
-	_selection.set_selection([_ship("Frigate")])
+	_selection.set_selection([_ship("FF01")])
 	var shown := _cursor.update(ground, true, DT)
 	_main._command(ground)
-	_check("Frigate, open ground: Move, and the click gives the order (%s)" % str(_n("Frigate", "RouteFollower").requested),
-		shown == CommandCursor.Cursor.MOVE and _lo("Frigate").has_destination and _n("Frigate", "RouteFollower").requested.distance_to(Vector2(10, -12)) < 0.6)
+	_check("FF01, open ground: Move, and the click gives the order (%s)" % str(_n("FF01", "RouteFollower").requested),
+		shown == CommandCursor.Cursor.MOVE and _lo("FF01").has_destination and _n("FF01", "RouteFollower").requested.distance_to(Vector2(10, -12)) < 0.6)
 	_reset()
-	_selection.set_selection([_ship("Frigate")])
+	_selection.set_selection([_ship("FF01")])
 	_nav.blocked_to = Vector2(14, 12)
 	var refused := _screen(Vector3(14, 0, 12))
 	shown = _cursor.update(refused, true, DT)
 	var notice := _notice()
 	_main._command(refused)
-	_check("Frigate, a point with no route: Unavailable (%s), and the click is refused ('%s'), no order (%s)" % [shown, _notice(), _lo("Frigate").has_destination],
-		shown == CommandCursor.Cursor.UNAVAILABLE and _notice() == "No route found" and not _lo("Frigate").has_destination)
+	_check("FF01, a point with no route: Unavailable (%s), and the click is refused ('%s'), no order (%s)" % [shown, _notice(), _lo("FF01").has_destination],
+		shown == CommandCursor.Cursor.UNAVAILABLE and _notice() == "No route found" and not _lo("FF01").has_destination)
 	_nav.blocked_to = Vector2.INF
 	_check("over the GUI: the arrow", _cursor.update(ground, false, DT) == CommandCursor.Cursor.NONE)
 	_reset()
@@ -119,13 +123,13 @@ func _test_asteroids() -> void:
 	_nav.blocked_to = Vector2.INF
 	_nav.blocked_radius = 3.0
 	_reset()
-	_selection.set_selection([_ship("Frigate")])
+	_selection.set_selection([_ship("FF01")])
 	shown = _cursor.update(over, true, DT)
 	_main._command(over)
-	var destination: Vector2 = _lo("Frigate").destination
-	var gap: float = destination.distance_to(Vector2(center.x, center.z)) - field.radius(id) - _n("Frigate", "RouteFollower").ship_radius
-	_check("Frigate over an asteroid: Move, and the click moves it to a point outside the asteroid's footprint (%.2f u clear)" % gap,
-		shown == CommandCursor.Cursor.MOVE and _lo("Frigate").has_destination and gap >= 0.0)
+	var destination: Vector2 = _lo("FF01").destination
+	var gap: float = destination.distance_to(Vector2(center.x, center.z)) - field.radius(id) - _n("FF01", "RouteFollower").ship_radius
+	_check("FF01 over an asteroid: Move, and the click moves it to a point outside the asteroid's footprint (%.2f u clear)" % gap,
+		shown == CommandCursor.Cursor.MOVE and _lo("FF01").has_destination and gap >= 0.0)
 	_reset()
 
 
@@ -140,7 +144,7 @@ func _test_station() -> void:
 	_main._command(over)
 	_check("Miner1 over the Station: Dock, and the click requests the dock (%s)" % _dk("Miner1").state_name(),
 		shown == CommandCursor.Cursor.DOCK and _dk("Miner1").station == station)
-	_main.get_node("Stations/Station").slots[1].ship = _ship("Gunship")
+	_main.get_node("Stations/Station").slots[1].ship = _ship("Miner2") # Any other ship holds berth 1.
 	_until(func() -> bool: return _dk("Miner1").state == Docking.State.DOCKED, 60 * 150)
 	_main.get_node("Stations/Station").slots[1].ship = null
 	shown = _cursor.update(over, true, DT * 40) # Same target, re-checked after REFRESH.
@@ -155,23 +159,23 @@ func _test_group() -> void:
 	await process_frame
 	var point := Vector3(20, 0, -20)
 	var screen := _screen(point)
-	_selection.set_selection([_ship("Frigate"), _ship("Gunship"), _ship("Destroyer")])
+	_selection.set_selection([_ship("FF01"), _ship("Transporter"), _ship("Miner2")])
 	var moving := _cursor.update(screen, true, DT)
 	var rested := _cursor.update(screen, true, CommandCursor.GROUP_REST)
 	_main._command(screen)
 	_check("group over open ground: Move while moving (%s) and after resting (%s); the click gives every ship an order" % [moving, rested],
 		moving == CommandCursor.Cursor.MOVE and rested == CommandCursor.Cursor.MOVE
-		and ["Frigate", "Gunship", "Destroyer"].all(func(s: String) -> bool: return _lo(s).has_destination))
+		and ["FF01", "Transporter", "Miner2"].all(func(s: String) -> bool: return _lo(s).has_destination))
 	_reset()
 	_nav.blocked_to = Vector2(point.x, point.z)
 	_nav.blocked_radius = 400.0 # No destination for anyone anywhere.
-	_selection.set_selection([_ship("Frigate"), _ship("Gunship"), _ship("Destroyer")])
+	_selection.set_selection([_ship("FF01"), _ship("Transporter"), _ship("Miner2")])
 	_cursor.update(screen, true, DT)
 	rested = _cursor.update(screen, true, CommandCursor.GROUP_REST)
 	_main._command(screen)
-	_check("group with no room: Unavailable once the cursor rests (%s), and the click gives no order ('%s'; %s)" % [rested, _notice(), str(["Frigate", "Gunship", "Destroyer"].map(func(s: String) -> bool: return _lo(s).has_destination))],
+	_check("group with no room: Unavailable once the cursor rests (%s), and the click gives no order ('%s'; %s)" % [rested, _notice(), str(["FF01", "Transporter", "Miner2"].map(func(s: String) -> bool: return _lo(s).has_destination))],
 		rested == CommandCursor.Cursor.UNAVAILABLE and _notice() == "Not enough space for the group - no orders given"
-		and ["Frigate", "Gunship", "Destroyer"].all(func(s: String) -> bool: return not _lo(s).has_destination))
+		and ["FF01", "Transporter", "Miner2"].all(func(s: String) -> bool: return not _lo(s).has_destination))
 	_nav.blocked_to = Vector2.INF
 	_nav.blocked_radius = 3.0
 	_reset()

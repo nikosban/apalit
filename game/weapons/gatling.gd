@@ -84,13 +84,16 @@ func _fire(target: Node3D) -> void:
 	if mode != "defense":
 		super._fire(target)
 		return
-	# Point defense: the same round, no attack registered on a ship.
+	# Point defense: the same round (deviated like an offensive one; no draw at dispersion
+	# 0), no attack registered on a ship.
 	var origin := muzzle.global_transform
 	var direction := -origin.basis.z.normalized()
 	var id := -1
 	if combat.projectiles != null:
-		id = combat.projectiles.spawn(ship, combat.faction, origin.origin, direction * config.projectile_speed,
-			config.damage, config.max_travel(), config.projectile_lifetime, target, config.projectile_style)
+		var round_direction := disperse(direction, config.dispersion_max_deg, rng)
+		id = combat.projectiles.spawn(ship, combat.faction, origin.origin, round_direction * config.projectile_speed,
+			config.damage, config.max_travel(), config.projectile_lifetime, target, config.projectile_style,
+			config.resolved_penetration(), config.armor_damage, config.family == &"gatling")
 	_use_round()
 	cooldown_left = config.cooldown
 	shots += 1
@@ -130,14 +133,19 @@ func _choose_defense() -> void:
 				best_time = time
 		if best_category >= 0:
 			candidates.append([best_category, best_time, node.id, node])
-	candidates.sort_custom(func(a: Array, b: Array) -> bool:
-		return a[0] < b[0] or (a[0] == b[0] and (a[1] < b[1] or (a[1] == b[1] and a[2] < b[2]))))
+	candidates.sort_custom(_defense_before)
 	for entry: Array in candidates:
 		if engageable(entry[3]):
 			defense_target = entry[3]
 			defense_category = entry[0]
 			defense_time = entry[1]
 			return
+
+
+## Defensive order of two candidates [category, time to impact, ordnance id, ordnance]:
+## category, then the earliest predicted impact, then the id (the PDC family overrides it).
+func _defense_before(a: Array, b: Array) -> bool:
+	return a[0] < b[0] or (a[0] == b[0] and (a[1] < b[1] or (a[1] == b[1] and a[2] < b[2])))
 
 
 ## Predicted seconds until `node` reaches `protected_ship`, or INF when it is not a threat

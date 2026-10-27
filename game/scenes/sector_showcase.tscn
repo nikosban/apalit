@@ -1,9 +1,6 @@
 [gd_scene format=4 uid="uid://dom1mm6k4r2ou"]
 
 [ext_resource type="PackedScene" path="res://game/camera/camera_rig.tscn" id="1_rig"]
-[ext_resource type="PackedScene" path="res://game/ships/frigate_unit.tscn" id="3_frigate_unit"]
-[ext_resource type="PackedScene" path="res://game/ships/gunship_unit.tscn" id="4_gunship_unit"]
-[ext_resource type="PackedScene" path="res://game/ships/destroyer_unit.tscn" id="5_destroyer_unit"]
 [ext_resource type="Script" uid="uid://lhyvdytgre13" path="res://game/scenes/movement_lab.gd" id="6_lab"]
 [ext_resource type="PackedScene" path="res://game/debug/debug_ui.tscn" id="8_debug"]
 [ext_resource type="Script" uid="uid://dqy0onfxyub4q" path="res://game/navigation/static_navigation.gd" id="9_navigation"]
@@ -37,7 +34,6 @@
 [ext_resource type="Script" uid="uid://58a5mi5iscau" path="res://game/sensors/sensors.gd" id="96_sensors"]
 [ext_resource type="Script" uid="uid://bwur2ebhjn6e" path="res://game/presentation/combat_overlay.gd" id="97_overlay"]
 [ext_resource type="Script" uid="uid://bqg57sur3v65k" path="res://game/ui/combat_hud.gd" id="98_hud"]
-[ext_resource type="Script" uid="uid://dh5ev2gitxjrk" path="res://game/behavior/hostile_commander.gd" id="99_commander"]
 [ext_resource type="Script" uid="uid://bb2flf7pmilxe" path="res://game/presentation/sector_backdrop.gd" id="100_backdrop"]
 
 [sub_resource type="Environment" id="Environment_lab"]
@@ -291,15 +287,6 @@ script = ExtResource("18_survey")
 
 [node name="Ships" type="Node3D" parent="." unique_id=2051469183]
 
-[node name="Frigate" parent="Ships" unique_id=1373319823 instance=ExtResource("3_frigate_unit")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -252, 1.5, -8)
-
-[node name="Gunship" parent="Ships" unique_id=369515819 instance=ExtResource("4_gunship_unit")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -246, 1.5, 12)
-
-[node name="Destroyer" parent="Ships" unique_id=345388545 instance=ExtResource("5_destroyer_unit")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -228, 1.5, 34)
-
 [node name="Miner1" parent="Ships" unique_id=1505316340 instance=ExtResource("23_miner_unit")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -262, 1.5, 46)
 
@@ -308,27 +295,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -278, 1.5, 52)
 
 [node name="Transporter" parent="Ships" unique_id=1846953826 instance=ExtResource("31_transporter_unit")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -240, 1.5, 92)
-
-[node name="HostileDestroyer" parent="Ships" unique_id=300941356 instance=ExtResource("5_destroyer_unit")]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 214, 1.5, -58)
-
-[node name="Combat" parent="Ships/HostileDestroyer" index="7" unique_id=55288439]
-faction = 1
-stance = 2
-
-[node name="HostileGunship" parent="Ships" unique_id=1933724389 instance=ExtResource("4_gunship_unit")]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 204, 1.5, -76)
-
-[node name="Combat" parent="Ships/HostileGunship" index="7" unique_id=55288439]
-faction = 1
-stance = 2
-
-[node name="HostileGunship2" parent="Ships" unique_id=1252428582 instance=ExtResource("4_gunship_unit")]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 206, 1.5, -40)
-
-[node name="Combat" parent="Ships/HostileGunship2" index="7" unique_id=55288439]
-faction = 1
-stance = 2
 
 [node name="Contacts" type="Node" parent="." unique_id=1837386806]
 script = ExtResource("91_contacts")
@@ -424,14 +390,3 @@ script = ExtResource("98_hud")
 [node name="Backdrop" type="MultiMeshInstance3D" parent="." unique_id=289575028]
 script = ExtResource("100_backdrop")
 anchors = PackedVector4Array(-40, 180, -210, 130, 250, 220, 40, 160, -270, 160, -260, 110, 110, 260, 300, 180, -300, 200, 250, 130, 330, 170, -300, 120)
-
-[node name="HostileCommander" type="Node" parent="." unique_id=1743667433]
-script = ExtResource("99_commander")
-tactic = 2
-escorted = "HostileDestroyer"
-escorts = PackedStringArray("HostileGunship", "HostileGunship2")
-objectives = PackedVector2Array(196, -128, 176, 24)
-
-[editable path="Ships/HostileDestroyer"]
-[editable path="Ships/HostileGunship"]
-[editable path="Ships/HostileGunship2"]

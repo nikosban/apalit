@@ -14,7 +14,7 @@ extends CanvasLayer
 ## Symbols (constant screen size), in the production marker language (ObjectMarkers):
 ##   category shape: combat ship triangle, logistics ship octagon;
 ##   faction: the faction tint, and a second outer outline on hostile markers;
-##   combat ships: one bar inside, two for the Destroyer class (larger marker);
+##   combat ships: one bar inside, two for the large-hull class (radius 5 u or more, larger marker);
 ##   selected: corner brackets;  manual target of a selected ship: four crosshair ticks;
 ##   movement order of a selected ship: dashed line to its destination and a small ring;
 ##   destroyed (hulk): a small grey cross;
@@ -43,7 +43,7 @@ const TARGET_COLOR := Color(1.0, 0.85, 0.55)
 const HULK_COLOR := Color(0.55, 0.55, 0.58)
 # Sector Showcase round: the canvas is 1080 lines tall (project base size), so these are
 # real px at 1080p; smaller, finer and less filled than before, so hulls show through.
-const BASE_SIZE := 6.5 # px half-extent of a Gunship frame at 1080 lines
+const BASE_SIZE := 6.5 # px half-extent of a medium-hull frame at 1080 lines
 const STATION_SIZE := 6.0 # px centre to corner of a station square at 1080 lines
 const STATION_COLOR := Color(0.78, 0.8, 0.84)
 const ASTEROID_SIZE := 2.5 # px centre to corner of an asteroid diamond at 1080 lines
@@ -113,7 +113,7 @@ func hit_size(ship: Node3D) -> float:
 
 func half_size(ship: Node3D) -> float:
 	var follower := ship.get_node_or_null("RouteFollower")
-	var big: bool = follower != null and follower.ship_radius >= 5.0 # Destroyer class (Gunship ~3 u)
+	var big: bool = follower != null and follower.ship_radius >= 5.0 # Large-hull class (FF-01 6.2 u; medium hulls ~3-4 u)
 	return BASE_SIZE * scale_factor() * (1.35 if big else 1.0)
 
 
@@ -184,7 +184,7 @@ func _draw_markers() -> void:
 		# The production category shape (ObjectMarkers: triangle combat ship, octagon
 		# logistics ship) in the faction's tint; a hostile marker also has an outer outline,
 		# so faction does not rest on colour alone. Armed and unarmed combat ships carry
-		# their class bars (one, two for the Destroyer class).
+		# their class bars (one, two for the large-hull class).
 		var tint: Color = CombatShip.FACTION_COLORS[combat.faction]
 		var shape: int = ObjectMarkers.ship_shape(ship)
 		var size := h * (1.45 if shape == ObjectMarkers.Shape.TRIANGLE else 1.2)

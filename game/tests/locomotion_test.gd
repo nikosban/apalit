@@ -16,7 +16,7 @@ const SLACK := 1.0e-4 # relative slack on limit checks
 const HOVER_HEIGHT := 1.5
 const ANGLE_MIN_SPEED := 0.5 # u/s
 const DRIFT_SHARE := 0.2 # of max_speed
-const SHIPS := ["Frigate", "Gunship", "Destroyer"]
+const SHIPS := ["Miner", "Transporter", "FF01"]
 const PROFILE := ["max_speed", "max_reverse_speed", "max_lateral_speed", "forward_accel", "reverse_accel",
 	"lateral_accel", "max_turn_rate_deg", "turn_accel_deg"]
 # Ship starts at the origin facing -Z. "redirect" is relative to the position at the trigger.

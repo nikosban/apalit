@@ -2,9 +2,9 @@
 
 [ext_resource type="PackedScene" path="res://game/camera/camera_rig.tscn" id="1_rig"]
 [ext_resource type="Shader" path="res://game/scenes/lab_grid.gdshader" id="2_grid"]
-[ext_resource type="PackedScene" path="res://game/ships/frigate.tscn" id="3_frigate"]
-[ext_resource type="PackedScene" path="res://game/ships/gunship.tscn" id="4_gunship"]
-[ext_resource type="PackedScene" path="res://game/ships/destroyer.tscn" id="5_destroyer"]
+[ext_resource type="PackedScene" path="res://game/ships/miner.tscn" id="3_miner"]
+[ext_resource type="PackedScene" path="res://game/ships/transporter.tscn" id="4_transporter"]
+[ext_resource type="PackedScene" path="res://game/ships/ff01.tscn" id="5_ff01"]
 [ext_resource type="Script" path="res://game/scenes/movement_lab.gd" id="6_lab"]
 [ext_resource type="Script" path="res://game/locomotion/ship_locomotion.gd" id="7_locomotion"]
 [ext_resource type="PackedScene" path="res://game/debug/debug_ui.tscn" id="8_debug"]
@@ -209,10 +209,10 @@ script = ExtResource("16_collision")
 
 [node name="Ships" type="Node3D" parent="."]
 
-[node name="Frigate" parent="Ships" instance=ExtResource("3_frigate")]
+[node name="Miner" parent="Ships" instance=ExtResource("3_miner")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 1.5, 0)
 
-[node name="Locomotion" type="Node" parent="Ships/Frigate"]
+[node name="Locomotion" type="Node" parent="Ships/Miner"]
 script = ExtResource("7_locomotion")
 max_speed = 5.0
 max_reverse_speed = 4.0
@@ -223,20 +223,20 @@ lateral_accel = 2.5
 max_turn_rate_deg = 120.0
 turn_accel_deg = 240.0
 
-[node name="RouteFollower" type="Node" parent="Ships/Frigate"]
+[node name="RouteFollower" type="Node" parent="Ships/Miner"]
 script = ExtResource("10_follower")
 ship_radius = 1.6
 clearance_margin = 1.0
 
-[node name="Avoidance" type="Node" parent="Ships/Frigate"]
+[node name="Avoidance" type="Node" parent="Ships/Miner"]
 script = ExtResource("12_avoidance")
 size_class = 1
 separation_margin = 1.0
 
-[node name="Gunship" parent="Ships" instance=ExtResource("4_gunship")]
+[node name="Transporter" parent="Ships" instance=ExtResource("4_transporter")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
 
-[node name="Locomotion" type="Node" parent="Ships/Gunship"]
+[node name="Locomotion" type="Node" parent="Ships/Transporter"]
 script = ExtResource("7_locomotion")
 max_speed = 4.5
 max_reverse_speed = 2.5
@@ -247,20 +247,20 @@ lateral_accel = 1.2
 max_turn_rate_deg = 60.0
 turn_accel_deg = 90.0
 
-[node name="RouteFollower" type="Node" parent="Ships/Gunship"]
+[node name="RouteFollower" type="Node" parent="Ships/Transporter"]
 script = ExtResource("10_follower")
 ship_radius = 3.4
 clearance_margin = 1.0
 
-[node name="Avoidance" type="Node" parent="Ships/Gunship"]
+[node name="Avoidance" type="Node" parent="Ships/Transporter"]
 script = ExtResource("12_avoidance")
 size_class = 2
 separation_margin = 1.0
 
-[node name="Destroyer" parent="Ships" instance=ExtResource("5_destroyer")]
+[node name="FF01" parent="Ships" instance=ExtResource("5_ff01")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 1.5, 0)
 
-[node name="Locomotion" type="Node" parent="Ships/Destroyer"]
+[node name="Locomotion" type="Node" parent="Ships/FF01"]
 script = ExtResource("7_locomotion")
 max_speed = 3.0
 max_reverse_speed = 1.5
@@ -271,12 +271,12 @@ lateral_accel = 0.3
 max_turn_rate_deg = 25.0
 turn_accel_deg = 20.0
 
-[node name="RouteFollower" type="Node" parent="Ships/Destroyer"]
+[node name="RouteFollower" type="Node" parent="Ships/FF01"]
 script = ExtResource("10_follower")
 ship_radius = 6.2
 clearance_margin = 1.0
 
-[node name="Avoidance" type="Node" parent="Ships/Destroyer"]
+[node name="Avoidance" type="Node" parent="Ships/FF01"]
 script = ExtResource("12_avoidance")
 size_class = 3
 separation_margin = 1.0

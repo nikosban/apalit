@@ -1,26 +1,18 @@
 extends "res://game/scenes/movement_lab.gd"
-## Combat test fixture: the encounter arenas (encounter_arena.tscn and its E01–E05 /
-## P01–P03 variants) on the production scene script. Everything a player uses (combat
-## commands, tactics, profiles, time control, target selection, envelopes, strategic
-## markers, grid, fog of war) is production movement_lab.gd; this adds only the fixture
-## duties:
-##   - scenario set-up: `scenarios.apply()` places the ships and sets their channels (the
-##     prototype's encounters and behavior scenarios); the production Behavior nodes are
-##     removed first, so a scenario's ships carry Behavior exactly where the prototype's
-##     did (P01–P03 player ships, E05 with `behavior_layer`);
-##   - keys (tests and manual inspection only): C toggles the player's sensor contact on
-##     the hostile under the cursor, F5 reloads the encounter, 1–5 E01–E05, 6–8 P01–P03
-##     (through the fixture lab, combat_lab.tscn).
-
-const SCENARIO_KEY_LIST := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8]
-
-signal encounter_requested(index: int)
+## Combat test fixture: the encounter arena (encounter_arena.tscn and its E05 variant) on
+## the production scene script. Everything a player uses (combat commands, tactics,
+## profiles, time control, target selection, envelopes, strategic markers, grid, fog of
+## war) is production movement_lab.gd; this adds only the fixture duties:
+##   - scenario set-up: `scenarios.apply()` places the ships and sets their channels; the
+##     production Behavior nodes are removed first, so a scenario's ships carry Behavior
+##     only where the scenario gives it (E05 with `behavior_layer`);
+##   - key (tests and manual inspection only): C toggles the player's sensor contact on
+##     the hostile under the cursor.
 
 @export var scenario_index := 0 # Applied in _ready (-1: the scene as authored).
 @export var scenarios: Script = null # Scenario set (encounters.gd).
-@export var encounter := false # An encounter scene (F5 reloads the encounter).
-## The scenario gives its player ships a Behavior node (P01–P03 always; E05 when this is
-## set, which the fixture lab does for play; the combat suites load E05 without it).
+## The scenario gives its player ships a Behavior node (E05 when this is set; the combat
+## suites load E05 without it unless they test the Behavior layer).
 @export var behavior_layer := false
 
 var scenario_name := ""
@@ -52,12 +44,4 @@ func _combat_key(code: Key, shift: bool = false) -> bool:
 				var seen: bool = contacts.toggle(PLAYER_FACTION, picked)
 				_show_notice("Sensor contact %s: %s" % ["restored" if seen else "lost", DisplayName.of(picked)])
 			return true
-		KEY_F5:
-			if encounter:
-				encounter_requested.emit(scenario_index)
-			return true
-	var index := SCENARIO_KEY_LIST.find(code)
-	if index >= 0 and not shift:
-		encounter_requested.emit(index)
-		return true
 	return super._combat_key(code, shift)

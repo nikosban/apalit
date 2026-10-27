@@ -127,9 +127,9 @@ func _test_selection_changes() -> void:
 	_main.get_node("Selection").set_selection([])
 	await _frames(2)
 	var kept_deselected: bool = _editor.is_open() and _editor.draft[&"iron"] == 200
-	_select("Frigate")
+	_select("Miner1")
 	await _frames(2)
-	_check("deselecting, then selecting the Frigate: the editor stays open for the Transporter with its draft (Iron %d), nothing saved" % _editor.draft[&"iron"],
+	_check("deselecting, then selecting Miner1 (no transport): the editor stays open for the Transporter with its draft (Iron %d), nothing saved" % _editor.draft[&"iron"],
 		kept_deselected and _editor.is_open() and _editor.ship == _ship("Transporter") and _editor.draft[&"iron"] == 200 and _transport.required[&"iron"] == 0)
 
 

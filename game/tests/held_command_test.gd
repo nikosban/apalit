@@ -20,8 +20,8 @@ const Station := preload("res://game/stations/station.gd")
 const MiningOperation := preload("res://game/mining/mining_operation.gd")
 const TransportOperation := preload("res://game/transport/transport_operation.gd")
 const DT := 1.0 / 60.0
-const SHIPS := ["Frigate", "Gunship", "Destroyer", "Miner1", "Miner2", "Transporter"]
-const PARK := {"Frigate": Vector2(40, 30), "Gunship": Vector2(40, 15), "Destroyer": Vector2(40, -5), "Miner1": Vector2(40, -20),
+const SHIPS := ["Miner1", "Miner2", "Transporter"]
+const PARK := {"Miner1": Vector2(40, -20),
 	"Miner2": Vector2(40, -32), "Transporter": Vector2(60, 50)}
 const BLOCK_RADIUS := 3.0
 const NAVIGATION_SOURCE := """extends "res://game/navigation/static_navigation.gd"
@@ -129,7 +129,7 @@ func _test_entry_marker_and_own_station() -> void:
 	var first := _planar(_a) + Vector2(24, -12)
 	_reset()
 	_main.get_node("Selection").set_selection([_ship("Miner1")])
-	_a.slots[1].ship = _ship("Gunship")
+	_a.slots[1].ship = _ship("Miner2") # Any other ship holds berth 1.
 	_place("Miner1", _planar(_a) + Vector2(55, 0))
 	_frame(_planar(_a) + Vector2(30, 0), 40.0) # UX round P6: targets left of the right-side panel
 	await process_frame
@@ -226,7 +226,7 @@ func _marker_at(s: String, point: Vector2) -> bool:
 func _dock_selected(s: String) -> void:
 	_reset()
 	_main.get_node("Selection").set_selection([_ship(s)])
-	_a.slots[1].ship = _ship("Gunship")
+	_a.slots[1].ship = _ship("Miner2") # Any other ship holds berth 1.
 	_place(s, _planar(_a) + Vector2(55, 0))
 	_dk(s).dock(_a)
 	_until(func() -> bool: return _dk(s).state == Docking.State.DOCKED, 60 * 150)

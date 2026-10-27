@@ -3,7 +3,7 @@ extends "res://game/ui/combat_hud.gd"
 ## the scenario name and conditions (top centre), the selected ship's combat text
 ## (bottom left; production shows it in the ship panel) and the fixture's controls.
 
-const CONTROLS := "Left-click select  |  Right-click ground: move  |  Right-click hostile: target\nT choose target (slows time)  |  Hold Alt: weapon ranges  |  G grid\nSpace pause  |  - / = speed  |  F1 Passive  F2 Defensive  F3 Aggressive\nBackspace clear target  |  C toggle contact (hostile under cursor)\nCtrl+right-click hostile Attack / friendly Guard / ground Attack-Move  |  Shift+right-click waypoint  |  X cancel  |  P weapon profile\nF5 reset  |  1–5 encounters E01–E05  |  6–8 behavior P01–P03  |  F10 debug"
+const CONTROLS := "Left-click select  |  Right-click ground: move  |  Right-click hostile: target\nT choose target (slows time)  |  Hold Alt: weapon ranges  |  G grid\nSpace pause  |  - / = speed  |  F1 Passive  F2 Defensive  F3 Aggressive\nBackspace clear target  |  C toggle contact (hostile under cursor)\nCtrl+right-click hostile Attack / friendly Guard / ground Attack-Move  |  Shift+right-click waypoint  |  X cancel  |  P weapon profile\nF10 debug"
 
 var _info: Label
 var _controls: Label

@@ -22,6 +22,9 @@ extends Node3D
 ## friendly ships and hulks stop it without damage; an asteroid stops it. It ends at its
 ## technical limit ("expired") or, for missiles, at its flight time ("self_destruct").
 ## It is interceptable from its first tick (ejection included) by hostile rounds only.
+## Rockets (unguided ordnance of kind rocket) are interceptable only by hostile rounds
+## spawned with `intercepts_rockets` (Gatling-family rounds: PDCs and legacy Gatlings);
+## other rounds (cannon shells) pass through them. Torpedoes and missiles are unaffected.
 
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const Ordnance := preload("res://game/combat/ordnance.gd")
@@ -63,7 +66,10 @@ func _ready() -> void:
 	process_physics_priority = 3
 
 
-func spawn(owner_ship: Node3D, faction: int, origin: Vector3, velocity: Vector3, damage: float, max_travel: float, lifetime: float, target: Node3D, style: StringName = &"shell") -> int:
+## `penetration` null = unconfigured (bypasses armor); both armor values only reach ship hulls.
+## `intercepts_rockets`: the round can also destroy hostile rockets.
+func spawn(owner_ship: Node3D, faction: int, origin: Vector3, velocity: Vector3, damage: float, max_travel: float, lifetime: float, target: Node3D, style: StringName = &"shell",
+		penetration: Variant = null, armor_damage := 0.0, intercepts_rockets := false) -> int:
 	var id := _next_id
 	_next_id += 1
 	var node := MeshInstance3D.new()
@@ -76,6 +82,7 @@ func spawn(owner_ship: Node3D, faction: int, origin: Vector3, velocity: Vector3,
 	node.global_transform = Transform3D(Basis.looking_at(direction, up), origin)
 	var record := {"id": id, "node": node, "owner_id": owner_ship.get_instance_id(), "owner_name": String(owner_ship.name),
 		"faction": faction, "position": origin, "origin": origin, "velocity": velocity, "damage": damage,
+		"penetration": penetration, "armor_damage": armor_damage, "intercepts_rockets": intercepts_rockets,
 		"max_travel": max_travel, "lifetime": lifetime, "traveled": 0.0, "age": 0.0, "style": style,
 		"target_name": String(target.name) if target != null and is_instance_valid(target) else ""}
 	active.append(record)
@@ -86,11 +93,11 @@ func spawn(owner_ship: Node3D, faction: int, origin: Vector3, velocity: Vector3,
 
 ## Launches guided ordnance from `origin` (the launcher's muzzle transform; −Z = launch
 ## axis) at `target`, with the launcher's configuration (damage, ordnance values).
-func launch(owner_ship: Node3D, faction: int, origin: Transform3D, weapon_config: Resource, target: Node3D) -> int:
+func launch(owner_ship: Node3D, faction: int, origin: Transform3D, weapon_config: Resource, target: Node3D, remembered_target: Dictionary = {}) -> int:
 	var id := _next_id
 	_next_id += 1
 	var node: Node3D = Ordnance.new()
-	node.setup(id, owner_ship, faction, weapon_config, target, _contacts)
+	node.setup(id, owner_ship, faction, weapon_config, target, _contacts, remembered_target)
 	add_child(node)
 	node.begin(origin)
 	ordnance.append(node)
@@ -107,8 +114,20 @@ func _physics_process(delta: float) -> void:
 
 
 func _advance_ordnance(node: Node3D, delta: float) -> void:
+	var age_before: float = node.age
 	node.step(delta, self)
 	var hit := _first_hit(node.owner_id, node.prev_position, node.global_position, -1)
+	if node.strict_flight_expiration:
+		# Flight was clipped at the operational deadline. Sweep that final segment, but
+		# admit only hits strictly before the deadline (including when delta crosses it).
+		var hit_age: float = age_before + (node.age - age_before) * hit.get("fraction", 1.0)
+		if hit_age >= node.config.flight_time:
+			hit = {}
+		elif not hit.is_empty():
+			node.age = hit_age
+			node.traveled -= node.prev_position.distance_to(node.global_position)
+			node.traveled += node.prev_position.distance_to(hit.point)
+			node.global_position = hit.point
 	if not hit.is_empty():
 		var outcome := "asteroid"
 		var ship_name := ""
@@ -117,7 +136,7 @@ func _advance_ordnance(node: Node3D, delta: float) -> void:
 			ship_name = String(ship.name)
 			var combat = CombatShip.of(ship)
 			if combat.alive and combat.faction != node.faction:
-				if combat.take_hit(node.damage, node.id):
+				if combat.take_hit(node.damage, node.id, node.penetration, node.armor_damage):
 					damage_events[node.id] = damage_events.get(node.id, 0) + 1
 				outcome = "damage"
 			else:
@@ -143,6 +162,8 @@ func _finish_ordnance(node: Node3D, outcome: String, ship_name: String, point: V
 	var done := {"id": node.id, "kind": String(node.kind), "outcome": outcome, "ship": ship_name, "point": point,
 		"origin": node.launch_point, "age": node.age, "traveled": node.traveled, "owner_name": node.owner_name,
 		"target_name": node.target_name, "intercepted_by": by, "phase": node.phase}
+	if node.strict_flight_expiration:
+		done["target_id"] = node.target_id
 	ordnance_records.append(done)
 	if ordnance_records.size() > 500:
 		ordnance_records.remove_at(0)
@@ -156,7 +177,7 @@ func _advance(record: Dictionary, delta: float) -> void:
 	var velocity: Vector3 = record.velocity
 	var step := minf(velocity.length() * delta, record.max_travel - record.traveled)
 	var to := from + velocity.normalized() * step
-	var hit := _first_hit(record.owner_id, from, to, record.faction)
+	var hit := _first_hit(record.owner_id, from, to, record.faction, record.intercepts_rockets)
 	if not hit.is_empty():
 		record.traveled += from.distance_to(hit.point)
 		record.age += delta
@@ -171,9 +192,9 @@ func _advance(record: Dictionary, delta: float) -> void:
 		_finish(record, "expired", "", to)
 
 
-# Nearest hull, asteroid or (rounds of `faction` >= 0) hostile ordnance along from→to:
-# {kind, ship | asteroid | ordnance, point, fraction}, or {}.
-func _first_hit(owner_id: int, from: Vector3, to: Vector3, faction: int) -> Dictionary:
+# Nearest hull, asteroid or (rounds of `faction` >= 0) hostile ordnance along from→to
+# (rockets only with `rockets`): {kind, ship | asteroid | ordnance, point, fraction}, or {}.
+func _first_hit(owner_id: int, from: Vector3, to: Vector3, faction: int, rockets := false) -> Dictionary:
 	var best := {}
 	var best_fraction := INF
 	for other: Node in _ships.get_children():
@@ -199,7 +220,7 @@ func _first_hit(owner_id: int, from: Vector3, to: Vector3, faction: int) -> Dict
 		best = {"kind": "station", "station": station_hit.station, "part": station_hit.part, "fraction": station_hit.fraction}
 	if faction >= 0:
 		for node in ordnance:
-			if not node.live or node.faction == faction:
+			if not node.live or node.faction == faction or (node.kind == &"rocket" and not rockets):
 				continue
 			# Relative motion over the tick: the round's segment seen from the ordnance.
 			var fraction := _sphere_fraction(from - node.prev_position, to - node.global_position, Vector3.ZERO, node.config.radius)
@@ -238,7 +259,7 @@ func _hit(record: Dictionary, hit: Dictionary) -> void:
 		ship_name = String(ship.name)
 		var combat = CombatShip.of(ship)
 		if combat.alive and combat.faction != record.faction:
-			if combat.take_hit(record.damage, record.id):
+			if combat.take_hit(record.damage, record.id, record.penetration, record.armor_damage):
 				damage_events[record.id] = damage_events.get(record.id, 0) + 1
 			outcome = "damage"
 		else:

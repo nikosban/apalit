@@ -11,7 +11,7 @@ extends SceneTree
 ##   1-3. Placed ships, one avoidance step: an idle ship beyond the destination, clear
 ##        of the remaining leg, is no encounter; one within separation of the remaining
 ##        leg (mid-leg and at its end) still is.
-##   4.   Group MOVE of the five starting ships to (18.2, 7.0): the Frigate keeps no
+##   4.   Group MOVE of the five starting ships to (18.2, 7.0): the Miner3 keeps no
 ##        pass against an idle ship its remaining leg clears; everyone arrives.
 ##   5.   Group MOVE to (23.5, 4.0): Miner1 likewise; arrival is not required (this
 ##        layout can end in the known mutual give-way stall, reported, not checked).
@@ -25,8 +25,8 @@ const MAIN := preload("res://main.tscn")
 const ShipLocomotion := preload("res://game/locomotion/ship_locomotion.gd")
 const RouteFollower := preload("res://game/navigation/route_follower.gd")
 const DT := 1.0 / 60.0
-const SHIPS := ["Frigate", "Gunship", "Destroyer", "Miner1", "Miner2", "Transporter"]
-const GROUP := ["Frigate", "Gunship", "Destroyer", "Miner1", "Miner2"]
+const SHIPS := ["Miner3", "Transporter2", "FF01", "Miner1", "Miner2", "Transporter"]
+const GROUP := ["Miner3", "Transporter2", "FF01", "Miner1", "Miner2"]
 const TIME_LIMIT := 90.0 # s
 const PASS := 1 # ShipAvoidance.Response.PASS
 
@@ -39,6 +39,14 @@ var _starts := {}
 func _initialize() -> void:
 	await process_frame
 	_main = MAIN.instantiate()
+	# The former five-ship start: a third Miner, a second Transporter and an FF-01 on the
+	# retired warships' spawn points, beside the scene's Miners.
+	for added: Array in [["Miner3", "res://game/ships/miner_unit.tscn", Vector3(-12, 1.5, 0)],
+			["Transporter2", "res://game/ships/transporter_unit.tscn", Vector3(0, 1.5, 0)], ["FF01", "res://game/ships/ff01_unit.tscn", Vector3(14, 1.5, 0)]]:
+		var ship: Node3D = load(added[1]).instantiate()
+		ship.name = added[0]
+		ship.position = added[2]
+		_main.get_node("Ships").add_child(ship)
 	root.add_child(_main)
 	_main.get_node("Survey").set_physics_process(false)
 	for station in _main.get_node("Stations").get_children():
@@ -54,39 +62,39 @@ func _initialize() -> void:
 			await physics_frame
 
 	_test_placed()
-	_test_group(4, Vector2(18.2, 7.0), "Frigate", true)
+	_test_group(4, Vector2(18.2, 7.0), "Miner3", true)
 	_test_group(5, Vector2(23.5, 4.0), "Miner1", false)
 	print("RESULT: %s (%d of %d checks failed)" % ["PASS" if _failures == 0 else "FAIL", _failures, _checks])
 	quit(0 if _failures == 0 else 1)
 
 
-# 1-3: the Frigate on a direct move from (0, 60) to (10, 60), moved off its leg; the
-# Destroyer (separation 8.8 u) idle nearby; one RouteFollower + Avoidance step.
+# 1-3: the Miner3 on a direct move from (0, 60) to (10, 60), moved off its leg; the
+# FF01 (separation 8.8 u) idle nearby; one RouteFollower + Avoidance step.
 func _test_placed() -> void:
 	var origin := Vector2(0.0, 60.0)
 	var cases := [
-		# [label, Frigate position, Destroyer position, encounter expected]
+		# [label, Miner3 position, FF01 position, encounter expected]
 		["1. beyond the destination, clear of the remaining leg (phantom before the correction)", Vector2(10, 6), Vector2(19, 2), false],
 		["2. within separation of the remaining leg, mid-leg", Vector2(6, 6), Vector2(14, 3), true],
 		["3. within separation of the remaining leg's end, beyond the destination", Vector2(7, 6), Vector2(16, 2), true],
 	]
 	for c: Array in cases:
 		_reset()
-		var mover := _locomotion("Frigate")
+		var mover := _locomotion("Miner3")
 		mover.place(origin, -PI / 2)
-		_follower("Frigate").order(origin + Vector2(10, 0))
-		_place("Destroyer", origin + (c[2] as Vector2), 0.0)
+		_follower("Miner3").order(origin + Vector2(10, 0))
+		_place("FF01", origin + (c[2] as Vector2), 0.0)
 		mover.planar_position = origin + (c[1] as Vector2) # Test-only: off the leg, the leg kept.
-		_follower("Frigate")._physics_process(DT)
-		var avoidance := _avoidance("Frigate")
+		_follower("Miner3")._physics_process(DT)
+		var avoidance := _avoidance("Miner3")
 		avoidance._physics_process(DT)
-		var destroyer := _main.get_node("Ships/Destroyer")
-		var from := Geometry2D.get_closest_point_to_segment(mover.planar_position, _follower("Frigate").route[0], _follower("Frigate").route[1])
-		var to_leg := Geometry2D.get_closest_point_to_segment(_locomotion("Destroyer").planar_position, from, mover.destination).distance_to(_locomotion("Destroyer").planar_position)
-		var found: bool = avoidance.encounters.has(destroyer)
-		_check("%s: leg left %.2f u, straight distance %.2f u, Destroyer %.2f u from the leg left (separation 8.80): encounter %s (expected %s)" % [c[0],
+		var ff01 := _main.get_node("Ships/FF01")
+		var from := Geometry2D.get_closest_point_to_segment(mover.planar_position, _follower("Miner3").route[0], _follower("Miner3").route[1])
+		var to_leg := Geometry2D.get_closest_point_to_segment(_locomotion("FF01").planar_position, from, mover.destination).distance_to(_locomotion("FF01").planar_position)
+		var found: bool = avoidance.encounters.has(ff01)
+		_check("%s: leg left %.2f u, straight distance %.2f u, FF01 %.2f u from the leg left (separation 8.80): encounter %s (expected %s)" % [c[0],
 			from.distance_to(mover.destination), mover.planar_position.distance_to(mover.destination), to_leg, found, c[3]],
-			_follower("Frigate").status == RouteFollower.RouteStatus.DIRECT and found == c[3])
+			_follower("Miner3").status == RouteFollower.RouteStatus.DIRECT and found == c[3])
 
 
 # 4, 5: a group MOVE of the five starting ships from the spawn, stepped until every

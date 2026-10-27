@@ -9,8 +9,8 @@ extends SceneTree
 const DEMO := "res://game/tests/docking/tri_dock_demo.tscn"
 const Docking := preload("res://game/stations/docking.gd")
 const DT := 1.0 / 60.0
-const SHIPS := ["Frigate", "Gunship", "Destroyer", "Miner1", "Miner2", "Transporter"]
-const CLASSES := ["Miner1", "Frigate", "Gunship", "Transporter"]
+const SHIPS := ["Miner3", "Transporter2", "FF01", "Miner1", "Miner2", "Transporter"]
+const CLASSES := ["Miner1", "Miner3", "Transporter2", "Transporter"]
 const BAYS := ["Left", "Right", "Bottom"]
 
 var _main: Node
@@ -36,6 +36,12 @@ var _guided_before := {}
 func _initialize() -> void:
 	await process_frame
 	_main = (load(DEMO) as PackedScene).instantiate()
+	# Stand-ins for the retired warships, on their former spawn points.
+	for added: Array in [["Miner3", "res://game/ships/miner_unit.tscn", Vector3(-12, 1.5, 0)], ["Transporter2", "res://game/ships/transporter_unit.tscn", Vector3(0, 1.5, 0)], ["FF01", "res://game/ships/ff01_unit.tscn", Vector3(14, 1.5, 0)]]:
+		var ship: Node3D = load(added[1]).instantiate()
+		ship.name = added[0]
+		ship.position = added[2]
+		_main.get_node("Ships").add_child(ship)
 	root.add_child(_main)
 	_t = _main.get_node("Stations/TriStation")
 	_nav = _main.get_node("StaticNavigation")
@@ -77,7 +83,7 @@ func _test_geometry() -> void:
 	_check("each bay's authored final heading (ParkStop -Z) points along its own axis toward the hub", bows_in)
 	print("ship        r    bays it can dock   park wall gap   exit outside rect   handover outside rect")
 	var fits_ok := true
-	for s in CLASSES + ["Destroyer"]:
+	for s in CLASSES + ["FF01"]:
 		var r := _r(s)
 		_place(s, _planar(_t) + Vector2(0, -70))
 		var allowed: Array = _dk(s)._allowed_slots(_t)
@@ -90,12 +96,12 @@ func _test_geometry() -> void:
 				exits = minf(exits, _t.berths[i].rect_gap(_t.berths[i].exit_legs(r, side)[2].move) - r)
 			mouths = minf(mouths, _t.berths[i].rect_gap(_t.berths[i].handover_point(r)) - r)
 		print("%-11s %.1f  %-18s %6.2f          %6.2f              %6.2f" % [s, r, str(allowed.map(func(i: int) -> String: return BAYS[i])), walls, exits, mouths])
-		if s != "Destroyer":
+		if s != "FF01":
 			fits_ok = fits_ok and allowed.size() == 3 and walls >= 0.4 and exits >= 0.99 and mouths >= 0.99
 		else:
-			_check("geometry limitation: the Destroyer (collision radius 6.2) does not fit the 10 u bays (walls 5 u from the axis): no bay offered, Dock refused", allowed.is_empty() and not _dk(s).can_dock(_t))
+			_check("geometry limitation: the FF01 (collision radius 6.2) does not fit the 10 u bays (walls 5 u from the axis): no bay offered, Dock refused", allowed.is_empty() and not _dk(s).can_dock(_t))
 		_place(s, _park_spot(s))
-	_check("Miner, Frigate, Gunship, Transporter fit all three bays: parked circle clear of walls and back block, exits and handover points outside the rectangle by the margin", fits_ok)
+	_check("Miner, Miner3, Transporter2, Transporter fit all three bays: parked circle clear of walls and back block, exits and handover points outside the rectangle by the margin", fits_ok)
 	var apart := true
 	var centre := _planar(_t)
 	for x in range(-100, 101):
@@ -231,7 +237,7 @@ func _test_exits() -> void:
 # ------------------------------------------------------------------ three bays at once
 func _test_three_bays() -> void:
 	_reset()
-	var ships := ["Miner1", "Gunship", "Transporter"]
+	var ships := ["Miner1", "Transporter2", "Transporter"]
 	for k in 3:
 		_place(ships[k], _planar(_t) + _t.slots[k].axis * 62.0)
 	_monitor_reset()
@@ -282,42 +288,42 @@ func _test_depart_while_receiving() -> void:
 
 # ------------------------------------------------------------------ same-bay hand-overs
 func _test_handovers() -> void:
-	print("== SAME-BAY HAND-OVERS (Frigate docked, other bays reserved, Transporter waits at a hold, Frigate undocks)")
+	print("== SAME-BAY HAND-OVERS (Miner3 docked, other bays reserved, Transporter waits at a hold, Miner3 undocks)")
 	var ok_all := true
 	for bay in 3:
 		for side: int in [1, -1]:
 			_reset()
 			_reserve_only(bay)
-			_place("Frigate", _planar(_t) + _t.slots[bay].axis * 62.0)
-			_entry("Frigate")
+			_place("Miner3", _planar(_t) + _t.slots[bay].axis * 62.0)
+			_entry("Miner3")
 			_clear_reservations()
 			for other in 3:
 				if other != bay:
-					_t.slots[other].ship = _ship("Destroyer")
+					_t.slots[other].ship = _ship("FF01")
 			_place("Transporter", _planar(_t) + _t.slots[bay].axis.rotated(side * deg_to_rad(60)) * 58.0)
 			_dk("Transporter").dock(_t)
 			_until(func() -> bool: return not _lo("Transporter").has_destination, 60 * 60)
 			var hold: int = _t.hold_of(_ship("Transporter"))
 			_monitor_reset()
-			_dk("Frigate").undock()
+			_dk("Miner3").undock()
 			var released := -1.0
 			var granted := -1.0
 			var rect_empty_at_grant := false
 			var t := -1.0
 			for tick in 60 * 120:
 				_step()
-				if released < 0 and _t.slots[bay].ship != _ship("Frigate"):
+				if released < 0 and _t.slots[bay].ship != _ship("Miner3"):
 					released = tick * DT
 				if granted < 0 and _t.slots[bay].ship == _ship("Transporter"):
 					granted = tick * DT
-					rect_empty_at_grant = not _t.berths[bay].overlaps(_lo("Frigate").planar_position, _r("Frigate"))
+					rect_empty_at_grant = not _t.berths[bay].overlaps(_lo("Miner3").planar_position, _r("Miner3"))
 				if _dk("Transporter").state == Docking.State.DOCKED:
 					t = tick * DT
 					break
 			var ok: bool = hold >= 0 and t >= 0 and granted >= released and rect_empty_at_grant and _contacts() == 0 and _ship_gap >= 1.0 and _double_grants == 0
 			ok_all = ok_all and ok
-			print("bay %-6s Transporter at Hold%d: Frigate exits side %+d, released %.1f s, granted %.1f s (Frigate outside the rectangle: %s), Transporter docked %.1f s, min gap %.2f u (%s), contacts %d%s" % [
-				BAYS[bay], hold + 1, _dk("Frigate").exit_side, released, granted, rect_empty_at_grant, t, _ship_gap, _ship_gap_pair, _contacts(), "" if ok else "  <-- FAIL"])
+			print("bay %-6s Transporter at Hold%d: Miner3 exits side %+d, released %.1f s, granted %.1f s (Miner3 outside the rectangle: %s), Transporter docked %.1f s, min gap %.2f u (%s), contacts %d%s" % [
+				BAYS[bay], hold + 1, _dk("Miner3").exit_side, released, granted, rect_empty_at_grant, t, _ship_gap, _ship_gap_pair, _contacts(), "" if ok else "  <-- FAIL"])
 	_check("same-bay hand-over for every bay from both neighbouring holds: granted only after the leaver's circle left the rectangle, waiting ship docks, 0 contacts, ships >= 1 u apart", ok_all)
 
 
@@ -327,18 +333,18 @@ func _test_deferred() -> void:
 	_reset()
 	var bay := 2
 	_reserve_only(bay)
-	_place("Gunship", _planar(_t) + _t.slots[bay].axis * 62.0)
-	_entry("Gunship")
+	_place("Transporter2", _planar(_t) + _t.slots[bay].axis * 62.0)
+	_entry("Transporter2")
 	_clear_reservations()
 	var axis: Vector2 = _t.slots[bay].axis
 	var first: Vector2 = _planar(_t) + axis * 48.0 + Vector2(-axis.y, axis.x) * 14.0
 	var second: Vector2 = _planar(_t) + axis * 50.0 - Vector2(-axis.y, axis.x) * 20.0
 	_frame(_planar(_t) + axis * 35.0, 40.0)
 	await process_frame
-	selection.set_selection([_ship("Gunship")])
-	_dk("Gunship").undock()
+	selection.set_selection([_ship("Transporter2")])
+	_dk("Transporter2").undock()
 	_steps(60)
-	var plans: int = _n("Gunship", "RouteFollower").plans
+	var plans: int = _n("Transporter2", "RouteFollower").plans
 	_right_click(first)
 	_steps(30)
 	_right_click(second)
@@ -346,16 +352,16 @@ func _test_deferred() -> void:
 	var ended := false
 	for tick in 60 * 60:
 		_step()
-		if _dk("Gunship").under_control():
-			early = early or _n("Gunship", "RouteFollower").plans != plans or _lo("Gunship").has_destination
+		if _dk("Transporter2").under_control():
+			early = early or _n("Transporter2", "RouteFollower").plans != plans or _lo("Transporter2").has_destination
 		else:
 			ended = true
 			break
-	var requested: Vector2 = _n("Gunship", "RouteFollower").requested
+	var requested: Vector2 = _n("Transporter2", "RouteFollower").requested
 	_check("Move during exit from the Bottom bay: nothing executed during control, the later click replaced the earlier, executed when control ended (requested %s, expected %s)" % [requested.round(), second.round()],
-		ended and not early and requested.distance_to(second) < 0.5 and _lo("Gunship").has_destination and not _dk("Gunship").has_held_command() and _dk("Gunship").refused_during_control == 0)
-	_until(func() -> bool: return not _lo("Gunship").has_destination, 60 * 60)
-	_check("... and the Gunship arrives there under normal movement", _lo("Gunship").planar_position.distance_to(second) < 0.3)
+		ended and not early and requested.distance_to(second) < 0.5 and _lo("Transporter2").has_destination and not _dk("Transporter2").has_held_command() and _dk("Transporter2").refused_during_control == 0)
+	_until(func() -> bool: return not _lo("Transporter2").has_destination, 60 * 60)
+	_check("... and the Transporter2 arrives there under normal movement", _lo("Transporter2").planar_position.distance_to(second) < 0.3)
 	selection.set_selection([])
 
 
@@ -479,7 +485,7 @@ func _monitor_reset() -> void:
 func _reserve_others(bay: int) -> void:
 	for i in 3:
 		if i != bay:
-			_t.slots[i].ship = _ship("Destroyer")
+			_t.slots[i].ship = _ship("FF01")
 
 
 func _reserve_only(bay: int) -> void:
@@ -488,7 +494,7 @@ func _reserve_only(bay: int) -> void:
 
 func _clear_reservations() -> void:
 	for slot in _t.slots:
-		if slot.ship == _ship("Destroyer"):
+		if slot.ship == _ship("FF01"):
 			slot.ship = null
 
 

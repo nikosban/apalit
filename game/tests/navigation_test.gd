@@ -23,7 +23,7 @@ const DT := 1.0 / 60.0
 const TIME_LIMIT := 240.0 # s per scenario
 const SLACK := 1.0e-4
 const HOVER_HEIGHT := 1.5
-const SHIPS := ["Frigate", "Gunship", "Destroyer"]
+const SHIPS := ["Miner", "Transporter", "FF01"]
 const PARKING := [Vector2(-135, 135), Vector2(-135, -135), Vector2(-135, 0)]
 const SCENARIOS := [
 	{"name": "open direct", "start": Vector2(-100, -120), "target": Vector2(-60, -120)},
@@ -74,7 +74,7 @@ func _initialize() -> void:
 
 # An order made before the map is ready is queued (not dropped) and runs once it is ready.
 func _check_order_before_ready() -> void:
-	var follower := _node("Frigate", "RouteFollower")
+	var follower := _node("Miner", "RouteFollower")
 	var notices: Array[String] = []
 	follower.notice.connect(func(text: String) -> void: notices.append(text))
 	follower.order(Vector2(-6, -20))

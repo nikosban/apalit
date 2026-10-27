@@ -17,7 +17,7 @@ const DT := 1.0 / 60.0
 const TIME_LIMIT := 240.0 # s
 const SETTLE_TIME := 5.0 # s watched after the last arrival
 const SLACK := 1.0e-4
-const SHIPS := ["Frigate", "Gunship", "Destroyer"]
+const SHIPS := ["Miner", "Transporter", "FF01"]
 const PARKING := [Vector2(-135, 135), Vector2(-135, -135), Vector2(-135, 0)]
 const ENCLOSURE := Rect2(48, 38, 24, 24) # outer bounds of the closed box (x 48-72, z 38-62)
 
@@ -41,15 +41,15 @@ func _initialize() -> void:
 		while not _lab.get_node("StaticNavigation").is_ready(_node(ship_name, "RouteFollower").planning_radius()):
 			await physics_frame
 
-	_scenario("1 two ships, open space", {"Frigate": Vector2(100, 40), "Gunship": Vector2(125, 40)}, Vector2(115, -40))
-	_scenario("2 all three classes", {"Frigate": Vector2(100, 40), "Gunship": Vector2(115, 45), "Destroyer": Vector2(132, 40)}, Vector2(115, -40))
-	_scenario("3 different starting distances", {"Frigate": Vector2(115, -20), "Gunship": Vector2(100, 30), "Destroyer": Vector2(130, 70)}, Vector2(115, -45))
-	_scenario("4 near an asteroid (click 1 u off its edge)", {"Frigate": Vector2(30, -5), "Gunship": Vector2(42, 0), "Destroyer": Vector2(56, -4)}, Vector2(40, -26))
-	_scenario("5 beside a wall (click inside the closed box)", {"Frigate": Vector2(50, 10), "Gunship": Vector2(60, 5), "Destroyer": Vector2(74, 10)}, Vector2(60, 42))
+	_scenario("1 two ships, open space", {"Miner": Vector2(100, 40), "Transporter": Vector2(125, 40)}, Vector2(115, -40))
+	_scenario("2 all three classes", {"Miner": Vector2(100, 40), "Transporter": Vector2(115, 45), "FF01": Vector2(132, 40)}, Vector2(115, -40))
+	_scenario("3 different starting distances", {"Miner": Vector2(115, -20), "Transporter": Vector2(100, 30), "FF01": Vector2(130, 70)}, Vector2(115, -45))
+	_scenario("4 near an asteroid (click 1 u off its edge)", {"Miner": Vector2(30, -5), "Transporter": Vector2(42, 0), "FF01": Vector2(56, -4)}, Vector2(40, -26))
+	_scenario("5 beside a wall (click inside the closed box)", {"Miner": Vector2(50, 10), "Transporter": Vector2(60, 5), "FF01": Vector2(74, 10)}, Vector2(60, 42))
 	_insufficient()
 	_redirect()
 	_selection_change()
-	_scenario("9 narrow passage (the gap)", {"Frigate": Vector2(-8, 62), "Gunship": Vector2(5, 66), "Destroyer": Vector2(-30, 60)}, Vector2(-1, 15))
+	_scenario("9 narrow passage (the gap)", {"Miner": Vector2(-8, 62), "Transporter": Vector2(5, 66), "FF01": Vector2(-30, 60)}, Vector2(-1, 15))
 	_partial()
 	var total := 0
 	for cost: Dictionary in _costs:
@@ -244,7 +244,7 @@ func _min_gap(destinations: Dictionary) -> float:
 # radius 4 u) is refused; the existing orders stay.
 func _insufficient() -> void:
 	var label := "6 no room for any ship (search radius 4 u, every target inside the closed box)"
-	var starts := {"Frigate": Vector2(106, 40), "Gunship": Vector2(118, 40), "Destroyer": Vector2(112, 54)}
+	var starts := {"Miner": Vector2(106, 40), "Transporter": Vector2(118, 40), "FF01": Vector2(112, 54)}
 	_setup(starts, Vector2(115, -40))
 	var ships := _ships(SHIPS)
 	_dispatch(_orders.assign(ships, Vector2(115, -40)))
@@ -275,28 +275,28 @@ func _insufficient() -> void:
 # the right-click shows the partial notice.
 func _partial() -> void:
 	var label := "10 partial: one translated target inside the closed box (search radius 12 u)"
-	var starts := {"Frigate": Vector2(100, 40), "Gunship": Vector2(124, 40), "Destroyer": Vector2(112, 80)}
+	var starts := {"Miner": Vector2(100, 40), "Transporter": Vector2(124, 40), "FF01": Vector2(112, 80)}
 	_setup(starts, Vector2(115, -40))
 	var ships := _ships(SHIPS)
 	_dispatch(_orders.assign(ships, Vector2(115, -40)))
 	_steps(30)
 	var before := _orders_of(ships)
-	var destroyer := _ship("Destroyer")
-	# The Destroyer's target lands on the box centre (60, 50).
-	var click: Vector2 = _centroid(ships) + Vector2(60, 50) - destroyer.get_node("Locomotion").planar_position
+	var ff01 := _ship("FF01")
+	# The FF01's target lands on the box centre (60, 50).
+	var click: Vector2 = _centroid(ships) + Vector2(60, 50) - ff01.get_node("Locomotion").planar_position
 	_orders.search_radius = 12.0
 	var destinations: Dictionary = _orders.assign(ships, click)
 	_report_cost(label, destinations)
-	_check(label, "two ships assigned, the Destroyer not", destinations.size() == 2 and not destinations.has(destroyer))
+	_check(label, "two ships assigned, the FF01 not", destinations.size() == 2 and not destinations.has(ff01))
 	var shift: Vector2 = click - _centroid(ships)
 	var exact := true
 	var clear_of_kept := true
 	for ship: Node in destinations:
 		exact = exact and (destinations[ship] as Vector2).distance_to(ship.get_node("Locomotion").planar_position + shift) < 0.01
-		clear_of_kept = clear_of_kept and (destinations[ship] as Vector2).distance_to(before[destroyer][0]) \
-			>= _radius(ship) + _radius(destroyer) + 1.0 - 0.001
+		clear_of_kept = clear_of_kept and (destinations[ship] as Vector2).distance_to(before[ff01][0]) \
+			>= _radius(ship) + _radius(ff01) + 1.0 - 0.001
 	_check(label, "the others at their translated targets (centroid of all three)", exact)
-	_check(label, "their destinations clear of the Destroyer's kept destination", clear_of_kept)
+	_check(label, "their destinations clear of the FF01's kept destination", clear_of_kept)
 	_check_destinations(label, destinations, click)
 	var notice := _lab.get_node("NoticeUI/Notice") as Label
 	_lab.get_node("Selection").set_selection(ships)
@@ -310,7 +310,7 @@ func _partial() -> void:
 		others_ordered = others_ordered and ship.get_node("Locomotion").destination.distance_to(destinations[ship]) < 0.01 \
 			and ship.get_node("RouteFollower").plans == before[ship][1] + 1
 	_check(label, "right-click orders the two (one new route each)", others_ordered)
-	_check(label, "the Destroyer keeps its order (same destination, no new route)", _kept([destroyer], before))
+	_check(label, "the FF01 keeps its order (same destination, no new route)", _kept([ff01], before))
 	_check(label, "lab shows the partial notice ('%s')" % notice.text, notice.text == "2 of 3 ships ordered; 1 not ordered")
 
 
@@ -339,7 +339,7 @@ func _centroid(ships: Array) -> Vector2:
 # 7: three moving ships redirected by one command keep their momentum.
 func _redirect() -> void:
 	var label := "7 group redirect while moving"
-	var starts := {"Frigate": Vector2(100, 40), "Gunship": Vector2(115, 45), "Destroyer": Vector2(132, 40)}
+	var starts := {"Miner": Vector2(100, 40), "Transporter": Vector2(115, 45), "FF01": Vector2(132, 40)}
 	_setup(starts, Vector2(115, -40))
 	var ships := _ships(SHIPS)
 	_dispatch(_orders.assign(ships, Vector2(115, -40)))
@@ -368,7 +368,7 @@ func _redirect() -> void:
 # through the lab's right-click with all three selected).
 func _selection_change() -> void:
 	var label := "8 selection change during a group move"
-	var starts := {"Frigate": Vector2(100, 40), "Gunship": Vector2(115, 45), "Destroyer": Vector2(132, 40)}
+	var starts := {"Miner": Vector2(100, 40), "Transporter": Vector2(115, 45), "FF01": Vector2(132, 40)}
 	_setup(starts, Vector2(115, -40))
 	var selection := _lab.get_node("Selection")
 	var ships := _ships(SHIPS)
@@ -390,11 +390,11 @@ func _selection_change() -> void:
 	_report_cost(label, destinations)
 	_check(label, "right-click with three selected orders all three", destinations.size() == 3)
 	_steps(120)
-	var destroyer := _ship("Destroyer")
-	selection.set_selection([_ship("Frigate"), _ship("Gunship")])
-	_check(label, "Destroyer removed from the selection", selection.selected.size() == 2)
-	_check(label, "its order continues (same destination)", destroyer.get_node("Locomotion").has_destination
-		and destroyer.get_node("Locomotion").destination == destinations[destroyer])
+	var ff01 := _ship("FF01")
+	selection.set_selection([_ship("Miner"), _ship("Transporter")])
+	_check(label, "FF01 removed from the selection", selection.selected.size() == 2)
+	_check(label, "its order continues (same destination)", ff01.get_node("Locomotion").has_destination
+		and ff01.get_node("Locomotion").destination == destinations[ff01])
 	selection.set_selection([])
 	_fly(label, destinations, Vector2(115, -30), false)
 

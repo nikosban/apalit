@@ -17,7 +17,7 @@ const DEFENSIVE := 1
 const AGGRESSIVE := 2
 const PLAYER := 0
 const P := Profiles.Profile
-const PLAYER_SHIPS := ["Destroyer", "Gunship", "Gunship2"]
+const PLAYER_SHIPS := ["FF01A", "FF01B", "FF01C"]
 
 var scene: Node3D
 var _checks := 0
@@ -64,7 +64,7 @@ func _free() -> void:
 func _load(quiet: bool) -> void:
 	_free()
 	scene = E05.instantiate()
-	scene.scenario_index = 4
+	scene.scenario_index = 0
 	scene.behavior_layer = true
 	root.add_child(scene)
 	if quiet:
@@ -73,11 +73,19 @@ func _load(quiet: bool) -> void:
 		await physics_frame
 	if not quiet:
 		return
-	var corners := {"Destroyer": Vector2(-130, -130), "Gunship": Vector2(-130, 130), "Gunship2": Vector2(-110, 130),
-		"HostileGunship": Vector2(130, -130), "HostileGunship2": Vector2(130, -110), "HostileDestroyer": Vector2(130, 130)}
+	var corners := {"FF01A": Vector2(-130, -130), "FF01B": Vector2(-130, 130), "FF01C": Vector2(-110, 130),
+		"HostileFF01B": Vector2(130, -130), "HostileFF01C": Vector2(130, -110), "HostileFF01A": Vector2(130, 130)}
 	for name: String in corners:
 		_put(name, corners[name], EAST)
 		scene.orders.set_stance([_ship(name)], HOLD)
+	# Test conditions (quiet cases). FF01B and FF01C stand in for the former escorts: their
+	# Wayfarer launcher is out of action, so their longest reach is the cannons' (Mid-range
+	# requested). The player ships outlast hostile fire: the cases check behavior, not damage.
+	for name: String in ["FF01B", "FF01C"]:
+		_ship(name).get_node("Weapons/WayfarerHardpoint").weapon().enabled = false
+		scene.orders.set_profile([_ship(name)], P.MID)
+	for name: String in ["FF01A", "FF01B", "FF01C"]:
+		CombatShip.of(_ship(name)).health = 100000.0
 	await _sense()
 
 
@@ -180,7 +188,7 @@ func _sample(stats: Dictionary) -> void:
 # --- V1 ----------------------------------------------------------------------------------
 
 ## The full E05 battle: the player ships Aggressive with the Behavior layer, no orders;
-## then, mid-battle, a Move for one Gunship must hold against autonomous pursuit.
+## then, mid-battle, a Move for one FF01B must hold against autonomous pursuit.
 func _v1_aggressive_battle() -> void:
 	print("\n=== V1 Aggressive pursuit (full E05 battle)")
 	await _load(false)
@@ -196,12 +204,12 @@ func _v1_aggressive_battle() -> void:
 	while not battle.finished and scene.enemy_controller.time < 240.0:
 		await physics_frame
 		_sample(stats)
-		if not moved[0] and battle.pacing.first_shot >= 0.0 and scene.enemy_controller.time > battle.pacing.first_shot + 5.0 and _c("Gunship").alive:
+		if not moved[0] and battle.pacing.first_shot >= 0.0 and scene.enemy_controller.time > battle.pacing.first_shot + 5.0 and _c("FF01B").alive:
 			moved[0] = true
-			moved[2] = _planar(_ship("Gunship")) + Vector2(-25, 0)
-			scene.orders.move([_ship("Gunship")], moved[2])
-		if moved[0] and _c("Gunship") != null and _c("Gunship").alive and _b("Gunship").command == Behavior.Command.MOVE:
-			var loco: Node = _ship("Gunship").get_node("Locomotion")
+			moved[2] = _planar(_ship("FF01B")) + Vector2(-25, 0)
+			scene.orders.move([_ship("FF01B")], moved[2])
+		if moved[0] and _c("FF01B") != null and _c("FF01B").alive and _b("FF01B").command == Behavior.Command.MOVE:
+			var loco: Node = _ship("FF01B").get_node("Locomotion")
 			moved[1] = moved[1] and (not loco.has_destination or loco.destination.distance_to(moved[2]) < 0.5)
 	var elapsed: float = scene.enemy_controller.time - start
 	print("Battle: %s; first shot %.1f s" % [battle.result.replace("\n", " | ") if battle.finished else "unfinished at %.0f s" % elapsed, battle.pacing.first_shot])
@@ -231,18 +239,18 @@ func _v1_aggressive_battle() -> void:
 func _v2_defensive() -> void:
 	print("\n=== V2 Defensive holding")
 	await _load(true)
-	_put("Destroyer", Vector2(-70, 60), EAST)
-	_put("HostileGunship", Vector2(-10, 75), WEST)
+	_put("FF01A", Vector2(-70, 60), EAST)
+	_put("HostileFF01B", Vector2(-10, 75), WEST)
 	await _sense()
-	scene.orders.set_stance([_ship("Destroyer")], DEFENSIVE)
-	scene.orders.set_stance([_ship("HostileGunship")], AGGRESSIVE)
-	scene.orders.assign_target([_ship("HostileGunship")], _ship("Destroyer"))
-	var shots := _shots_at_ships("Destroyer")
-	var b = _b("Destroyer")
+	scene.orders.set_stance([_ship("FF01A")], DEFENSIVE)
+	scene.orders.set_stance([_ship("HostileFF01B")], AGGRESSIVE)
+	scene.orders.assign_target([_ship("HostileFF01B")], _ship("FF01A"))
+	var shots := _shots_at_ships("FF01A")
+	var b = _b("FF01A")
 	var anchor: Vector2 = b.anchor
 	var farthest := [0.0]
 	await _run(10.0, func() -> void: farthest[0] = maxf(farthest[0], b._here().distance_to(anchor)))
-	scene.orders.move([_ship("HostileGunship")], Vector2(60, 90)) # retreats
+	scene.orders.move([_ship("HostileFF01B")], Vector2(60, 90)) # retreats
 	await _run(20.0, func() -> void: farthest[0] = maxf(farthest[0], b._here().distance_to(anchor)))
 	var requests := _requests(b)
 	_check("answered the attack (%d shots) without chasing the retreating attacker: farthest %.1f u from its position, requests %s" % [shots[0], farthest[0], str(requests)],
@@ -254,43 +262,43 @@ func _v2_defensive() -> void:
 func _v3_passive_attack() -> void:
 	print("\n=== V3 Passive explicit Attack")
 	await _load(true)
-	_put("Gunship", Vector2(-80, 30), EAST)
-	_put("HostileGunship", Vector2(-80, -60), WEST) # 90 u north, holding fire
-	_put("HostileGunship2", Vector2(-30, 60), WEST) # unrelated hostile
+	_put("FF01B", Vector2(-80, 30), EAST)
+	_put("HostileFF01B", Vector2(-80, -60), WEST) # 90 u north, holding fire
+	_put("HostileFF01C", Vector2(-30, 60), WEST) # unrelated hostile
 	await _sense()
-	var shots := _shots_at_ships("Gunship")
+	var shots := _shots_at_ships("FF01B")
 	var unrelated := [0]
-	for w in _c("Gunship").weapons:
+	for w in _c("FF01B").weapons:
 		w.shot.connect(func(_wp: Node, _id: int, t: Node3D, _o: Transform3D) -> void:
-			if t == _ship("HostileGunship2"):
+			if t == _ship("HostileFF01C"):
 				unrelated[0] += 1)
-	scene.orders.attack([_ship("Gunship")], _ship("HostileGunship"))
-	var b = _b("Gunship")
+	scene.orders.attack([_ship("FF01B")], _ship("HostileFF01B"))
+	var b = _b("FF01B")
 	var stance_kept := [true]
 	var killed: bool = await _until(90.0, func() -> bool:
-		stance_kept[0] = stance_kept[0] and _c("Gunship").stance == HOLD
-		return not _c("HostileGunship").alive)
+		stance_kept[0] = stance_kept[0] and _c("FF01B").stance == HOLD
+		return not _c("HostileFF01B").alive)
 	await _run(1.5)
 	var after := [shots[0], b.move_requests]
 	await _run(4.0)
 	_check("Passive Attack: pursued and destroyed its target (%d shots, %d requests), stance Passive throughout, none at the unrelated hostile; afterwards Passive (no fire, no movement)" % [shots[0], b.move_requests],
-		killed and stance_kept[0] and unrelated[0] == 0 and b.command == Behavior.Command.NONE and _c("Gunship").manual_target == null
+		killed and stance_kept[0] and unrelated[0] == 0 and b.command == Behavior.Command.NONE and _c("FF01B").manual_target == null
 		and shots[0] == after[0] and b.move_requests == after[1])
 
 
 # --- V4 ----------------------------------------------------------------------------------
 
-## Gunship2 guards the Destroyer through the E05 battle; the Destroyer fights on its own.
+## FF01C guards the FF01A through the E05 battle; the FF01A fights on its own.
 func _v4_guard_in_battle() -> void:
 	print("\n=== V4 Guard during combat")
 	await _load(false)
-	scene.orders.guard([_ship("Gunship2")], _ship("Destroyer"))
-	var g = _b("Gunship2")
+	scene.orders.guard([_ship("FF01C")], _ship("FF01A"))
+	var g = _b("FF01C")
 	var intercepts := [0]
 	scene.projectiles.ordnance_finished.connect(func(record: Dictionary) -> void:
-		if record.outcome == "intercepted" and record.intercepted_by == "Gunship2":
+		if record.outcome == "intercepted" and record.intercepted_by == "FF01C":
 			intercepts[0] += 1)
-	var shots := _shots_at_ships("Gunship2")
+	var shots := _shots_at_ships("FF01C")
 	var only_guard := [true]
 	var seen := [0]
 	var battle: Node = scene.get_node("FleetBattle")
@@ -301,7 +309,7 @@ func _v4_guard_in_battle() -> void:
 		if g.move_requests > seen[0]:
 			only_guard[0] = only_guard[0] and _requests(g).back().contains("guard position")
 			seen[0] = g.move_requests
-	var ended: String = "the Destroyer was destroyed" if not CombatShip.of(_ship("Destroyer")) or not _c("Destroyer").alive else ("the battle ended" if battle.finished else "time")
+	var ended: String = "the FF01A was destroyed" if not CombatShip.of(_ship("FF01A")) or not _c("FF01A").alive else ("the battle ended" if battle.finished else "time")
 	print("Guarded %.0f s until %s: in proximity %.0f of %.0f s, %d requests (%.2f /s), %d reassignments, %d shots at ships, %d ordnance intercepted, guard log: %s" % [guarded[0], ended,
 		g.guard_near_time, g.guard_time, g.move_requests, g.move_requests / maxf(guarded[0], 1.0), g.guard_reassignments, shots[0], intercepts[0],
 		" | ".join(g.log.filter(func(l: String) -> bool: return not l.contains(" request (")))])
@@ -315,16 +323,16 @@ func _v4_guard_in_battle() -> void:
 func _v5_attack_move() -> void:
 	print("\n=== V5 Attack-Move across the arena")
 	await _load(true)
-	_put("Gunship", Vector2(-110, 90), EAST)
-	_put("HostileGunship", Vector2(-20, 100), WEST) # 10 u off the route, holding fire
+	_put("FF01B", Vector2(-110, 90), EAST)
+	_put("HostileFF01B", Vector2(-20, 100), WEST) # 10 u off the route, holding fire
 	await _sense()
-	scene.orders.set_stance([_ship("Gunship")], AGGRESSIVE)
-	var shots := _shots_at_ships("Gunship")
+	scene.orders.set_stance([_ship("FF01B")], AGGRESSIVE)
+	var shots := _shots_at_ships("FF01B")
 	var point := Vector2(100, 90)
-	scene.orders.attack_move([_ship("Gunship")], point)
-	var b = _b("Gunship")
+	scene.orders.attack_move([_ship("FF01B")], point)
+	var b = _b("FF01B")
 	var offset := [0.0]
-	var done: bool = await _until(150.0, func() -> bool:
+	var done: bool = await _until(200.0, func() -> bool: # FF-01 (3 u/s) crosses 210 u with two encounters in about 150 s
 		if b.command == Behavior.Command.ATTACK_MOVE:
 			offset[0] = maxf(offset[0], b._route_offset(b._here()))
 		return b.command != Behavior.Command.ATTACK_MOVE)
@@ -337,23 +345,23 @@ func _v5_attack_move() -> void:
 
 # --- V6 ----------------------------------------------------------------------------------
 
-## Two Gunships as a group fly three waypoints past an attacking hostile.
+## FF01B and FF01C as a group fly three waypoints past an attacking hostile.
 func _v6_waypoints() -> void:
 	print("\n=== V6 Waypoint sequence (group of two)")
 	await _load(true)
-	_put("Gunship", Vector2(-110, 80), EAST)
-	_put("Gunship2", Vector2(-110, 96), EAST)
-	_put("HostileGunship", Vector2(-40, 125), WEST)
+	_put("FF01B", Vector2(-110, 80), EAST)
+	_put("FF01C", Vector2(-110, 96), EAST)
+	_put("HostileFF01B", Vector2(-40, 125), WEST)
 	await _sense()
-	var group := [_ship("Gunship"), _ship("Gunship2")]
+	var group := [_ship("FF01B"), _ship("FF01C")]
 	scene.orders.set_stance(group, AGGRESSIVE)
-	scene.orders.set_stance([_ship("HostileGunship")], AGGRESSIVE)
-	scene.orders.assign_target([_ship("HostileGunship")], _ship("Gunship"))
+	scene.orders.set_stance([_ship("HostileFF01B")], AGGRESSIVE)
+	scene.orders.assign_target([_ship("HostileFF01B")], _ship("FF01B"))
 	var points := [Vector2(-70, 95), Vector2(-60, 60), Vector2(-100, 50)]
 	var taken := []
 	for point: Vector2 in points:
 		taken.append(scene.orders.waypoint(group, point, true))
-	var bs := [_b("Gunship"), _b("Gunship2")]
+	var bs := [_b("FF01B"), _b("FF01C")]
 	var gap := [INF]
 	var contacts: Array[String] = []
 	var done: bool = await _until(90.0, func() -> bool:
@@ -375,19 +383,19 @@ func _v6_waypoints() -> void:
 
 # --- V7 ----------------------------------------------------------------------------------
 
-## The Destroyer (Siege) fights a hostile; its long-range ammunition runs out mid-fight.
+## The FF01A (Siege) fights a hostile; its long-range ammunition runs out mid-fight.
 func _v7_fallback() -> void:
 	print("\n=== V7 Weapon Profile fallback (ammunition)")
 	await _load(true)
-	_put("Destroyer", Vector2(-80, 100), EAST)
-	_put("HostileGunship", Vector2(10, 100), WEST) # 90 u
+	_put("FF01A", Vector2(-80, 100), EAST)
+	_put("HostileFF01B", Vector2(10, 100), WEST) # 90 u
 	await _sense()
-	scene.orders.set_stance([_ship("Destroyer")], AGGRESSIVE)
-	scene.orders.set_profile([_ship("Destroyer")], P.SIEGE)
-	var b = _b("Destroyer")
+	scene.orders.set_stance([_ship("FF01A")], AGGRESSIVE)
+	scene.orders.set_profile([_ship("FF01A")], P.SIEGE)
+	var b = _b("FF01A")
 	await _run(12.0)
 	var before: int = b.effective_profile
-	for w in _c("Destroyer").weapons:
+	for w in _c("FF01A").weapons:
 		if Profiles.category(w) == P.SIEGE:
 			w.ammo = 0
 			w.magazine = 0
@@ -406,30 +414,30 @@ func _v7_fallback() -> void:
 func _v8_contact_loss() -> void:
 	print("\n=== V8 Contact loss")
 	await _load(true)
-	_put("Gunship", Vector2(-100, 100), EAST)
-	_put("HostileGunship", Vector2(-20, 100), WEST) # 80 u
+	_put("FF01B", Vector2(-100, 100), EAST)
+	_put("HostileFF01B", Vector2(-20, 100), WEST) # 80 u
 	await _sense()
-	scene.orders.attack([_ship("Gunship")], _ship("HostileGunship"))
+	scene.orders.attack([_ship("FF01B")], _ship("HostileFF01B"))
 	await _run(1.0)
-	var seen := _planar(_ship("HostileGunship"))
-	scene.contacts.set_contact(PLAYER, _ship("HostileGunship"), false)
-	_put("HostileGunship", Vector2(-20, 40), WEST)
-	var b = _b("Gunship")
+	var seen := _planar(_ship("HostileFF01B"))
+	scene.contacts.set_contact(PLAYER, _ship("HostileFF01B"), false)
+	_put("HostileFF01B", Vector2(-20, 40), WEST)
+	var b = _b("FF01B")
 	var ended: bool = await _until(40.0, func() -> bool: return b.command != Behavior.Command.ATTACK)
 	var investigate: Array = _requests(b).filter(func(l: String) -> bool: return l.contains("investigate"))
 	_check("Attack: investigated the last position seen (%.0f, %.0f) and ended there: %s" % [seen.x, seen.y, investigate[0] if not investigate.is_empty() else "no request"],
 		ended and investigate.size() == 1 and investigate[0].contains("(%d, %d)" % [roundi(seen.x), roundi(seen.y)]) and b.log.any(func(l: String) -> bool: return l.contains("not reacquired")))
 	# Aggressive pursuit: contact lost during the approach.
 	await _load(true)
-	_put("Gunship", Vector2(-100, 100), EAST)
-	_put("HostileGunship", Vector2(-10, 100), WEST) # 90 u: beyond the cannon, an approach
+	_put("FF01B", Vector2(-100, 100), EAST)
+	_put("HostileFF01B", Vector2(-10, 100), WEST) # 90 u: beyond the cannon, an approach
 	await _sense()
-	scene.orders.set_stance([_ship("Gunship")], AGGRESSIVE)
-	b = _b("Gunship")
+	scene.orders.set_stance([_ship("FF01B")], AGGRESSIVE)
+	b = _b("FF01B")
 	await _until(5.0, func() -> bool: return b.move_requests > 0)
 	var approached: int = b.move_requests
-	scene.contacts.set_contact(PLAYER, _ship("HostileGunship"), false)
-	_put("HostileGunship", Vector2(-10, 40), WEST)
+	scene.contacts.set_contact(PLAYER, _ship("HostileFF01B"), false)
+	_put("HostileFF01B", Vector2(-10, 40), WEST)
 	await _run(8.0)
 	var later := _requests(b).slice(approached)
 	_check("Aggressive pursuit stopped on contact loss (%s); nothing toward the hidden live position" % " | ".join(b.log.filter(func(l: String) -> bool: return l.contains("pursuit stopped"))),

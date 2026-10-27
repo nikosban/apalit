@@ -10,7 +10,7 @@ extends SceneTree
 
 const LAB := preload("res://game/scenes/movement_test.tscn")
 const DT := 1.0 / 60.0
-const SHIPS := ["Frigate", "Gunship", "Destroyer"]
+const SHIPS := ["Miner", "Transporter", "FF01"]
 
 var _failures := 0
 var _checks := 0
@@ -53,9 +53,9 @@ func _initialize() -> void:
 
 # Ships at rest in open space east of the obstacles, camera above them.
 func _layout() -> void:
-	_place("Frigate", Vector2(105, 0), 0.0)
-	_place("Gunship", Vector2(118, 0), 0.0)
-	_place("Destroyer", Vector2(135, 0), 0.0)
+	_place("Miner", Vector2(105, 0), 0.0)
+	_place("Transporter", Vector2(118, 0), 0.0)
+	_place("FF01", Vector2(135, 0), 0.0)
 	_rig.global_position = Vector3(120, 0, 0)
 	_rig.rotation = Vector3(0.0, deg_to_rad(45.0), 0.0)
 	_rig.zoom_distance = 40.0
@@ -69,109 +69,109 @@ func _test_single_and_empty() -> void:
 		_check("click selects %s" % ship_name, _names() == [ship_name])
 	_click(_ground_screen(Vector2(120, 25)))
 	_check("click on empty ground clears", _names().is_empty())
-	_click(_screen("Gunship"))
+	_click(_screen("Transporter"))
 	_click(_ground_screen(Vector2(120, 25)), true)
-	_check("shift-click on empty ground keeps the selection", _names() == ["Gunship"])
+	_check("shift-click on empty ground keeps the selection", _names() == ["Transporter"])
 
 
 func _test_shift_click() -> void:
-	_click(_screen("Frigate"))
-	_click(_screen("Destroyer"), true)
-	_check("shift-click adds", _names() == ["Frigate", "Destroyer"])
-	_click(_screen("Frigate"), true)
-	_check("shift-click removes", _names() == ["Destroyer"])
+	_click(_screen("Miner"))
+	_click(_screen("FF01"), true)
+	_check("shift-click adds", _names() == ["Miner", "FF01"])
+	_click(_screen("Miner"), true)
+	_check("shift-click removes", _names() == ["FF01"])
 
 
 func _test_box() -> void:
-	var f := _screen("Frigate")
-	var g := _screen("Gunship")
-	var d := _screen("Destroyer")
+	var f := _screen("Miner")
+	var g := _screen("Transporter")
+	var d := _screen("FF01")
 	var rect := Rect2(f, Vector2.ZERO).expand(g).grow(20.0)
-	_check("layout: Destroyer outside the Frigate-Gunship box", not rect.has_point(d))
+	_check("layout: FF01 outside the Miner-Transporter box", not rect.has_point(d))
 	_drag(rect.position, rect.end)
-	_check("box selects the ships inside", _names() == ["Frigate", "Gunship"])
+	_check("box selects the ships inside", _names() == ["Miner", "Transporter"])
 	_drag(d - Vector2(20, 20), d + Vector2(20, 20), true)
-	_check("shift-box adds", _names() == ["Frigate", "Gunship", "Destroyer"])
+	_check("shift-box adds", _names() == ["Miner", "Transporter", "FF01"])
 	_drag(d - Vector2(20, 20), d + Vector2(20, 20))
-	_check("box without shift replaces", _names() == ["Destroyer"])
-	# A drag starting over the Frigate is a box, not a click on it.
+	_check("box without shift replaces", _names() == ["FF01"])
+	# A drag starting over the Miner is a box, not a click on it.
 	_drag(f + Vector2(-8, -8), g + Vector2(8, 8))
-	_check("drag starting over a ship selects by box", _names() == ["Frigate", "Gunship"])
+	_check("drag starting over a ship selects by box", _names() == ["Miner", "Transporter"])
 	_drag(_ground_screen(Vector2(120, 30)), _ground_screen(Vector2(122, 32)))
 	_check("empty box clears", _names().is_empty())
 	_drag(f, f + Vector2(4, 0))
-	_check("movement within the threshold is a click", _names() == ["Frigate"])
+	_check("movement within the threshold is a click", _names() == ["Miner"])
 
 
-# Frigate parked on the camera side of the Gunship so their images overlap; the
+# Miner parked on the camera side of the Transporter so their images overlap; the
 # ship nearer the camera is picked where both are under the cursor.
 func _test_overlap() -> void:
-	# The Gunship's long axis points at the camera and the Frigate sits on its near
-	# end (footprints overlapping), so the ray through the Frigate also hits the Gunship.
+	# The Transporter's long axis points at the camera and the Miner sits on its near
+	# end (footprints overlapping), so the ray through the Miner also hits the Transporter.
 	var toward_camera := Vector2(_camera.global_position.x, _camera.global_position.z) - Vector2(118, 0)
 	toward_camera = toward_camera.normalized()
-	_place("Gunship", Vector2(118, 0), atan2(-toward_camera.x, -toward_camera.y))
-	_place("Frigate", Vector2(118, 0) + toward_camera * 2.0, 0.0)
-	var f := _screen("Frigate")
-	var gunship := _ship("Gunship")
-	var to_ship := gunship.global_transform.affine_inverse()
+	_place("Transporter", Vector2(118, 0), atan2(-toward_camera.x, -toward_camera.y))
+	_place("Miner", Vector2(118, 0) + toward_camera * 2.0, 0.0)
+	var f := _screen("Miner")
+	var transporter := _ship("Transporter")
+	var to_ship := transporter.global_transform.affine_inverse()
 	var both := false
-	for part: AABB in _selection._parts[gunship]:
+	for part: AABB in _selection._parts[transporter]:
 		if part.intersects_ray(to_ship * _camera.project_ray_origin(f), to_ship.basis * _camera.project_ray_normal(f)) != null:
 			both = true
-	_check("layout: the ray through the Frigate also hits the Gunship hull", both)
+	_check("layout: the ray through the Miner also hits the Transporter hull", both)
 	var picks := []
 	for i in 3:
 		_click(f)
 		picks.append(_names())
-	_check("overlap: the nearer ship (Frigate) is picked, every time", picks == [["Frigate"], ["Frigate"], ["Frigate"]])
+	_check("overlap: the nearer ship (Miner) is picked, every time", picks == [["Miner"], ["Miner"], ["Miner"]])
 	var far_end := _camera.unproject_position(Vector3(118, 1.5, 0) - Vector3(toward_camera.x, 0, toward_camera.y) * 2.0)
 	_click(far_end)
-	_check("overlap: the far part of the Gunship picks the Gunship", _names() == ["Gunship"])
+	_check("overlap: the far part of the Transporter picks the Transporter", _names() == ["Transporter"])
 	_layout()
 
 
 func _test_indicators() -> void:
-	_selection.set_selection([_ship("Frigate"), _ship("Destroyer")])
+	_selection.set_selection([_ship("Miner"), _ship("FF01")])
 	_selection._process(0.0)
 	var visible := []
 	for ship_name in SHIPS:
 		if (_selection._rings[_ship(ship_name)] as Node3D).visible:
 			visible.append(ship_name)
-	_check("selection rings shown for every selected ship only", visible == ["Frigate", "Destroyer"])
+	_check("selection rings shown for every selected ship only", visible == ["Miner", "FF01"])
 
 
 func _test_camera() -> void:
-	_click(_screen("Gunship"))
+	_click(_screen("Transporter"))
 	var event := InputEventMouseButton.new()
 	event.button_index = MOUSE_BUTTON_WHEEL_UP # Zoom in (40 is the maximum zoom-out).
 	event.pressed = true
-	event.position = _screen("Gunship")
+	event.position = _screen("Transporter")
 	root.push_input(event, true)
 	var zoom: float = _rig.zoom_target # requested at once; the rendered zoom follows over frames
 	var yaw: float = _rig.rotation.y
 	var motion := InputEventMouseMotion.new()
-	motion.position = _screen("Gunship")
+	motion.position = _screen("Transporter")
 	motion.relative = Vector2(60, 0)
 	motion.button_mask = MOUSE_BUTTON_MASK_MIDDLE
 	root.push_input(motion, true)
 	_check("wheel and middle-drag move the camera (zoom %.1f, yaw %.1f)" % [zoom, rad_to_deg(_rig.rotation.y)], zoom != 40.0 and absf(_rig.rotation.y - deg_to_rad(45.0)) > 0.01)
-	_check("camera input leaves the selection alone", _names() == ["Gunship"])
-	_click(_screen("Destroyer"))
-	_check("picking after a camera rotation", _names() == ["Destroyer"])
+	_check("camera input leaves the selection alone", _names() == ["Transporter"])
+	_click(_screen("FF01"))
+	_check("picking after a camera rotation", _names() == ["FF01"])
 	_rig.rotation = Vector3(0.0, yaw, 0.0)
 	_layout()
 
 
 func _test_debug_ui() -> void:
-	_click(_screen("Gunship"))
+	_click(_screen("Transporter"))
 	var toggle := _lab.get_node("DebugUI/Panel/DebugToggle") as CheckBox
 	var was := toggle.button_pressed
 	_click(toggle.get_global_rect().get_center())
 	_check("a click on the debug panel toggles it", toggle.button_pressed != was)
-	_check("a click on the debug panel does not change the selection", _names() == ["Gunship"])
+	_check("a click on the debug panel does not change the selection", _names() == ["Transporter"])
 	_click(toggle.get_global_rect().get_center())
-	var g := _screen("Gunship")
+	var g := _screen("Transporter")
 	var panel := toggle.get_global_rect().get_center()
 	var expected := []
 	var start := g + Vector2(40.0 * signf(g.x - panel.x), 40) # UX round P6: the debug panel may be on either side (now top left).
@@ -180,18 +180,18 @@ func _test_debug_ui() -> void:
 		if rect.has_point(_screen(ship_name)):
 			expected.append(ship_name)
 	_drag(start, panel)
-	_check("a box released over the debug panel completes (%s)" % ", ".join(expected), _names() == expected and expected.has("Gunship"))
+	_check("a box released over the debug panel completes (%s)" % ", ".join(expected), _names() == expected and expected.has("Transporter"))
 
 
 func _test_keys() -> void:
-	_click(_screen("Gunship"))
+	_click(_screen("Transporter"))
 	for key in [KEY_1, KEY_2, KEY_3]:
 		_key(key)
-	_check("keys 1/2/3 no longer select", _names() == ["Gunship"])
+	_check("keys 1/2/3 no longer select", _names() == ["Transporter"])
 	_key(KEY_4)
-	_check("scenario 4 selects its moving ships", _names() == ["Frigate", "Gunship"])
+	_check("scenario 4 selects its moving ships", _names() == ["Miner", "Transporter"])
 	_key(KEY_8)
-	_check("scenario 8 selects its moving ship", _names() == ["Gunship"])
+	_check("scenario 8 selects its moving ship", _names() == ["Transporter"])
 	_reset_orders()
 	_layout()
 
@@ -199,80 +199,80 @@ func _test_keys() -> void:
 # Selection activity while a ship moves must not change its movement at all.
 func _test_moving_selection() -> void:
 	var target := Vector2(105, -60)
-	var reference := _fly("Frigate", target, 300, false)
-	var touched := _fly("Frigate", target, 300, true)
+	var reference := _fly("Miner", target, 300, false)
+	var touched := _fly("Miner", target, 300, true)
 	_check("selection during movement leaves the trajectory identical", reference == touched)
 
 
 func _test_orders() -> void:
-	var frigate := _node("Frigate", "Locomotion")
-	var follower := _node("Frigate", "RouteFollower")
-	_click(_screen("Frigate"))
+	var miner := _node("Miner", "Locomotion")
+	var follower := _node("Miner", "RouteFollower")
+	_click(_screen("Miner"))
 	var first := Vector2(105, -50)
 	var plans: int = follower.plans
 	_right_click(_ground_screen(first))
-	_check("right-click orders the selected ship", follower.plans == plans + 1 and frigate.has_destination and frigate.destination.distance_to(first) < 0.05)
+	_check("right-click orders the selected ship", follower.plans == plans + 1 and miner.has_destination and miner.destination.distance_to(first) < 0.05)
 	_steps(120)
-	_click(_screen("Gunship"))
-	_check("selecting another ship", _names() == ["Gunship"])
-	var before: Vector2 = frigate.planar_position
+	_click(_screen("Transporter"))
+	_check("selecting another ship", _names() == ["Transporter"])
+	var before: Vector2 = miner.planar_position
 	_steps(60)
-	_check("deselected ship keeps its order and moves", frigate.has_destination and frigate.planar_position.distance_to(before) > 1.0)
+	_check("deselected ship keeps its order and moves", miner.has_destination and miner.planar_position.distance_to(before) > 1.0)
 	_lab._process(0.0)
-	_check("no marker for an unselected ship", not _marker("Frigate").visible)
-	_click(_screen("Frigate"))
+	_check("no marker for an unselected ship", not _marker("Miner").visible)
+	_click(_screen("Miner"))
 	_lab._process(0.0)
-	var marker := _marker("Frigate")
+	var marker := _marker("Miner")
 	_check("reselecting shows its current order (marker at the destination)", marker.visible
 		and Vector2(marker.global_position.x, marker.global_position.z).distance_to(first) < 0.05)
 	_check("destination line drawn", (_lab.get_node("DestinationLines").mesh as ImmediateMesh).get_surface_count() == 1)
 	# Redirect while moving: momentum kept, order replaced at once.
 	var second := Vector2(80, -30)
-	var velocity: Vector2 = frigate.velocity
-	var angular: float = frigate.angular_velocity
+	var velocity: Vector2 = miner.velocity
+	var angular: float = miner.angular_velocity
 	plans = follower.plans
 	_right_click(_ground_screen(second))
-	_check("redirect replaces the order immediately", follower.plans == plans + 1 and frigate.destination.distance_to(second) < 0.05)
-	_check("redirect keeps velocity and turn rate", frigate.velocity == velocity and frigate.angular_velocity == angular)
+	_check("redirect replaces the order immediately", follower.plans == plans + 1 and miner.destination.distance_to(second) < 0.05)
+	_check("redirect keeps velocity and turn rate", miner.velocity == velocity and miner.angular_velocity == angular)
 	_click(_ground_screen(Vector2(130, 30)))
 	var t := 0
-	while frigate.has_destination and t < 60 * 60:
+	while miner.has_destination and t < 60 * 60:
 		_steps(1)
 		t += 1
-	_check("deselected ship completes its order (arrived)", frigate.arrived and frigate.planar_position.distance_to(second) < 0.05)
-	_click(_screen("Frigate"))
+	_check("deselected ship completes its order (arrived)", miner.arrived and miner.planar_position.distance_to(second) < 0.05)
+	_click(_screen("Miner"))
 	_lab._process(0.0)
-	_check("no marker after completion", not _marker("Frigate").visible)
+	_check("no marker after completion", not _marker("Miner").visible)
 	_layout()
 
 
 func _test_group_and_ship_click() -> void:
-	var frigate := _node("Frigate", "Locomotion")
-	var follower := _node("Frigate", "RouteFollower")
-	_click(_screen("Frigate"))
-	_click(_screen("Gunship"), true)
+	var miner := _node("Miner", "Locomotion")
+	var follower := _node("Miner", "RouteFollower")
+	_click(_screen("Miner"))
+	_click(_screen("Transporter"), true)
 	# Stage 5.3: a group right-click orders every selected ship, to separate destinations.
-	var gunship := _node("Gunship", "Locomotion")
+	var transporter := _node("Transporter", "Locomotion")
 	_right_click(_ground_screen(Vector2(110, -40)))
-	var gap: float = frigate.destination.distance_to(gunship.destination) - 1.6 - 3.4
+	var gap: float = miner.destination.distance_to(transporter.destination) - 1.6 - 3.4
 	_check("group right-click orders every selected ship (destination gap %.2f u)" % gap,
-		frigate.has_destination and gunship.has_destination and gap >= 1.0 - 0.001)
+		miner.has_destination and transporter.has_destination and gap >= 1.0 - 0.001)
 	_reset_orders()
 	_layout()
 	# Right-click on another (stationary) ship: a MOVE to the nearest reachable point
 	# beside it, outside its clearance, on the ordered ship's side (movement_lab.gd
 	# _move_single, GroupOrders.resolve_occupied).
-	_click(_screen("Frigate"))
-	_right_click(_screen("Gunship"))
+	_click(_screen("Miner"))
+	_right_click(_screen("Transporter"))
 	var group := _lab.get_node("GroupOrders")
-	var gunship_at: Vector2 = _node("Gunship", "Locomotion").planar_position
+	var transporter_at: Vector2 = _node("Transporter", "Locomotion").planar_position
 	var clearance: float = 1.6 + 3.4 + group.separation_margin + group.destination_buffer
-	var beside: float = frigate.destination.distance_to(gunship_at)
+	var beside: float = miner.destination.distance_to(transporter_at)
 	_check("right-click over a stationary ship is a MOVE beside it (%.2f u from it, clearance %.2f u)" % [beside, clearance],
-		frigate.has_destination and (follower.status == follower.RouteStatus.ROUTE or follower.status == follower.RouteStatus.DIRECT)
+		miner.has_destination and (follower.status == follower.RouteStatus.ROUTE or follower.status == follower.RouteStatus.DIRECT)
 		and beside >= clearance - 0.01 and beside <= clearance + group.resolve_margin + 0.01
-		and (frigate.destination - gunship_at).dot(frigate.planar_position - gunship_at) >= 0.0)
-	_check("the ship under the cursor is not ordered", not _node("Gunship", "Locomotion").has_destination)
+		and (miner.destination - transporter_at).dot(miner.planar_position - transporter_at) >= 0.0)
+	_check("the ship under the cursor is not ordered", not _node("Transporter", "Locomotion").has_destination)
 	_reset_orders()
 	_layout()
 

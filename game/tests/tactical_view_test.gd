@@ -53,7 +53,7 @@ func _unload() -> void:
 
 func _load_e05() -> void:
 	scene = E05.instantiate()
-	scene.scenario_index = 4
+	scene.scenario_index = 0
 	var sensors := scene.get_node("Sensors") # Every ship visible; fog_test covers detection.
 	scene.remove_child(sensors)
 	sensors.free()
@@ -218,23 +218,23 @@ func _case_continuity() -> void:
 ## picks; both select the same ship node.
 func _case_picking() -> void:
 	print("\n=== B1-2 marker and hull picking")
-	var destroyer: Node3D = scene.ship("Destroyer")
+	var ff01a: Node3D = scene.ship("FF01A")
 	var markers = scene.markers
-	await _look_at(destroyer.global_position, 45.0)
-	var centre := _screen(destroyer.global_position)
-	_check("zoom 45 (emphasis %.2f < %.2f): the marker takes no clicks; the hull pick finds the Destroyer" % [markers.emphasis(), markers.interactive_emphasis],
-		markers.emphasis() < markers.interactive_emphasis and markers.marker_at(centre) == null and scene.selection().pick(centre) == destroyer)
-	await _look_at(destroyer.global_position, 70.0)
-	centre = _screen(destroyer.global_position)
+	await _look_at(ff01a.global_position, 45.0)
+	var centre := _screen(ff01a.global_position)
+	_check("zoom 45 (emphasis %.2f < %.2f): the marker takes no clicks; the hull pick finds the FF01A" % [markers.emphasis(), markers.interactive_emphasis],
+		markers.emphasis() < markers.interactive_emphasis and markers.marker_at(centre) == null and scene.selection().pick(centre) == ff01a)
+	await _look_at(ff01a.global_position, 70.0)
+	centre = _screen(ff01a.global_position)
 	scene.selection().set_selection([])
 	await _click(centre)
 	var by_marker: Array = scene.selection().selected.duplicate()
 	var hull_point := Vector2.INF
-	var axis := destroyer.global_basis.z.normalized()
+	var axis := ff01a.global_basis.z.normalized()
 	for side in [1.0, -1.0]:
 		for i in 40:
-			var candidate := _screen(destroyer.global_position + axis * side * (1.0 + i * 0.25))
-			if markers.marker_at(candidate) == null and scene.selection().pick(candidate) == destroyer:
+			var candidate := _screen(ff01a.global_position + axis * side * (1.0 + i * 0.25))
+			if markers.marker_at(candidate) == null and scene.selection().pick(candidate) == ff01a:
 				hull_point = candidate
 				break
 		if hull_point != Vector2.INF:
@@ -244,8 +244,8 @@ func _case_picking() -> void:
 		await _click(hull_point)
 	var by_hull: Array = scene.selection().selected.duplicate()
 	_check("zoom 70 (emphasis %.2f): a click on the marker and a click on the hull %.0f px from it (outside the marker) select the same ship %s" % [markers.emphasis(), hull_point.distance_to(centre), str(by_hull)],
-		markers.marker_at(centre) == destroyer and by_marker == [destroyer] and by_hull == [destroyer])
-	var hostile: Node3D = scene.ship("HostileDestroyer")
+		markers.marker_at(centre) == ff01a and by_marker == [ff01a] and by_hull == [ff01a])
+	var hostile: Node3D = scene.ship("HostileFF01A")
 	await _look_at(hostile.global_position, 150.0)
 	scene.selection().set_selection([])
 	await _click(_screen(hostile.global_position))
@@ -279,18 +279,18 @@ func _case_overlap() -> void:
 ## B1-4: selection survives the transition; the ring fades out as the brackets fade in.
 func _case_selection_blend() -> void:
 	print("\n=== B1-4 selection across the transition")
-	var gunship: Node3D = scene.ship("Gunship")
-	await _look_at(gunship.global_position, 20.0)
-	await _click(_screen(gunship.global_position))
+	var ff01b: Node3D = scene.ship("FF01B")
+	await _look_at(ff01b.global_position, 20.0)
+	await _click(_screen(ff01b.global_position))
 	var selection = scene.selection()
-	var ring: MeshInstance3D = selection._rings[gunship]
+	var ring: MeshInstance3D = selection._rings[ff01b]
 	var ring_close: bool = ring.visible and is_equal_approx(selection._ring_material.albedo_color.a, 1.0)
 	_wheel(false, 25)
 	var kept := true
 	var blended := true
 	for i in 120:
 		await process_frame
-		kept = kept and selection.selected == [gunship]
+		kept = kept and selection.selected == [ff01b]
 		blended = blended and is_equal_approx(selection._ring_material.albedo_color.a + scene.markers.emphasis(), 1.0)
 		if _rig().zoom_distance == _rig().zoom_target:
 			break
@@ -299,11 +299,11 @@ func _case_selection_blend() -> void:
 	_wheel(true, 25)
 	for i in 120:
 		await process_frame
-		kept = kept and selection.selected == [gunship]
+		kept = kept and selection.selected == [ff01b]
 		if _rig().zoom_distance == _rig().zoom_target:
 			break
 	await process_frame
-	_check("selected at zoom 20 (ring opaque), zoomed to 150 and back: still [Gunship] every frame; ring alpha + marker emphasis = 1 every frame; ring hidden at 150, back at 20",
+	_check("selected at zoom 20 (ring opaque), zoomed to 150 and back: still [FF01B] every frame; ring alpha + marker emphasis = 1 every frame; ring hidden at 150, back at 20",
 		ring_close and kept and blended and ring_far and ring.visible)
 
 
@@ -319,7 +319,7 @@ func _case_box_and_commands() -> void:
 	await _drag(box.position, box.end)
 	var boxed: Array = scene.selection().selected
 	_check("a drag box around two markers selects both ships (%d)" % boxed.size(), boxed.size() == 2 and boxed.has(own[0]) and boxed.has(own[1]))
-	var hostile: Node3D = scene.ship("HostileGunship")
+	var hostile: Node3D = scene.ship("HostileFF01B")
 	await _look_at(hostile.global_position, 150.0)
 	await _click(_screen(hostile.global_position), MOUSE_BUTTON_RIGHT)
 	_check("a right-click on a hostile marker targets it for both selected ships",
@@ -333,9 +333,9 @@ func _case_box_and_commands() -> void:
 ## B1-6: a GUI panel over a marker keeps input priority.
 func _case_ui_blocking() -> void:
 	print("\n=== B1-6 UI panels keep input priority")
-	var gunship: Node3D = scene.ship("Gunship")
-	await _look_at(gunship.global_position, 150.0)
-	var centre := _screen(gunship.global_position)
+	var ff01b: Node3D = scene.ship("FF01B")
+	await _look_at(ff01b.global_position, 150.0)
+	var centre := _screen(ff01b.global_position)
 	var layer := CanvasLayer.new()
 	layer.layer = 5
 	var panel := Panel.new()
@@ -355,8 +355,8 @@ func _case_ui_blocking() -> void:
 	await process_frame
 	await process_frame
 	await _click(centre)
-	_check("a click on a GUI panel over the Gunship's marker selects nothing; with the panel gone the same click selects it",
-		blocked and scene.selection().selected == [gunship])
+	_check("a click on a GUI panel over the FF01B's marker selects nothing; with the panel gone the same click selects it",
+		blocked and scene.selection().selected == [ff01b])
 
 
 func _load_main() -> void:
@@ -502,14 +502,14 @@ func _case_asteroid_interaction() -> void:
 	var command: Dictionary = scene.resolve_command(_screen(asteroid.global_position))
 	_check("a right-click on an asteroid's marker with a miner selected resolves to MINE that asteroid (id %d)" % id,
 		command.get("kind") == scene.CommandKind.MINE and command.get("asteroid") == id)
-	var gunship: Node3D = scene.ship("Gunship")
-	gunship.get_node("Locomotion").place(Vector2(asteroid.global_position.x + field.radius(id) + 2.5, asteroid.global_position.z), 0.0)
+	var transporter: Node3D = scene.ship("Transporter")
+	transporter.get_node("Locomotion").place(Vector2(asteroid.global_position.x + field.radius(id) + 2.5, asteroid.global_position.z), 0.0)
 	await physics_frame
 	await _look_at(asteroid.global_position, 150.0)
 	scene.selection().set_selection([])
-	await _click(_screen(gunship.global_position))
-	_check("a ship parked beside an asteroid (markers %.1f px apart): a click on the ship's marker selects the ship" % _screen(gunship.global_position).distance_to(_screen(asteroid.global_position)),
-		scene.selection().selected == [gunship])
+	await _click(_screen(transporter.global_position))
+	_check("a ship parked beside an asteroid (markers %.1f px apart): a click on the ship's marker selects the ship" % _screen(transporter.global_position).distance_to(_screen(asteroid.global_position)),
+		scene.selection().selected == [transporter])
 
 
 ## B2-5: paused, the overlays still follow the camera (they are presentation, always processing).

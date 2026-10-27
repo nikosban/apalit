@@ -82,7 +82,7 @@ func _load_main() -> void:
 		if text.ends_with(" completed"):
 			_completion_notices += 1)
 	var nav := _main.get_node("StaticNavigation")
-	while not (nav.is_ready(2.6) and nav.is_ready(5.1) and nav.is_ready(7.2) and nav.is_ready(4.4)):
+	while not (nav.is_ready(2.6) and nav.is_ready(5.1)):
 		await physics_frame
 
 
@@ -145,7 +145,7 @@ func _part_api() -> void:
 	var awaiting := await _until(func() -> bool: return _yard.state == Shipyard.State.AWAITING_DEPLOYMENT, 60 * 95)
 	await _frames(60 * 10)
 	_check("A7. Transport Ship completed while Miner3 holds the deployment point: Awaiting Deployment for 10 s, no second ship",
-		awaiting >= 0 and _yard.state == Shipyard.State.AWAITING_DEPLOYMENT and _deployed.size() == 1 and _main.get_node("Ships").get_child_count() == 7)
+		awaiting >= 0 and _yard.state == Shipyard.State.AWAITING_DEPLOYMENT and _deployed.size() == 1 and _main.get_node("Ships").get_child_count() == 4)
 	# Miner3 moved away with a right-click (existing command path), as a player would.
 	_main.get_node("Selection").set_selection([miner])
 	var away: Vector2 = _main.get_node("StaticNavigation").closest_point(2.6, Vector2(-75, -128))
@@ -158,7 +158,7 @@ func _part_api() -> void:
 	_check("A9. Transporter2 deployed exactly once after Miner3 left (%s), Shipyard Idle, %d completion notices" % [
 		transporter.name if transporter != null else "none", _completion_notices],
 		transporter != null and transporter.name == "Transporter2" and _deployed.size() == 2 and _yard.state == Shipyard.State.IDLE
-		and _completion_notices == 2 and _main.get_node("Ships").get_child_count() == 8)
+		and _completion_notices == 2 and _main.get_node("Ships").get_child_count() == 5)
 	if transporter == null:
 		return
 	_check_parity_c(transporter, "Transporter", _deployed_snapshots[1])

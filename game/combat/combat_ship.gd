@@ -3,7 +3,7 @@ extends Node
 ## physics priority 2, after Locomotion, Fuel and Docking). Migrated from the combat
 ## prototype (v0.5). Every ship has one: it owns the ship's hull (`health`, the only health
 ## owner), its faction and its targeting; a ship whose `Weapons` node has no hardpoints
-## (Frigate, Miner, Transporter) takes damage and can be targeted but never fires. The same
+## (Miner, Transporter) takes damage and can be targeted but never fires. The same
 ## code runs for every faction; only commands differ (player input or scripted orders,
 ## both through CombatOrders).
 ##
@@ -55,6 +55,9 @@ const STOPPED_ON_DESTRUCTION := ["RouteFollower", "Avoidance", "Fuel", "Scanner"
 @export var combat_id := 0 # Stable identifier (target selection tie-breaker).
 @export var stance := Stance.DEFENSIVE
 @export var rules: Resource = preload("res://game/combat/combat_rules.tres")
+## DurabilityConfig (hull and armor); null = rules.hull_health and no armor. An invalid one
+## is rejected as a whole and reported (durability_errors, push_error).
+@export var durability: Resource = null
 @export var ships_path := NodePath("../..")
 @export var contacts_path := NodePath("../../../Contacts")
 @export var projectiles_path := NodePath("../../../Projectiles")
@@ -62,6 +65,11 @@ const STOPPED_ON_DESTRUCTION := ["RouteFollower", "Avoidance", "Fuel", "Scanner"
 @export var asteroids_path := NodePath("../../../Asteroids")
 
 var health := 100.0
+var max_health := 100.0 # Resolved maximum hull (durability.max_hull or rules.hull_health).
+var armor := 0.0 # Armor condition (global; reduced by armor damage, never repaired).
+var max_armor := 0.0
+var armor_resistance := 0.0
+var durability_errors := PackedStringArray() # Why `durability` was rejected (empty = accepted or none).
 var alive := true
 var removed_from_play := false
 var manual_target: Node3D = null
@@ -112,7 +120,7 @@ static func now() -> float:
 
 func _ready() -> void:
 	process_physics_priority = 2
-	health = rules.hull_health
+	_resolve_durability()
 	_last_position = ship.global_position
 	var to_ship := ship.global_transform.affine_inverse()
 	for mesh_instance in _meshes("Model"):
@@ -285,15 +293,55 @@ func on_fired(weapon: Node, at: Node3D) -> void:
 	fired.emit(weapon, at)
 
 
-## A projectile impact (hostile, valid). Returns whether damage was applied.
-func take_hit(amount: float, projectile_id: int) -> bool:
+## A projectile impact (hostile, valid). Returns whether damage was applied. `penetration`
+## null = unconfigured (bypasses armor); `damaged` reports the hull damage actually applied.
+func take_hit(amount: float, projectile_id: int, penetration: Variant = null, armor_damage := 0.0) -> bool:
 	if not alive:
 		return false
-	health = maxf(0.0, health - amount)
-	damaged.emit(amount, projectile_id)
+	var invalid := hit_input_error(amount, penetration, armor_damage)
+	if invalid != "":
+		push_error("%s: hit %d rejected: %s (hull and armor unchanged)" % [ship.name, projectile_id, invalid])
+		return false
+	var hit := resolve_hit(amount, penetration, armor_damage, armor, max_armor, armor_resistance)
+	armor = hit.armor
+	health = maxf(0.0, health - hit.hull_damage)
+	damaged.emit(hit.hull_damage, projectile_id)
 	if health <= 0.0:
 		destroy()
 	return true
+
+
+## Why take_hit() must reject these inputs (non-finite damage, armor damage or configured
+## penetration, or a penetration that is neither null nor a number), or "" when usable.
+static func hit_input_error(amount: float, penetration: Variant, armor_damage: float) -> String:
+	if not is_finite(amount):
+		return "non-finite damage %s" % str(amount)
+	if not is_finite(armor_damage):
+		return "non-finite armor damage %s" % str(armor_damage)
+	if penetration != null:
+		if typeof(penetration) != TYPE_FLOAT and typeof(penetration) != TYPE_INT:
+			return "penetration is not a number (%s)" % str(penetration)
+		if not is_finite(float(penetration)):
+			return "non-finite penetration %s" % str(penetration)
+	return ""
+
+
+## Armor resolution for one impact, from the pre-impact armor condition. `penetration` null =
+## unconfigured (bypasses armor: the base damage); 0 or less = no hull damage. Returns
+## {"hull_damage": float, "armor": float} (64-bit floats; armor clamped to [0, maximum]).
+static func resolve_hit(base_damage: float, penetration: Variant, armor_damage: float,
+		current_armor: float, maximum_armor: float, resistance: float) -> Dictionary:
+	var maximum := maxf(0.0, maximum_armor)
+	var condition := clampf(current_armor, 0.0, maximum)
+	var hull_damage := maxf(0.0, base_damage)
+	if penetration != null:
+		var p := maxf(0.0, float(penetration))
+		if p <= 0.0:
+			hull_damage = 0.0
+		else:
+			var effective := resistance * condition / maximum if maximum > 0.0 else 0.0
+			hull_damage = hull_damage * p / (p + maxf(0.0, effective))
+	return {"hull_damage": hull_damage, "armor": maxf(0.0, condition - maxf(0.0, armor_damage))}
 
 
 ## Another ship was destroyed or removed: every reference to it goes at once.
@@ -347,6 +395,24 @@ func destroy() -> void:
 
 
 # --- Internals ----------------------------------------------------------------------
+
+# Hull and armor from `durability` when it is valid; otherwise (none, or rejected and
+# reported) rules.hull_health and no armor. Armor condition starts at its maximum.
+func _resolve_durability() -> void:
+	max_health = rules.hull_health
+	max_armor = 0.0
+	armor_resistance = 0.0
+	durability_errors = durability.errors() if durability != null else PackedStringArray()
+	if durability != null and durability_errors.is_empty():
+		max_health = durability.max_hull
+		max_armor = durability.max_armor
+		armor_resistance = durability.armor_resistance
+	for error in durability_errors:
+		push_error("%s: durability %s rejected: %s; using rules.hull_health and no armor" % [ship.name,
+			durability.resource_path if durability.resource_path != "" else "(unsaved resource)", error])
+	health = max_health
+	armor = max_armor
+
 
 func _prune() -> void:
 	var manual_state := target_status(manual_target)

@@ -13,9 +13,12 @@ extends Resource
 ## at the maximum range (under-leading a moving target; never random).
 
 @export var display_name := "Weapon"
-@export var family := &"fixed" # fixed, cannon, gatling, torpedo, missile (hardpoint compatibility)
+@export var family := &"fixed" # fixed, cannon, gatling, torpedo, missile, rocket (hardpoint compatibility)
 @export var size := 1 # 0 small, 1 medium, 2 large (hardpoint compatibility)
 @export var damage := 10.0
+@export var has_penetration := false # false: penetration unconfigured, damage bypasses armor (legacy)
+@export var penetration := 0.0 # used only when has_penetration (0 = no hull damage)
+@export var armor_damage := 0.0 # armor condition removed per hit (0 = none)
 @export var cooldown := 1.0 # s between shots (reload for weapons without a magazine)
 @export var weapon_range := 45.0 # u; maximum range: authorization and acquisition
 @export var effective_range := 0.0 # u; 0 = weapon_range (no degradation)
@@ -25,6 +28,9 @@ extends Resource
 @export var projectile_lifetime := 2.5 # s
 @export var projectile_style := &"shell" # shell, tracer
 @export var alignment_tolerance_deg := 3.0
+## Cannon family: maximum angular deviation (half-angle of a cone, uniform over its solid
+## angle) of each shell from the barrel at the moment of firing (Weapon.disperse); 0 = none.
+@export var dispersion_max_deg := 0.0
 @export var firing_cone_deg := 12.0 # fixed weapons: ± around the bow
 @export var yaw_limit_deg := 160.0 # turrets: ± around the mount's forward
 @export var pitch_min_deg := -15.0
@@ -36,6 +42,11 @@ extends Resource
 @export var reload_time := 0.0 # s, magazine refill (empty or idle)
 @export var idle_reload_delay := 0.25 # s without an actionable shot before an idle refill
 @export var ordnance: Resource # Launchers: the guided ordnance's values (OrdnanceConfig).
+
+
+## Penetration for the damage pipeline: null when unconfigured, else the configured value.
+func resolved_penetration() -> Variant:
+	return penetration if has_penetration else null
 
 
 func max_travel() -> float:

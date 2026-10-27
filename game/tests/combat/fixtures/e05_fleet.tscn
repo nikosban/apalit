@@ -1,7 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="PackedScene" path="res://game/tests/combat/fixtures/encounter_arena.tscn" id="1_base"]
-[ext_resource type="PackedScene" path="res://game/ships/gunship_unit.tscn" id="2_gunship"]
+[ext_resource type="PackedScene" path="res://game/ships/ff01_unit.tscn" id="2_ff01"]
 [ext_resource type="Script" path="res://game/tests/combat/fixtures/hostile_fleet.gd" id="3_hostile"]
 [ext_resource type="Script" path="res://game/tests/combat/fixtures/fleet_battle.gd" id="4_battle"]
 [ext_resource type="Script" path="res://game/sensors/sensors.gd" id="5_sensors"]
@@ -55,18 +55,18 @@ transform = Transform3D(12, 0, 0, 0, 12, 0, 0, 0, 12, 34, 1.5, -62)
 mesh = SubResource("SphereMesh_asteroid")
 metadata/asteroid_id = 7
 
-[node name="Gunship2" parent="Ships" instance=ExtResource("2_gunship")]
+[node name="FF01C" parent="Ships" instance=ExtResource("2_ff01")]
 transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -76, 1.5, 26)
 
-[node name="Combat" parent="Ships/Gunship2" index="7"]
+[node name="Combat" parent="Ships/FF01C" index="7"]
 faction = 0
 combat_id = 5
 stance = 2
 
-[node name="HostileGunship2" parent="Ships" instance=ExtResource("2_gunship")]
+[node name="HostileFF01C" parent="Ships" instance=ExtResource("2_ff01")]
 transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 74, 1.5, -4)
 
-[node name="Combat" parent="Ships/HostileGunship2" index="7"]
+[node name="Combat" parent="Ships/HostileFF01C" index="7"]
 faction = 1
 combat_id = 6
 stance = 2
@@ -82,19 +82,3 @@ script = ExtResource("5_sensors")
 sensor_range = 100.0
 update_interval = 0.2
 memory = 8.0
-
-[node name="MissileCells" parent="Ships/Destroyer/Weapons/DeckHardpoint" index="0"]
-cell_size = Vector3(1, 0.22, 1.4)
-cells = 4
-cell_columns = 2
-salvo_size = 4
-salvo_interval = 0.2
-ammunition_override = 12
-
-[node name="MissileCells" parent="Ships/HostileDestroyer/Weapons/DeckHardpoint" index="0"]
-cell_size = Vector3(1, 0.22, 1.4)
-cells = 4
-cell_columns = 2
-salvo_size = 4
-salvo_interval = 0.2
-ammunition_override = 12

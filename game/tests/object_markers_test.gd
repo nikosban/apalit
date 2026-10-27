@@ -29,6 +29,10 @@ var _away := Vector2(5, 5)
 func _initialize() -> void:
 	await process_frame
 	_main = MAIN.instantiate()
+	var ff01: Node3D = load("res://game/ships/ff01_unit.tscn").instantiate() # The warship (combat) type.
+	ff01.name = "FF01"
+	ff01.position = Vector3(14, 1.5, 0)
+	_main.get_node("Ships").add_child(ff01)
 	root.add_child(_main)
 	_main.get_node("Survey").set_physics_process(false)
 	for ship in _main.get_node("Ships").get_children():
@@ -46,11 +50,11 @@ func _initialize() -> void:
 	_highlight.update(_away, true)
 	_check("nothing hovered or selected: no markers (the map shows none)", _markers.entries().is_empty())
 
-	_selection.set_selection([_ship("Frigate"), _ship("Destroyer"), _ship("Miner1"), _ship("Transporter")])
+	_selection.set_selection([_ship("FF01"), _ship("Miner1"), _ship("Transporter")])
 	_highlight.update(_away, true)
 	var shapes := _shapes()
-	_check("selected ships: Frigate and Destroyer triangles (combat), Miner1 and Transporter octagons (logistics), cyan (%s)" % str(shapes),
-		shapes == {"Frigate": ObjectMarkers.Shape.TRIANGLE, "Destroyer": ObjectMarkers.Shape.TRIANGLE, "Miner1": ObjectMarkers.Shape.OCTAGON,
+	_check("selected ships: FF01 triangle (combat), Miner1 and Transporter octagons (logistics), cyan (%s)" % str(shapes),
+		shapes == {"FF01": ObjectMarkers.Shape.TRIANGLE, "Miner1": ObjectMarkers.Shape.OCTAGON,
 			"Transporter": ObjectMarkers.Shape.OCTAGON}
 		and _markers.entries().all(func(e: Dictionary) -> bool: return e.color == ObjectMarkers.SELECTED_COLOR))
 	var centred := true

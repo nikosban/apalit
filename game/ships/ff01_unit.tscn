@@ -1,0 +1,135 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://game/ships/archetypes/warship.tscn" id="1_archetype"]
+[ext_resource type="PackedScene" path="res://game/ships/ff01.tscn" id="2_model"]
+[ext_resource type="Script" path="res://game/weapons/hardpoint.gd" id="3_hardpoint"]
+[ext_resource type="Script" path="res://game/behavior/ship_behavior.gd" id="4_behavior"]
+[ext_resource type="Resource" path="res://game/ships/ff01_durability.tres" id="5_durability"]
+[ext_resource type="PackedScene" path="res://game/weapons/nc90_bastion.tscn" id="6_bastion"]
+[ext_resource type="PackedScene" path="res://game/weapons/pdc20_kestrel.tscn" id="7_kestrel"]
+[ext_resource type="PackedScene" path="res://game/weapons/rl8_barrage.tscn" id="8_barrage"]
+[ext_resource type="PackedScene" path="res://game/weapons/gcm4_wayfarer.tscn" id="9_wayfarer"]
+
+[node name="FF01" instance=ExtResource("1_archetype")]
+metadata/display_name = "FF-01"
+metadata/display_class = "Frigate"
+
+[node name="Locomotion" parent="." index="0"]
+max_speed = 3.0
+max_reverse_speed = 1.5
+max_lateral_speed = 1.0
+forward_accel = 1.2
+reverse_accel = 0.5
+lateral_accel = 0.3
+max_turn_rate_deg = 25.0
+turn_accel_deg = 20.0
+
+[node name="RouteFollower" parent="." index="1"]
+ship_radius = 6.2
+clearance_margin = 1.0
+
+[node name="Avoidance" parent="." index="2"]
+size_class = 3
+separation_margin = 1.0
+
+[node name="Fuel" parent="." index="5"]
+capacity = 400.0
+consumption = 1.0
+
+[node name="ForwardBastionHardpoint" type="Node3D" parent="Weapons"]
+position = Vector3(0, 0.55, -3)
+script = ExtResource("3_hardpoint")
+size = 1
+families = PackedStringArray("cannon")
+yaw_limit_deg = 120.0
+
+[node name="NC90Bastion" parent="Weapons/ForwardBastionHardpoint" instance=ExtResource("6_bastion")]
+
+[node name="AftBastionHardpoint" type="Node3D" parent="Weapons"]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0.55, 3)
+script = ExtResource("3_hardpoint")
+size = 1
+families = PackedStringArray("cannon")
+yaw_limit_deg = 120.0
+
+[node name="NC90Bastion" parent="Weapons/AftBastionHardpoint" instance=ExtResource("6_bastion")]
+
+[node name="ForwardPortPDCHardpoint" type="Node3D" parent="Weapons"]
+position = Vector3(-1.3, 0.55, -4)
+rotation = Vector3(0, 0.7853981633974483, 0)
+script = ExtResource("3_hardpoint")
+size = 0
+families = PackedStringArray("gatling")
+yaw_limit_deg = 90.0
+
+[node name="PDC20Kestrel" parent="Weapons/ForwardPortPDCHardpoint" instance=ExtResource("7_kestrel")]
+
+[node name="ForwardStarboardPDCHardpoint" type="Node3D" parent="Weapons"]
+position = Vector3(1.3, 0.55, -4)
+rotation = Vector3(0, -0.7853981633974483, 0)
+script = ExtResource("3_hardpoint")
+size = 0
+families = PackedStringArray("gatling")
+yaw_limit_deg = 90.0
+
+[node name="PDC20Kestrel" parent="Weapons/ForwardStarboardPDCHardpoint" instance=ExtResource("7_kestrel")]
+
+[node name="AftPortPDCHardpoint" type="Node3D" parent="Weapons"]
+position = Vector3(-1.3, 0.55, 4)
+rotation = Vector3(0, 2.356194490192345, 0)
+script = ExtResource("3_hardpoint")
+size = 0
+families = PackedStringArray("gatling")
+yaw_limit_deg = 90.0
+
+[node name="PDC20Kestrel" parent="Weapons/AftPortPDCHardpoint" instance=ExtResource("7_kestrel")]
+
+[node name="AftStarboardPDCHardpoint" type="Node3D" parent="Weapons"]
+position = Vector3(1.3, 0.55, 4)
+rotation = Vector3(0, -2.356194490192345, 0)
+script = ExtResource("3_hardpoint")
+size = 0
+families = PackedStringArray("gatling")
+yaw_limit_deg = 90.0
+
+[node name="PDC20Kestrel" parent="Weapons/AftStarboardPDCHardpoint" instance=ExtResource("7_kestrel")]
+
+[node name="BarrageHardpoint" type="Node3D" parent="Weapons"]
+editor_description = "RL-8 Barrage (rocket family). Existing eight cell origins ahead of the bow eject vertically and turn after dorsal clearance; no hull-facing firing gate. Hardpoint articulation and the unused shared cone remain unchanged."
+position = Vector3(0, 0, -5.85)
+script = ExtResource("3_hardpoint")
+families = PackedStringArray("rocket")
+yaw_limit_deg = 0.0
+pitch_min_deg = 0.0
+pitch_max_deg = 0.0
+
+[node name="RL8Barrage" parent="Weapons/BarrageHardpoint" instance=ExtResource("8_barrage")]
+
+[node name="WayfarerHardpoint" type="Node3D" parent="Weapons"]
+editor_description = "GCM-4 Wayfarer. Mount -Z stays forward; the launcher's four cells supply +Y ejection muzzles."
+position = Vector3(0, 0.55, 0)
+script = ExtResource("3_hardpoint")
+size = 1
+families = PackedStringArray("missile")
+
+[node name="GCM4Wayfarer" parent="Weapons/WayfarerHardpoint" instance=ExtResource("9_wayfarer")]
+
+[node name="Combat" parent="." index="7"]
+durability = ExtResource("5_durability")
+
+[node name="Behavior" type="Node" parent="."]
+script = ExtResource("4_behavior")
+combat_positioning = true
+combat_weapon_family = &"cannon"
+combat_min_distance = 27.0
+combat_max_distance = 45.0
+combat_nominal_distance = 38.25
+combat_tangential_speed = 1.5
+combat_decision_interval = 0.5
+combat_order_interval = 1.0
+combat_transition_width = 20.0
+combat_course_slack_deg = 8.0
+combat_course_replan_deg = 15.0
+combat_course_response_time = 0.5
+
+[node name="Model" parent="." instance=ExtResource("2_model")]

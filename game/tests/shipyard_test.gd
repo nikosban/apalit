@@ -29,22 +29,19 @@ const ShipLocomotion := preload("res://game/locomotion/ship_locomotion.gd")
 const Scanner := preload("res://game/survey/scanner.gd")
 ## Unit scene, its archetype, its hull (architecture migration).
 const VARIANTS := [
-	[preload("res://game/ships/frigate_unit.tscn"), "res://game/ships/archetypes/warship.tscn", "res://game/ships/frigate.tscn"],
-	[preload("res://game/ships/gunship_unit.tscn"), "res://game/ships/archetypes/warship.tscn", "res://game/ships/gunship.tscn"],
-	[preload("res://game/ships/destroyer_unit.tscn"), "res://game/ships/archetypes/warship.tscn", "res://game/ships/destroyer.tscn"],
+	[preload("res://game/ships/ff01_unit.tscn"), "res://game/ships/archetypes/warship.tscn", "res://game/ships/ff01.tscn"],
 	[MINER_UNIT, "res://game/ships/archetypes/mining_ship.tscn", "res://game/ships/miner.tscn"],
 	[TRANSPORTER_UNIT, "res://game/ships/archetypes/transport_ship.tscn", "res://game/ships/transporter.tscn"],
 ]
 ## The variant of every starting ship in main.tscn.
-const STARTING := {"Frigate": "res://game/ships/frigate_unit.tscn", "Gunship": "res://game/ships/gunship_unit.tscn",
-	"Destroyer": "res://game/ships/destroyer_unit.tscn", "Miner1": "res://game/ships/miner_unit.tscn",
+const STARTING := {"Miner1": "res://game/ships/miner_unit.tscn",
 	"Miner2": "res://game/ships/miner_unit.tscn", "Transporter": "res://game/ships/transporter_unit.tscn"}
 ## The station scene of every station in main.tscn.
 const STATIONS := {"Station": "res://game/stations/station.tscn", "Station2": "res://game/stations/refinery_station.tscn",
 	"Shipyard": "res://game/stations/shipyard_station.tscn"}
 const DT := 1.0 / 60.0
-const CLASSES := ["Frigate", "Gunship", "Destroyer", "Miner1", "Transporter"]
-const PARK := {"Frigate": Vector2(40, 30), "Gunship": Vector2(40, 15), "Destroyer": Vector2(40, -5), "Miner1": Vector2(40, -20), "Miner2": Vector2(40, -32)}
+const CLASSES := ["FF01", "Miner1", "Transporter"] # One ship per hull class (the FF-01 is added to the scene).
+const PARK := {"FF01": Vector2(40, -5), "Miner1": Vector2(40, -20), "Miner2": Vector2(40, -32)}
 const IRON := &"iron_ingot"
 const NICKEL := &"nickel_ingot"
 const SILICON := &"silicon_ingot"
@@ -80,6 +77,10 @@ var _notices: Array[String] = []
 func _initialize() -> void:
 	await process_frame
 	_main = MAIN.instantiate()
+	var ff01: Node3D = load("res://game/ships/ff01_unit.tscn").instantiate()
+	ff01.name = "FF01"
+	ff01.position = Vector3(14, 1.5, 0)
+	_main.get_node("Ships").add_child(ff01)
 	root.add_child(_main)
 	_nav = _main.get_node("StaticNavigation")
 	_field = _main.get_node("Asteroids")
@@ -210,7 +211,7 @@ func _test_placement() -> void:
 	var rect_gap := minf(_yard_station.berths[0].rect_gap(deploy), _yard_station.berths[1].rect_gap(deploy)) - t
 	var hold_gap := INF
 	for hold in _yard_station.holds:
-		hold_gap = minf(hold_gap, deploy.distance_to(hold.point) - t - _r("Destroyer") - Shipyard.DEPLOY_MARGIN)
+		hold_gap = minf(hold_gap, deploy.distance_to(hold.point) - t - _r("FF01") - Shipyard.DEPLOY_MARGIN)
 	var path_gap := INF
 	for i in 2:
 		var berth = _yard_station.berths[i]
@@ -221,7 +222,7 @@ func _test_placement() -> void:
 				var legs: Array = berth.exit_legs(r, side)
 				path_gap = minf(path_gap, _poly_point(PackedVector2Array([berth.park_point(r), legs[0].move, legs[2].move]), deploy) - r - t)
 	var edge := 150.0 - maxf(absf(deploy.x), absf(deploy.y)) - t
-	_check("2. deployment clear for the Transporter: static %.2f, berth rectangles %.2f, holds (with a Destroyer + 1 u) %.2f, station-controlled paths %.2f, map edge %.2f u" % [
+	_check("2. deployment clear for the Transporter: static %.2f, berth rectangles %.2f, holds (with an FF-01 + 1 u) %.2f, station-controlled paths %.2f, map edge %.2f u" % [
 		static_gap, rect_gap, hold_gap, path_gap, edge], static_gap > 0.0 and rect_gap > 0.0 and hold_gap > 0.0 and path_gap > 0.0 and edge > 0.0)
 
 

@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/weapons/pdc.gd" id="1_pdc"]
+[ext_resource type="Resource" path="res://game/weapons/pdc20_kestrel.tres" id="2_config"]
+
+[node name="PDC20Kestrel" type="Node3D"]
+editor_description = "PDC-20 Kestrel: PDC-family point defense mount (pdc.gd) configured by pdc20_kestrel.tres. Install as the only child of a small gatling-family hardpoint, at identity; the hardpoint supplies the traverse and elevation limits. Placeholder geometry from base_diameter / body_height / barrel_length."
+script = ExtResource("1_pdc")
+config = ExtResource("2_config")
+base_diameter = 0.36
+body_height = 0.16
+barrel_length = 0.5

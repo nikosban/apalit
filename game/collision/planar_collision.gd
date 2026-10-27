@@ -8,7 +8,9 @@ extends Node
 ## already moved this tick are at their new positions: sequential, scene order);
 ## static obstacles read once from the Obstacles meshes and the `static_obstacle`
 ## group (cylinders and spheres:
-## circles, boxes: rotated rectangles, same transforms and radii as StaticNavigation).
+## circles, boxes: rotated rectangles, same transforms and radii as StaticNavigation);
+## the sector edge: four static rectangles just outside StaticNavigation.map_half_size
+## (a footprint stops with its centre at map_half_size - radius and slides along it).
 ##
 ## resolve(): objects already within `contact_skin` (touching or overlapping) are
 ## constraints from the start: the motion and velocity lose their components into
@@ -26,9 +28,12 @@ const EPSILON := 0.000001
 @export var contact_skin := 0.01 # u; gap counted as touching; a stop at a contact keeps half of it (provisional).
 @export var ships_path := NodePath("../Ships")
 @export var obstacles_path := NodePath("../Obstacles")
+@export var navigation_path := NodePath("../StaticNavigation") # Sector size (map_half_size).
 
 # Static obstacles: {node, circle: bool, center, radius | half, x_axis, bounds}.
 var _obstacles: Array[Dictionary] = []
+# Sector edge, same box form; blockers are the SectorEdge* children (contact bookkeeping).
+var _edges: Array[Dictionary] = []
 
 @onready var _ships := get_node(ships_path)
 
@@ -53,6 +58,22 @@ func _ready() -> void:
 			var reach := Vector2(absf(x_axis.x) * half.x + absf(x_axis.y) * half.y, absf(x_axis.y) * half.x + absf(x_axis.x) * half.y)
 			_obstacles.append({"node": mesh_instance, "circle": false, "center": center, "half": half, "x_axis": x_axis,
 				"bounds": Rect2(center - reach, reach * 2.0)})
+	_add_edges((get_node(navigation_path) as StaticNavigation).map_half_size)
+
+
+# Each edge: inner side on the sector line, a sector width thick (a centre found beyond
+# the line, by placement, is still nearest the inner side, so it may only move back in),
+# long enough to close the corners.
+func _add_edges(h: float) -> void:
+	for side: Array in [["East", Vector2.RIGHT], ["West", Vector2.LEFT], ["South", Vector2.DOWN], ["North", Vector2.UP]]:
+		var edge := Node.new()
+		edge.name = "SectorEdge" + side[0]
+		add_child(edge)
+		var outward: Vector2 = side[1]
+		var center := outward * 2.0 * h
+		var half := Vector2(h, 3.0 * h) if outward.x != 0.0 else Vector2(3.0 * h, h)
+		_edges.append({"node": edge, "circle": false, "center": center, "half": half, "x_axis": Vector2.RIGHT,
+			"bounds": Rect2(center - half, half * 2.0)})
 
 
 ## Collision radius of a ship (its bounding circle).
@@ -129,7 +150,7 @@ func _nearby(ship: Node, from: Vector2, motion: Vector2, radius: float) -> Array
 		var center: Vector2 = locomotion.planar_position
 		if swept.intersects(Rect2(center - Vector2(other_radius, other_radius), Vector2(other_radius, other_radius) * 2.0)):
 			nearby.append({"node": other, "circle": true, "center": center, "radius": other_radius})
-	for obstacle in _obstacles:
+	for obstacle in _obstacles + _edges:
 		if swept.intersects(obstacle.bounds):
 			nearby.append(obstacle)
 	return nearby

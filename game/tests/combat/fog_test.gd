@@ -53,12 +53,12 @@ func _free() -> void:
 	scene = null
 
 
-## E05 with its scripted fleet off and every ship holding fire; the friendly Gunships and
-## the hostile Gunship2 / Destroyer parked out of the way (far corners) unless placed.
+## E05 with its scripted fleet off and every ship holding fire; the friendly FF01B, FF01C and
+## the hostile HostileFF01C / HostileFF01A parked out of the way (far corners) unless placed.
 func _load() -> void:
 	_free()
 	scene = E05.instantiate()
-	scene.scenario_index = 4
+	scene.scenario_index = 0
 	root.add_child(scene)
 	scene.get_node("HostileFleet").process_mode = Node.PROCESS_MODE_DISABLED
 	scene.enemy_controller._steps.clear()
@@ -74,10 +74,10 @@ func _load() -> void:
 			_asteroid = each
 	_center = Vector2(_asteroid.global_position.x, _asteroid.global_position.z)
 	_radius = _asteroid.scale.x * 0.5
-	_park("Gunship", Vector2(-140, -140))
-	_park("Gunship2", Vector2(-140, 140))
-	_park("HostileGunship2", Vector2(140, -140))
-	_park("HostileDestroyer", Vector2(140, 140))
+	_park("FF01B", Vector2(-140, -140))
+	_park("FF01C", Vector2(-140, 140))
+	_park("HostileFF01C", Vector2(140, -140))
+	_park("HostileFF01A", Vector2(140, 140))
 
 
 func _park(name: String, point: Vector2) -> void:
@@ -166,38 +166,38 @@ func _click(position: Vector2) -> void:
 func _case_occlusion() -> void:
 	print("\n=== F1 detection, asteroid occlusion, last-known position")
 	await _load()
-	var destroyer: Node3D = scene.ship("Destroyer")
-	var hostile: Node3D = scene.ship("HostileGunship")
+	var ff01a: Node3D = scene.ship("FF01A")
+	var hostile: Node3D = scene.ship("HostileFF01B")
 	var observer := _center + Vector2(-(_radius + 25.0), 0)
 	var open := _find(_center + Vector2(0, -(_radius + 20.0)), 0, 40, observer) # in the open, clear line
-	_place("Destroyer", observer, EAST)
-	_place("HostileGunship", open, WEST)
+	_place("FF01A", observer, EAST)
+	_place("HostileFF01B", open, WEST)
 	await _sense()
 	await _frame(_center, 40.0)
 	var seen: bool = scene.sensors.detected(PLAYER, hostile) and scene.player_sees(hostile) and hostile.visible
-	var status_open: int = CombatShip.of(destroyer).target_status(hostile)
+	var status_open: int = CombatShip.of(ff01a).target_status(hostile)
 	_check("in the open at %.0f u: detected, the model shown, a valid target" % _planar(hostile).distance_to(observer), seen and status_open == TS.VALID)
 	var seen_at := _planar(hostile)
 	var hidden_point := _center + Vector2(_radius + 12.0, 0)
-	_place("HostileGunship", hidden_point, WEST)
+	_place("HostileFF01B", hidden_point, WEST)
 	await _sense()
 	var distance := hidden_point.distance_to(observer)
 	var lost: Array = scene.sensors.last_known(PLAYER)
 	var marker_ok: bool = lost.size() == 1 and lost[0].ship == hostile and Vector2(lost[0].position.x, lost[0].position.z).distance_to(seen_at) < 0.01
 	_check("behind the asteroid at %.0f u (inside the 100 u range): no contact, model hidden, contact lost for targeting" % distance,
-		distance < 100.0 and not scene.sensors.detected(PLAYER, hostile) and not hostile.visible and CombatShip.of(destroyer).target_status(hostile) == TS.CONTACT_LOST)
+		distance < 100.0 and not scene.sensors.detected(PLAYER, hostile) and not hostile.visible and CombatShip.of(ff01a).target_status(hostile) == TS.CONTACT_LOST)
 	_check("lost: one last-known marker, at the position of the last detection", marker_ok)
-	_place("HostileGunship", hidden_point + Vector2(8, 10), WEST) # moves while hidden
+	_place("HostileFF01B", hidden_point + Vector2(8, 10), WEST) # moves while hidden
 	await _sense()
 	lost = scene.sensors.last_known(PLAYER)
 	_check("the hidden ship moves: the marker stays where it was last seen", lost.size() == 1 and Vector2(lost[0].position.x, lost[0].position.z).distance_to(seen_at) < 0.01)
-	scene.selection().set_selection([destroyer])
+	scene.selection().set_selection([ff01a])
 	var screen := _camera().unproject_position(hostile.global_position)
 	scene.begin_target_selection()
 	await _click(screen)
 	var picked: Node3D = scene.selection().pick_any(screen)
 	_check("the hidden ship cannot be picked or chosen as a target (selection stays open, no manual target)",
-		picked == null and CombatShip.of(destroyer).manual_target == null and scene.target_selection)
+		picked == null and CombatShip.of(ff01a).manual_target == null and scene.target_selection)
 	scene.cancel_target_selection()
 	var last_screen := _camera().unproject_position(Vector3(seen_at.x, 1.5, seen_at.y))
 	_check("nothing is picked at the last-known marker either", scene.selection().pick_any(last_screen) == null)
@@ -208,13 +208,13 @@ func _case_occlusion() -> void:
 func _case_expiry() -> void:
 	print("\n=== F2 marker expiry on simulation time, reacquisition")
 	await _load()
-	var hostile: Node3D = scene.ship("HostileGunship")
+	var hostile: Node3D = scene.ship("HostileFF01B")
 	var observer := _center + Vector2(-(_radius + 25.0), 0)
 	var open := _find(_center + Vector2(0, -(_radius + 20.0)), 0, 40, observer)
-	_place("Destroyer", observer, EAST)
-	_place("HostileGunship", open, WEST)
+	_place("FF01A", observer, EAST)
+	_place("HostileFF01B", open, WEST)
 	await _sense()
-	_place("HostileGunship", _center + Vector2(_radius + 12.0, 0), WEST)
+	_place("HostileFF01B", _center + Vector2(_radius + 12.0, 0), WEST)
 	await _sense()
 	var lost_at: float = CombatShip.now()
 	scene.time_control.set_paused(true)
@@ -229,7 +229,7 @@ func _case_expiry() -> void:
 	var after_end: int = scene.sensors.last_known(PLAYER).size()
 	_check("1x: still marked 7.7 s after the loss, gone by 8.3 s (expiry 8 s of simulation time, 5 Hz evaluation)", before_end == 1 and after_end == 0)
 	_check("expired: no model, no marker, no last-known entry", not hostile.visible and not scene.player_knows(hostile))
-	_place("HostileGunship", open, WEST)
+	_place("HostileFF01B", open, WEST)
 	await physics_frame
 	var waited := 0
 	while not scene.sensors.detected(PLAYER, hostile) and waited < 30:
@@ -238,7 +238,7 @@ func _case_expiry() -> void:
 	await process_frame
 	_check("back in the open: live contact again within one evaluation (%d ticks), model shown" % waited, waited <= 13 and hostile.visible)
 	# 2x: the same loss expires after 8 s of simulation time, i.e. about 240 real ticks.
-	_place("HostileGunship", _center + Vector2(_radius + 12.0, 0), WEST)
+	_place("HostileFF01B", _center + Vector2(_radius + 12.0, 0), WEST)
 	await _sense()
 	scene.time_control.step_speed(1)
 	var start_frames := Engine.get_physics_frames()
@@ -255,24 +255,24 @@ func _case_expiry() -> void:
 func _case_sharing() -> void:
 	print("\n=== F3 faction-wide contact")
 	await _load()
-	var hostile: Node3D = scene.ship("HostileGunship")
-	_place("Destroyer", _center + Vector2(-(_radius + 25.0), 0), EAST)
-	_place("HostileGunship", _center + Vector2(_radius + 12.0, 0), WEST)
-	_place("Gunship", _find(_center + Vector2(_radius + 12.0, 0), 30, 60, _center + Vector2(_radius + 12.0, 0)), EAST) # sees it from elsewhere
+	var hostile: Node3D = scene.ship("HostileFF01B")
+	_place("FF01A", _center + Vector2(-(_radius + 25.0), 0), EAST)
+	_place("HostileFF01B", _center + Vector2(_radius + 12.0, 0), WEST)
+	_place("FF01B", _find(_center + Vector2(_radius + 12.0, 0), 30, 60, _center + Vector2(_radius + 12.0, 0)), EAST) # sees it from elsewhere
 	await _sense()
-	var destroyer = CombatShip.of(scene.ship("Destroyer"))
-	_check("the Destroyer's line is blocked, the Gunship sees it: the faction has contact and the Destroyer may target it",
-		scene.sensors.detected(PLAYER, hostile) and destroyer.target_status(hostile) == TS.VALID and hostile.visible)
-	_park("Gunship", Vector2(-140, -140))
+	var ff01a = CombatShip.of(scene.ship("FF01A"))
+	_check("the FF01A's line is blocked, the FF01B sees it: the faction has contact and the FF01A may target it",
+		scene.sensors.detected(PLAYER, hostile) and ff01a.target_status(hostile) == TS.VALID and hostile.visible)
+	_park("FF01B", Vector2(-140, -140))
 	await _sense()
-	_check("the Gunship leaves: contact lost for the whole faction", not scene.sensors.detected(PLAYER, hostile) and destroyer.target_status(hostile) == TS.CONTACT_LOST and scene.sensors.is_lost(PLAYER, hostile))
+	_check("the FF01B leaves: contact lost for the whole faction", not scene.sensors.detected(PLAYER, hostile) and ff01a.target_status(hostile) == TS.CONTACT_LOST and scene.sensors.is_lost(PLAYER, hostile))
 
 
 ## F4: zooming out or moving the camera over a hidden ship reveals nothing.
 func _case_camera() -> void:
 	print("\n=== F4 the camera reveals nothing")
 	await _load()
-	var hidden: Node3D = scene.ship("HostileDestroyer") # parked at (140, 140), never detected
+	var hidden: Node3D = scene.ship("HostileFF01A") # parked at (140, 140), never detected
 	await _sense()
 	var reveals := 0
 	for zoom in [20.0, 40.0, 80.0, 150.0]:
@@ -290,30 +290,30 @@ func _case_camera() -> void:
 	_check("the labelled debug override (fog_reveal) shows it; off by default and off again", debug_shows and not hidden.visible)
 
 
-## F5: a hidden Destroyer launches at a player ship another hostile spots: its muzzle flash,
+## F5: a hidden FF01A launches at a player ship another hostile spots: its muzzle flash,
 ## its missiles and their trails are not shown outside coverage; the player's point defense
 ## still engages incoming missiles.
 func _case_hidden_launcher() -> void:
 	print("\n=== F5 hidden launcher: no leaks, point defense still works")
 	await _load()
-	var destroyer: Node3D = scene.ship("Destroyer")
-	var launcher: Node3D = scene.ship("HostileDestroyer")
-	var spotter: Node3D = scene.ship("HostileGunship")
+	var ff01a: Node3D = scene.ship("FF01A")
+	var launcher: Node3D = scene.ship("HostileFF01A")
+	var spotter: Node3D = scene.ship("HostileFF01B")
 	var observer := _center + Vector2(-(_radius + 30.0), 0)
-	_place("Destroyer", observer, WEST) # stern Gatling toward the launcher
-	_place("HostileDestroyer", _center + Vector2(_radius + 14.0, 0), WEST)
-	_place("HostileGunship", _find(observer, 30, 50, observer), EAST) # visible spotter
+	_place("FF01A", observer, WEST) # stern Gatling toward the launcher
+	_place("HostileFF01A", _center + Vector2(_radius + 14.0, 0), WEST)
+	_place("HostileFF01B", _find(observer, 30, 50, observer), EAST) # visible spotter
 	await _sense()
 	var lc = CombatShip.of(launcher)
 	lc.stance = CombatShip.Stance.AGGRESSIVE
-	scene.orders.assign_target([launcher], destroyer)
+	scene.orders.assign_target([launcher], ff01a)
 	for w in lc.weapons:
 		if String(w.config.family) != "missile":
 			w.enabled = false # missiles only (they need no line of fire)
 	var leaks: Array[String] = []
 	var launches := 0
 	var defense0: int = 0
-	for w in CombatShip.of(destroyer).weapons:
+	for w in CombatShip.of(ff01a).weapons:
 		if w.get("defense_shots") != null:
 			defense0 += w.defense_shots
 	var seen_ordnance := 0
@@ -326,7 +326,7 @@ func _case_hidden_launcher() -> void:
 		for node in scene.get_node("Effects").get_children():
 			if node is Node3D and node.visible and _planar(node).distance_to(_planar(launcher)) < 8.0:
 				leaks.append("%.2f effect shown at the hidden launcher" % CombatShip.now())
-		for w in CombatShip.of(destroyer).weapons:
+		for w in CombatShip.of(ff01a).weapons:
 			if w.get("mode") == "defense":
 				defense_ticks += 1
 		for node in scene.projectiles.ordnance:
@@ -340,10 +340,10 @@ func _case_hidden_launcher() -> void:
 					hidden_ordnance += 1
 		launches = scene.projectiles.launched
 	var defense := -defense0
-	for w in CombatShip.of(destroyer).weapons:
+	for w in CombatShip.of(ff01a).weapons:
 		if w.get("defense_shots") != null:
 			defense += w.defense_shots
-	print("  ordnance outcomes: %s; Destroyer hull %.0f" % [str(scene.projectiles.ordnance_records.map(func(r: Dictionary) -> String: return r.outcome)), CombatShip.of(destroyer).health])
+	print("  ordnance outcomes: %s; FF01A hull %.0f" % [str(scene.projectiles.ordnance_records.map(func(r: Dictionary) -> String: return r.outcome)), CombatShip.of(ff01a).health])
 	for line in leaks.slice(0, 6):
 		print("  LEAK " + line)
 	_check("the hidden launcher fired %d missiles; its model, flashes and the missiles outside coverage stayed hidden (%d ordnance-ticks hidden, %d shown inside coverage, %d leaks)" % [launches, hidden_ordnance, seen_ordnance, leaks.size()],
@@ -355,18 +355,18 @@ func _case_hidden_launcher() -> void:
 func _case_ordnance_memory() -> void:
 	print("\n=== F6 ordnance guidance and the last-known marker")
 	await _load()
-	var destroyer: Node3D = scene.ship("Destroyer")
-	var hostile: Node3D = scene.ship("HostileGunship")
+	var ff01a: Node3D = scene.ship("FF01A")
+	var hostile: Node3D = scene.ship("HostileFF01B")
 	var observer := _center + Vector2(-(_radius + 30.0), 0)
-	_place("Destroyer", observer, EAST)
-	_place("HostileGunship", _find(observer, 45, 70, observer), WEST)
+	_place("FF01A", observer, EAST)
+	_place("HostileFF01B", _find(observer, 45, 70, observer), WEST)
 	await _sense()
-	var dc = CombatShip.of(destroyer)
+	var dc = CombatShip.of(ff01a)
 	dc.stance = CombatShip.Stance.AGGRESSIVE
 	for w in dc.weapons:
 		if String(w.config.family) != "missile":
 			w.enabled = false
-	scene.orders.assign_target([destroyer], hostile)
+	scene.orders.assign_target([ff01a], hostile)
 	var missile: Node3D = null
 	for i in 240:
 		await physics_frame
@@ -378,12 +378,12 @@ func _case_ordnance_memory() -> void:
 	if missile == null:
 		_check("a missile was launched", false)
 		return
-	_place("HostileGunship", _behind(observer), WEST) # behind the asteroid
+	_place("HostileFF01B", _behind(observer), WEST) # behind the asteroid
 	for i in 15:
 		await physics_frame
 	var lost: bool = not scene.sensors.detected(PLAYER, hostile)
 	var goal_then: Vector3 = missile.last_known
-	_place("HostileGunship", _behind(observer) + Vector2(4, 12), WEST) # moves while hidden
+	_place("HostileFF01B", _behind(observer) + Vector2(4, 12), WEST) # moves while hidden
 	for i in 10:
 		await physics_frame
 	var marker: Array = scene.sensors.last_known(PLAYER)
