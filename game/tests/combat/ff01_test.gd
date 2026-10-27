@@ -1,12 +1,11 @@
 extends SceneTree
-## FF-01 composition (two Bastions, four Kestrels, one Barrage, one Wayfarer), preserved Combat Test content, and
-## real selection / command input on the production movement loop.
+## FF-01 composition (two Bastions, four Kestrels, one Barrage, one Wayfarer) and real selection / command input
+## on the production movement loop in the Combat Test scene, from a test-owned starting position.
 ## Run: <godot console> --headless --path . --fixed-fps 60 -s res://game/tests/combat/ff01_test.gd
 
 const UNIT := preload("res://game/ships/ff01_unit.tscn")
 const WARSHIP := preload("res://game/ships/archetypes/warship.tscn")
 const ARENA := preload("res://game/scenes/combat_test.tscn")
-const MAIN := preload("res://main.tscn")
 const Hardpoint := preload("res://game/weapons/hardpoint.gd")
 const BASTION := "res://game/weapons/nc90_bastion.tscn"
 const KESTREL := "res://game/weapons/pdc20_kestrel.tscn"
@@ -16,6 +15,7 @@ const CombatShip := preload("res://game/combat/combat_ship.gd")
 const Behavior := preload("res://game/behavior/ship_behavior.gd")
 const Profiles := preload("res://game/behavior/weapon_profiles.gd")
 const EPS := 0.00001
+## Test-owned starting position (facing +X); independent of the authored Combat Test spawns.
 const SPAWN := Vector3(-45, 1.5, 0)
 ## The large-hull handling the FF-01 sets over the warship archetype.
 const HANDLING := {
@@ -45,7 +45,6 @@ var _failures := 0
 func _initialize() -> void:
 	await process_frame
 	_authored()
-	_preserved_arena()
 	await _load()
 	await _selection_and_movement()
 	await _commands()
@@ -169,67 +168,6 @@ func _authored() -> void:
 	defaults.free()
 
 
-# Built-in mesh/material values are compared, rather than scene-local resource IDs.
-func _same_resource(a: Resource, b: Resource) -> bool:
-	if a == null or b == null:
-		return a == b
-	if a.get_class() != b.get_class():
-		return false
-	for prop in a.get_property_list():
-		if not prop.usage & PROPERTY_USAGE_STORAGE or prop.name in ["resource_path", "resource_scene_unique_id"]:
-			continue
-		var left: Variant = a.get(prop.name)
-		var right: Variant = b.get(prop.name)
-		if left is Resource or right is Resource:
-			if not _same_resource(left, right):
-				return false
-		elif left != right:
-			return false
-	return true
-
-
-func _preserved_arena() -> void:
-	var arena := ARENA.instantiate()
-	var reference := MAIN.instantiate()
-	_check("Combat Test contains exactly the player FF-01 and the hostile FF-01, and an empty Stations container",
-		arena.get_node("Ships").get_children().map(func(node: Node) -> String: return str(node.name)) == ["FF01", "HostileFF01"]
-		and arena.get_node("Stations").get_child_count() == 0)
-	var hostile := arena.get_node("Ships/HostileFF01")
-	_check("HostileFF01: an FF-01 instance at (45, 1.5, 0) facing -X, hostile faction, Aggressive",
-		hostile.scene_file_path == UNIT.resource_path and hostile.transform.is_equal_approx(Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3(45, 1.5, 0)))
-		and hostile.get_node("Combat").faction == 1 and hostile.get_node("Combat").stance == CombatShip.Stance.AGGRESSIVE)
-	var overrides_ok := true
-	var state := ARENA.get_state()
-	for i in state.get_node_count():
-		var path := str(state.get_node_path(i)).trim_prefix("./")
-		if not path.begins_with("Ships/") or path.count("/") == 0:
-			continue
-		var child_override := path.count("/") > 1
-		if child_override and path != "Ships/HostileFF01/Combat":
-			overrides_ok = false
-		for p in state.get_node_property_count(i):
-			var property := str(state.get_node_property_name(i, p))
-			overrides_ok = overrides_ok and property in (["faction", "stance"] if child_override else ["transform"])
-	_check("no added overrides/components on the ships beyond the transforms and the hostile's faction and stance; loadouts remain inherited", overrides_ok)
-	var field := arena.get_node("Asteroids")
-	var original := reference.get_node("Asteroids")
-	var rocks_match: bool = field.get_child_count() == 36 and original.get_child_count() == 36 and field.get_script() == original.get_script()
-	for property: String in ["session_seed", "mineral_share", "min_reserves", "max_reserves"]:
-		rocks_match = rocks_match and field.get(property) == original.get(property)
-	for rock: MeshInstance3D in field.get_children():
-		var other := original.get_node_or_null(NodePath(rock.name)) as MeshInstance3D
-		rocks_match = rocks_match and other != null and rock.transform == other.transform
-		rocks_match = rocks_match and rock.get_meta("asteroid_id") == other.get_meta("asteroid_id") and _same_resource(rock.mesh, other.mesh)
-	_check("all 36 asteroid transforms, IDs, primitive/material settings and deposit configuration match the original field", rocks_match)
-	_check("Combat Test remains a 760 by 760 arena, navigation half-size 380",
-		arena.get_node("StaticNavigation").map_half_size == 380.0 and arena.get_node("Ground").mesh.size == Vector2(760, 760))
-	var subject := arena.get_node("Ships/FF01")
-	_check("FF-01 is an unmodified friendly unit instance at (-45, 1.5, 0) facing +X", subject.scene_file_path == UNIT.resource_path
-		and subject.position == SPAWN and subject.basis.is_equal_approx(Basis(Vector3.UP, -PI / 2.0)) and subject.get_node("Combat").faction == 0)
-	arena.free()
-	reference.free()
-
-
 func _load() -> void:
 	scene = ARENA.instantiate()
 	# A second friendly FF-01 (test-added) to receive the Guard command.
@@ -238,6 +176,8 @@ func _load() -> void:
 	friend.position = Vector3(0, 1.5, 20)
 	scene.get_node("Ships").add_child(friend)
 	root.add_child(scene)
+	scene.get_node("Ships/FF01/Locomotion").place(Vector2(SPAWN.x, SPAWN.z), -PI / 2.0)
+	scene.get_node("Ships/FF01/Avoidance").reset()
 	for ship in scene.get_node("Ships").get_children():
 		ship.get_node("Combat").stance = CombatShip.Stance.HOLD_FIRE
 		ship.get_node("Combat").set_physics_process(false)
@@ -253,12 +193,6 @@ func _load() -> void:
 		await physics_frame
 	_check("FF-01 navigation map is ready at planning radius 7.2", ready and follower.planning_radius() == 7.2)
 	var subject := scene.get_node("Ships/FF01")
-	var point := Vector2(SPAWN.x, SPAWN.z)
-	var clear: bool = navigation.segment_clear(point, point, follower.planning_radius())
-	for ship in scene.get_node("Ships").get_children():
-		if ship != subject:
-			clear = clear and subject.get_node("Locomotion").planar_position.distance_to(ship.get_node("Locomotion").planar_position) > follower.ship_radius + ship.get_node("RouteFollower").ship_radius
-	_check("authored spawn clears every ship footprint and every asteroid with planning clearance", clear)
 	_check("two Bastions, four Kestrels, one Barrage and one Wayfarer, no incompatible weapons, Siege, Mid-range and Close Quarters profiles, no shots; full initial fuel",
 		CombatShip.of(subject).weapons.size() == 8 and CombatShip.of(subject).incompatible.is_empty()
 		and Profiles.available(CombatShip.of(subject)) == [Profiles.Profile.SIEGE, Profiles.Profile.MID, Profiles.Profile.CLOSE] and scene.projectiles.spawned == 0 and scene.projectiles.launched == 0

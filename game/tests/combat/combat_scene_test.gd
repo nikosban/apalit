@@ -2,7 +2,9 @@ extends SceneTree
 ## Combat migration M7: the integrated production scenes. Run with a fixed step:
 ##   <godot console> --headless --path . --fixed-fps 60 -s res://game/tests/combat/combat_scene_test.gd
 ## On game/scenes/combat_test.tscn (the standalone combat arena: a player FF-01 and an
-## Aggressive hostile FF-01 facing each other, no commander):
+## Aggressive hostile FF-01, no commander), with the two ships placed by the test at
+## (-45, 0) and (45, 0) facing each other, within sensor range, independent of the
+## authored spawns:
 ##   S1 the hostile ship acts on its own Behavior (Aggressive, no command); one authority
 ##      per world service
 ##   S2 the full battle with the player's FF-01 Aggressive: detection, fire, 4-missile
@@ -76,6 +78,15 @@ func _ship(name: String) -> Node3D:
 	return scene.get_node("Ships").get_node_or_null(name)
 
 
+# Test-owned encounter layout: overrides the authored Combat Test spawns.
+func _stage() -> void:
+	for entry in [["FF01", Vector2(-45, 0), -PI / 2.0], ["HostileFF01", Vector2(45, 0), PI / 2.0]]:
+		_ship(entry[0]).get_node("Locomotion").place(entry[1], entry[2])
+		_ship(entry[0]).get_node("Avoidance").reset()
+	await physics_frame
+	scene.sensors.evaluate()
+
+
 func _run(seconds: float, until: Callable = Callable()) -> bool:
 	for i in roundi(seconds / DT):
 		await physics_frame
@@ -118,6 +129,7 @@ func _look_at(point: Vector3) -> void:
 func _s1_s2() -> void:
 	print("\n=== S1 commander and fog")
 	await _load(COMBAT_TEST)
+	await _stage()
 	await process_frame
 	await _run(3.0)
 	var commands := HOSTILES.map(func(n: String) -> String: return Behavior.COMMAND_NAMES[Behavior.of(_ship(n)).command])
@@ -181,6 +193,7 @@ func _s1_s2() -> void:
 func _s5_controls() -> void:
 	print("\n=== S5 controls")
 	await _load(COMBAT_TEST)
+	await _stage()
 	var ff01_ship := _ship("FF01")
 	var hostile := _ship("HostileFF01")
 	hostile.get_node("Locomotion").place(Vector2(0, -45), 0.0)
