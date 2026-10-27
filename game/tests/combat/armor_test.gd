@@ -1,9 +1,10 @@
 extends SceneTree
 ## Stage 1 armor: DurabilityConfig validation, the shared armor resolution
 ## (Combat.resolve_hit, checked against an independent copy of the approved formula), FF-01
-## durability and hull display, legacy damage, physical impacts (a round and a torpedo)
-## applied exactly once, a synthetic sequence to destruction, and the two-argument station
-## receiver. The Bastion-like values (12 / 20 / 6) are synthetic test inputs only.
+## durability and hull display, legacy damage, physical impacts (a round and a guided
+## missile) applied exactly once, a synthetic sequence to destruction, and the two-argument
+## station receiver. The Bastion-like values (12 / 20 / 6) are synthetic test inputs only.
+## An unarmored Miner is added to the arena as the ship without durability.
 ## Run: <godot console> --headless --path . --fixed-fps 60 -s res://game/tests/combat/armor_test.gd
 
 const ARENA := preload("res://game/scenes/combat_test.tscn")
@@ -12,14 +13,8 @@ const FF01_DURABILITY := preload("res://game/ships/ff01_durability.tres")
 const Durability := preload("res://game/combat/durability_config.gd")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const CombatHud := preload("res://game/ui/combat_hud.gd")
-const TORPEDO := preload("res://game/weapons/torpedo.tres")
-## Existing weapon resources: path -> [damage, cooldown, range, stock] (must stay unchanged).
-const LEGACY := {
-	"res://game/weapons/cannon.tres": [12.0, 2.5, 75.0, 40],
-	"res://game/weapons/gatling.tres": [1.0, 0.08, 25.0, 400],
-	"res://game/weapons/torpedo.tres": [40.0, 6.0, 110.0, 4],
-	"res://game/weapons/missile.tres": [30.0, 4.0, 90.0, 6],
-}
+const WAYFARER := preload("res://game/weapons/gcm4_wayfarer.tres")
+const MINER := preload("res://game/ships/miner_unit.tscn")
 const BASE := 12.0
 const PEN := 20.0
 const ARMOR_DAMAGE := 6.0
@@ -174,12 +169,16 @@ func _formula() -> void:
 
 func _load() -> void:
 	scene = ARENA.instantiate()
+	var miner: Node3D = MINER.instantiate()
+	miner.name = "Miner"
+	miner.position = Vector3(0, 1.5, 60)
+	scene.get_node("Ships").add_child(miner)
 	root.add_child(scene)
-	scene.get_node("HostileCommander").set_physics_process(false)
 	for ship in scene.get_node("Ships").get_children():
 		ship.get_node("Combat").stance = CombatShip.Stance.HOLD_FIRE
 		ship.get_node("Combat").set_physics_process(false)
-		ship.get_node("Behavior").set_physics_process(false)
+		if ship.has_node("Behavior"):
+			ship.get_node("Behavior").set_physics_process(false)
 	ff01 = scene.get_node("Ships/FF01")
 	for i in 3:
 		await physics_frame
@@ -205,30 +204,20 @@ func _configuration() -> void:
 		and bastions.all(func(n: String) -> bool: return ff01.get_node("Weapons/%s" % n).weapon().config.display_name == "NC-90 Bastion")
 		and ff01.get_node("Weapons/WayfarerHardpoint").weapon().config.display_name == "GCM-4 Wayfarer"
 		and combat.weapons.size() == 8 and combat.incompatible.is_empty())
-	var others := true
-	for ship: Node in scene.get_node("Ships").get_children():
-		if ship != ff01:
-			var c = CombatShip.of(ship)
-			others = others and c.durability == null and c.max_health == 150.0 and c.health == 150.0 and c.armor == 0.0 and c.max_armor == 0.0 and CombatHud.hull_text(c) == "Hull 150 / 150"
-	_check("the six existing arena ships: no durability, hull 150 / 150 (rules.hull_health), no armor", others)
-	var weapons_ok := true
-	for path: String in LEGACY:
-		var config: Resource = load(path)
-		var want: Array = LEGACY[path]
-		weapons_ok = weapons_ok and not config.has_penetration and config.resolved_penetration() == null and config.armor_damage == 0.0 \
-			and [config.damage, config.cooldown, config.weapon_range, config.ammunition] == want
-	_check("cannon, Gatling, torpedo, missile: penetration unconfigured, armor damage 0, damage / cooldown / range / stock unchanged", weapons_ok)
+	var c = CombatShip.of(scene.get_node("Ships/Miner"))
+	_check("a ship without durability (Miner): hull 150 / 150 (rules.hull_health), no armor",
+		c.durability == null and c.max_health == 150.0 and c.health == 150.0 and c.armor == 0.0 and c.max_armor == 0.0 and CombatHud.hull_text(c) == "Hull 150 / 150")
 
 
 func _legacy() -> void:
 	print("\n=== B2 legacy damage")
-	var destroyer = CombatShip.of(scene.get_node("Ships/Destroyer"))
-	destroyer.take_hit(12.0, -1)
-	var two_args: float = destroyer.health
-	destroyer.take_hit(12.0, -1, PEN, ARMOR_DAMAGE)
-	_check("unarmored Destroyer: two-argument hit 150 -> %.1f; a penetration-20 hit -> %.1f (full 12, no armor to degrade)" % [two_args, destroyer.health],
-		two_args == 138.0 and destroyer.health == 126.0 and destroyer.armor == 0.0 and destroyer.alive)
-	destroyer.health = destroyer.max_health
+	var unarmored = CombatShip.of(scene.get_node("Ships/Miner"))
+	unarmored.take_hit(12.0, -1)
+	var two_args: float = unarmored.health
+	unarmored.take_hit(12.0, -1, PEN, ARMOR_DAMAGE)
+	_check("unarmored Miner: two-argument hit 150 -> %.1f; a penetration-20 hit -> %.1f (full 12, no armor to degrade)" % [two_args, unarmored.health],
+		two_args == 138.0 and unarmored.health == 126.0 and unarmored.armor == 0.0 and unarmored.alive)
+	unarmored.health = unarmored.max_health
 	var combat = _reset_ff01()
 	var amounts: Array = []
 	var record := func(amount: float, _id: int) -> void: amounts.append(amount)
@@ -245,7 +234,7 @@ func _physical_round() -> void:
 	print("\n=== B7 physical rounds (Projectiles.spawn -> sweep -> take_hit)")
 	var combat = _reset_ff01()
 	var projectiles: Node = scene.projectiles
-	var hostile := scene.get_node("Ships/HostileGunship") as Node3D
+	var hostile := scene.get_node("Ships/HostileFF01") as Node3D
 	var damaged: Array = []
 	var record := func(amount: float, id: int) -> void: damaged.append([amount, id])
 	combat.damaged.connect(record)
@@ -275,8 +264,8 @@ func _physical_ordnance() -> void:
 	print("\n=== B7 physical ordnance (Projectiles.launch -> ordnance -> take_hit)")
 	var combat = _reset_ff01()
 	var projectiles: Node = scene.projectiles
-	var hostile := scene.get_node("Ships/HostileGunship") as Node3D
-	var config: Resource = TORPEDO.duplicate()
+	var hostile := scene.get_node("Ships/HostileFF01") as Node3D
+	var config: Resource = WAYFARER.duplicate()
 	config.damage = BASE
 	config.has_penetration = true
 	config.penetration = PEN
@@ -295,11 +284,12 @@ func _physical_ordnance() -> void:
 	for i in 10:
 		await physics_frame
 	var mine: Array = damaged.filter(func(e: Array) -> bool: return e[1] == id)
-	_check("a penetration-20 torpedo hits FF-01 once: outcome %s, damage applications %d, damaged events %s, hull %.6f, armor %.0f" % [
+	_check("a penetration-20 guided missile hits FF-01 once: outcome %s, damage applications %d, damaged events %s, hull %.6f, armor %.0f" % [
 		done[0].outcome if not done.is_empty() else "none", projectiles.damage_events.get(id, 0), str(mine), combat.health, combat.armor],
 		done.size() == 1 and done[0].outcome == "damage" and done[0].ship == "FF01" and projectiles.damage_events.get(id, 0) == 1
 		and mine.size() == 1 and _near(mine[0][0], 4.8, TIGHT) and _near(combat.health, 155.2, TIGHT) and combat.armor == 94.0)
-	_check("the shared torpedo.tres is unchanged by the test copy", not TORPEDO.has_penetration and TORPEDO.damage == 40.0 and TORPEDO.armor_damage == 0.0)
+	_check("the shared gcm4_wayfarer.tres is unchanged by the test copy", WAYFARER.has_penetration and WAYFARER.penetration == 45.0
+		and WAYFARER.damage == 35.0 and WAYFARER.armor_damage == 2.0)
 	combat.damaged.disconnect(record)
 
 
@@ -323,7 +313,7 @@ func _station() -> void:
 	scene.add_child(station)
 	station.global_position = Vector3(-120, 1.5, 120)
 	var projectiles: Node = scene.projectiles
-	var hostile := scene.get_node("Ships/HostileGunship") as Node3D
+	var hostile := scene.get_node("Ships/HostileFF01") as Node3D
 	var id: int = projectiles.spawn(hostile, HOSTILE, Vector3(-120, 1.5, 100), Vector3(0, 0, 40), BASE, 90.0, 2.5, null, &"shell", PEN, ARMOR_DAMAGE)
 	for i in 60:
 		await physics_frame

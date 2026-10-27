@@ -9,9 +9,7 @@
 [ext_resource type="PackedScene" path="res://game/stations/refinery_station.tscn" id="7_refinery_station"]
 [ext_resource type="PackedScene" path="res://game/stations/shipyard_station.tscn" id="8_shipyard_station"]
 [ext_resource type="PackedScene" path="res://game/tests/docking/tri_station.tscn" id="9_tri_station"]
-[ext_resource type="PackedScene" path="res://game/ships/frigate_unit.tscn" id="10_frigate"]
-[ext_resource type="PackedScene" path="res://game/ships/gunship_unit.tscn" id="11_gunship"]
-[ext_resource type="PackedScene" path="res://game/ships/destroyer_unit.tscn" id="12_destroyer"]
+[ext_resource type="PackedScene" path="res://game/ships/ff01_unit.tscn" id="10_ff01"]
 [ext_resource type="PackedScene" path="res://game/ships/miner_unit.tscn" id="13_miner"]
 [ext_resource type="PackedScene" path="res://game/ships/transporter_unit.tscn" id="14_transporter"]
 [ext_resource type="Script" path="res://game/time/sim_clock.gd" id="90_clock"]
@@ -94,13 +92,10 @@ script = ExtResource("5_survey")
 
 [node name="Ships" type="Node3D" parent="."]
 
-[node name="Frigate" parent="Ships" instance=ExtResource("10_frigate")]
+[node name="FF01A" parent="Ships" instance=ExtResource("10_ff01")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, 1.5, -20)
 
-[node name="Gunship" parent="Ships" instance=ExtResource("11_gunship")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -25)
-
-[node name="Destroyer" parent="Ships" instance=ExtResource("12_destroyer")]
+[node name="FF01B" parent="Ships" instance=ExtResource("10_ff01")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25, 1.5, -25)
 
 [node name="Miner1" parent="Ships" instance=ExtResource("13_miner")]

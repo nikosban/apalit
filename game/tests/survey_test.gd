@@ -5,7 +5,7 @@ extends SceneTree
 ## then Locomotion), followed by the scanners and the survey.
 ## Run from the project folder:
 ##   <godot console> --headless --path . -s res://game/tests/survey_test.gd
-## The Frigate carries the Generic Scanner, the Miners the Mining Scanner.
+## The Transporter carries the Generic Scanner, the Miners the Mining Scanner.
 ## Every check is PASS/FAIL; scan coverage is expected from the scene layout
 ## (asteroid transforms, unit sphere radius 0.5), not from the survey code.
 
@@ -14,7 +14,7 @@ const AsteroidField := preload("res://game/resources/asteroid_field.gd")
 const Survey := preload("res://game/survey/survey.gd")
 const SurveyView := preload("res://game/survey/survey_view.gd")
 const DT := 1.0 / 60.0
-const SHIPS := ["Frigate", "Gunship", "Destroyer", "Miner1", "Miner2"]
+const SHIPS := ["Transporter", "FF01", "Miner1", "Miner2"]
 const SEED := 20261014
 const SCAN_POINT := Vector2(85, 52) # Open space next to a small asteroid cluster.
 const SIX := ["cobalt", "gold", "iron", "nickel", "silicon", "titanium"]
@@ -34,6 +34,10 @@ var _tick := 0
 func _initialize() -> void:
 	await process_frame
 	_main = MAIN.instantiate()
+	var ff01: Node3D = load("res://game/ships/ff01_unit.tscn").instantiate() # A warship (Generic Scanner).
+	ff01.name = "FF01"
+	ff01.position = Vector3(14, 1.5, 0)
+	_main.get_node("Ships").add_child(ff01)
 	root.add_child(_main)
 	_field = _main.get_node("Asteroids")
 	_survey = _main.get_node("Survey")
@@ -137,11 +141,11 @@ func _test_geometry_untouched() -> void:
 
 func _test_generic_scan() -> void:
 	_reset()
-	_place("Frigate", SCAN_POINT)
-	var radius: float = _scanner("Frigate").radius
+	_place("Transporter", SCAN_POINT)
+	var radius: float = _scanner("Transporter").radius
 	var expected := _within(SCAN_POINT, radius)
 	_check("layout: some asteroids inside and some outside the scan", not expected.is_empty() and expected.size() < 36)
-	_scanner("Frigate").activate()
+	_scanner("Transporter").activate()
 	_run_until_idle()
 	var ok := true
 	var texts_ok := true
@@ -186,8 +190,8 @@ func _test_no_downgrade_no_reanalysis() -> void:
 	# Continues from the Mining scan: everything in range is ANALYZED.
 	var analyzed := _within(SCAN_POINT, _scanner("Miner1").radius)
 	_started.clear()
-	_place("Frigate", SCAN_POINT)
-	_scanner("Frigate").activate()
+	_place("Transporter", SCAN_POINT)
+	_scanner("Transporter").activate()
 	_run_until_idle()
 	var kept := true
 	for id: int in analyzed:
@@ -202,17 +206,17 @@ func _test_no_downgrade_no_reanalysis() -> void:
 
 func _test_upgrade_and_concurrency() -> void:
 	_reset()
-	_place("Frigate", SCAN_POINT)
+	_place("Transporter", SCAN_POINT)
 	_place("Miner1", SCAN_POINT + Vector2(0, 12))
-	var expected := _within(SCAN_POINT, _scanner("Frigate").radius)
-	_scanner("Frigate").activate()
+	var expected := _within(SCAN_POINT, _scanner("Transporter").radius)
+	_scanner("Transporter").activate()
 	_run_until_idle()
 	_started.clear()
-	_scanner("Frigate").cooldown_left = 0.0
-	_scanner("Frigate").activate()
+	_scanner("Transporter").cooldown_left = 0.0
+	_scanner("Transporter").activate()
 	_run_until_idle()
 	_check("13. identified asteroids are not reanalyzed at the same level", _started.is_empty())
-	var both := _within(SCAN_POINT, _scanner("Frigate").radius).filter(func(id: int) -> bool:
+	var both := _within(SCAN_POINT, _scanner("Transporter").radius).filter(func(id: int) -> bool:
 		return _field.surface_distance(id, SCAN_POINT + Vector2(0, 12)) <= _scanner("Miner1").radius)
 	_scanner("Miner1").activate()
 	_run_until_idle()
@@ -225,10 +229,10 @@ func _test_upgrade_and_concurrency() -> void:
 	# Two scans over the same asteroids at once (Generic and Mining, same point and
 	# tick), and a Mining scan arriving while a Generic analysis is uploading.
 	_reset()
-	_place("Frigate", SCAN_POINT)
+	_place("Transporter", SCAN_POINT)
 	_place("Miner1", SCAN_POINT)
 	both = _within(SCAN_POINT, _scanner("Miner1").radius)
-	_scanner("Frigate").activate()
+	_scanner("Transporter").activate()
 	_scanner("Miner1").activate()
 	_run_until_idle()
 	var counts := {}
@@ -242,10 +246,10 @@ func _test_upgrade_and_concurrency() -> void:
 		final_ok = final_ok and _survey.level_of(id) == (Survey.Level.ANALYZED if both.has(id) else Survey.Level.IDENTIFIED)
 	_check("concurrent scans: one analysis per asteroid, the higher level kept", single and final_ok)
 	_reset()
-	_place("Frigate", SCAN_POINT)
+	_place("Transporter", SCAN_POINT)
 	_place("Miner1", SCAN_POINT)
-	_scanner("Frigate").activate()
-	var target: int = _within(SCAN_POINT, _scanner("Frigate").radius)[0]
+	_scanner("Transporter").activate()
+	var target: int = _within(SCAN_POINT, _scanner("Transporter").radius)[0]
 	while _survey.analysis(target).is_empty() or _survey.analysis(target).phase != Survey.Phase.UPLOADING:
 		_steps(1)
 	_scanner("Miner1").activate()
@@ -263,17 +267,17 @@ func _test_upgrade_and_concurrency() -> void:
 
 func _test_shared() -> void:
 	_reset()
-	_place("Frigate", SCAN_POINT)
-	_scanner("Frigate").activate()
+	_place("Transporter", SCAN_POINT)
+	_scanner("Transporter").activate()
 	_run_until_idle()
-	var id: int = _within(SCAN_POINT, _scanner("Frigate").radius)[0]
+	var id: int = _within(SCAN_POINT, _scanner("Transporter").radius)[0]
 	var texts := []
 	for ship_name in SHIPS:
 		_main.get_node("Selection").set_selection([_ship(ship_name)])
 		texts.append(_hover.describe(id))
 	_main.get_node("Selection").set_selection([])
-	_check("8. one fleet survey: both scanners report to it", _scanner("Frigate")._survey == _survey and _scanner("Miner1")._survey == _survey)
-	_check("8. a Frigate survey reads the same whichever ship is selected", texts[0] == texts[1] and texts[1] == texts[2] and _survey.level_of(id) == Survey.Level.IDENTIFIED)
+	_check("8. one fleet survey: both scanners report to it", _scanner("Transporter")._survey == _survey and _scanner("Miner1")._survey == _survey)
+	_check("8. a Transporter survey reads the same whichever ship is selected", texts[0] == texts[1] and texts[1] == texts[2] and _survey.level_of(id) == Survey.Level.IDENTIFIED)
 
 
 func _test_origin_fixed() -> void:
@@ -301,19 +305,19 @@ func _test_origin_fixed() -> void:
 
 func _test_cooldowns() -> void:
 	_reset()
-	_place("Frigate", SCAN_POINT)
+	_place("Transporter", SCAN_POINT)
 	_place("Miner1", SCAN_POINT + Vector2(0, 12))
-	_check("Frigate, Gunship, Destroyer: Generic; Miners: Mining", _scanner("Frigate").kind == 0 and _scanner("Gunship").kind == 0
-		and _scanner("Destroyer").kind == 0 and _scanner("Miner1").kind == 1 and _scanner("Miner2").kind == 1)
-	var first: bool = _scanner("Frigate").activate()
-	var again: bool = _scanner("Frigate").activate()
+	_check("Transporter, FF01: Generic; Miners: Mining", _scanner("Transporter").kind == 0
+		and _scanner("FF01").kind == 0 and _scanner("Miner1").kind == 1 and _scanner("Miner2").kind == 1)
+	var first: bool = _scanner("Transporter").activate()
+	var again: bool = _scanner("Transporter").activate()
 	var other: bool = _scanner("Miner1").activate()
-	_check("11. the Frigate's cooldown blocks only the Frigate", first and not again and other)
+	_check("11. the Transporter's cooldown blocks only the Transporter", first and not again and other)
 	_steps(roundi(2.9 / DT))
-	var early: bool = _scanner("Frigate").activate()
+	var early: bool = _scanner("Transporter").activate()
 	_steps(roundi(0.15 / DT))
-	var ready: bool = _scanner("Frigate").activate()
-	_check("cooldown of %.0f s from activation" % _scanner("Frigate").cooldown, not early and ready)
+	var ready: bool = _scanner("Transporter").activate()
+	_check("cooldown of %.0f s from activation" % _scanner("Transporter").cooldown, not early and ready)
 	_run_until_idle()
 
 
@@ -322,9 +326,9 @@ func _test_orders_untouched() -> void:
 	var runs := []
 	for scanning in [false, true]:
 		_reset()
-		_place("Frigate", Vector2(-12, 0))
+		_place("Transporter", Vector2(-12, 0))
 		_place("Miner1", SCAN_POINT)
-		_place("Destroyer", Vector2(14, 0))
+		_place("FF01", Vector2(14, 0))
 		_node("Miner1", "RouteFollower").order(Vector2(60, -15))
 		var plans: int = _node("Miner1", "RouteFollower").plans
 		var destination: Vector2 = _node("Miner1", "Locomotion").destination
@@ -403,7 +407,7 @@ func _test_ui() -> void:
 	var rig := _main.get_node("CameraRig")
 	var camera: Camera3D = _main.get_node("CameraRig/Camera3D")
 	_place("Miner1", SCAN_POINT)
-	_place("Frigate", SCAN_POINT + Vector2(-8, 4))
+	_place("Transporter", SCAN_POINT + Vector2(-8, 4))
 	rig.global_position = Vector3(SCAN_POINT.x, 0, SCAN_POINT.y)
 	rig.rotation = Vector3.ZERO
 	rig.zoom_distance = 40.0
@@ -414,22 +418,22 @@ func _test_ui() -> void:
 	await process_frame
 	_check("panel: one ship selected shows its scanner and Scan Area", panel.get_node("Panel").visible and button.visible
 		and panel.get_node("Panel/Layout/Scroll/Body/Actions/Equipment").text == "Mining Scanner")
-	selection.set_selection([_ship("Miner1"), _ship("Frigate")])
+	selection.set_selection([_ship("Miner1"), _ship("Transporter")])
 	await process_frame
 	_check("panel: several ships selected, no shared Scan Area", not panel.get_node("Panel").visible)
-	selection.set_selection([_ship("Destroyer")])
+	selection.set_selection([_ship("FF01")])
 	await process_frame
-	_check("panel: Destroyer shows its Generic Scanner and Scan Area", panel.get_node("Panel").visible and button.visible
+	_check("panel: FF01 shows its Generic Scanner and Scan Area", panel.get_node("Panel").visible and button.visible
 		and panel.get_node("Panel/Layout/Scroll/Body/Actions/Equipment").text == "Generic Scanner")
-	# Every ship carries a scanner now: the no-scanner case with the Destroyer's taken off.
-	var scanner := _scanner("Destroyer")
-	_ship("Destroyer").remove_child(scanner)
+	# Every ship carries a scanner now: the no-scanner case with the FF01's taken off.
+	var scanner := _scanner("FF01")
+	_ship("FF01").remove_child(scanner)
 	selection.set_selection([])
-	selection.set_selection([_ship("Destroyer")])
+	selection.set_selection([_ship("FF01")])
 	await process_frame
 	_check("panel: a ship without a scanner shows No scanner, no Scan Area", panel.get_node("Panel").visible and not button.visible
 		and panel.get_node("Panel/Layout/Scroll/Body/Actions/Equipment").text == "No scanner")
-	_ship("Destroyer").add_child(scanner)
+	_ship("FF01").add_child(scanner)
 	scanner.set_physics_process(false)
 	selection.set_selection([_ship("Miner1")])
 	await process_frame
@@ -442,9 +446,9 @@ func _test_ui() -> void:
 	_click(button.get_global_rect().get_center())
 	await process_frame
 	_check("a click during the cooldown starts no second scan", _survey.active_scans() == 1)
-	var ship_screen := camera.unproject_position(_ship("Frigate").global_position)
+	var ship_screen := camera.unproject_position(_ship("Transporter").global_position)
 	_click(ship_screen)
-	_check("clicking a ship still selects it with the panel shown", selection.selected == [_ship("Frigate")])
+	_check("clicking a ship still selects it with the panel shown", selection.selected == [_ship("Transporter")])
 	_run_until_idle()
 	# Headless runs have no real cursor: the screen-point lookup is checked directly.
 	var view := root.get_visible_rect()
@@ -453,7 +457,7 @@ func _test_ui() -> void:
 	var id: int = on_screen[0]
 	var empty := camera.unproject_position(Vector3(70, 0, 66))
 	_check("hover lookup: the asteroid under a point", _hover.asteroid_at(camera.unproject_position(_field.center(id))) == id)
-	_check("hover lookup: none over a ship or empty space", _hover.asteroid_at(camera.unproject_position(_ship("Frigate").global_position)) == -1
+	_check("hover lookup: none over a ship or empty space", _hover.asteroid_at(camera.unproject_position(_ship("Transporter").global_position)) == -1
 		and _hover.asteroid_at(empty) == -1)
 	_click(empty)
 	_check("clicking empty ground still clears the selection", selection.selected.is_empty())
@@ -503,11 +507,10 @@ func _reset() -> void:
 		follower.status = follower.RouteStatus.NONE
 		follower.route = PackedVector2Array()
 		_node(ship_name, "Avoidance").reset()
-	_place("Frigate", Vector2(-12, 0))
-	_place("Gunship", Vector2(0, 0))
+	_place("Transporter", Vector2(-12, 0))
 	_place("Miner1", Vector2(-8, 14))
 	_place("Miner2", Vector2(8, 14))
-	_place("Destroyer", Vector2(14, 0))
+	_place("FF01", Vector2(14, 0))
 
 
 func _run_until_idle() -> void:

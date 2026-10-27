@@ -13,7 +13,7 @@ const Survey := preload("res://game/survey/survey.gd")
 const Inventory := preload("res://game/cargo/inventory.gd")
 const MiningOperation := preload("res://game/mining/mining_operation.gd")
 const DT := 1.0 / 60.0
-const SHIPS := ["Frigate", "Gunship", "Destroyer", "Miner1", "Miner2"]
+const SHIPS := ["FF01", "Miner1", "Miner2"]
 const SEED := 20261014
 const NEAR := 29 # Asteroid north of the spawn, used for right-click checks.
 
@@ -32,6 +32,10 @@ var _notices: Array[String] = []
 func _initialize() -> void:
 	await process_frame
 	_main = MAIN.instantiate()
+	var ff01: Node3D = load("res://game/ships/ff01_unit.tscn").instantiate() # A ship without mining.
+	ff01.name = "FF01"
+	ff01.position = Vector3(-12, 1.5, 0)
+	_main.get_node("Ships").add_child(ff01)
 	root.add_child(_main)
 	_field = _main.get_node("Asteroids")
 	_survey = _main.get_node("Survey")
@@ -95,13 +99,15 @@ func _test_geometry_and_profile() -> void:
 	_check("Miner: with its 9 thruster parts, %.2f u long (Z) x %.2f u wide (X), symmetric, larger than the hull alone" % [total.size.z, total.size.x],
 		thrusters == 9 and total.size.z > bounds.size.z and total.size.x > bounds.size.x and is_equal_approx(total.get_center().x, 0.0) and total.encloses(bounds))
 	_check("Miner: hull inside the 1.6 u collision radius (farthest corner %.2f u)" % reach, reach <= 1.6)
+	# The small-hull profile, stated explicitly.
 	var same := true
-	for property in ["max_speed", "max_reverse_speed", "max_lateral_speed", "forward_accel", "reverse_accel", "lateral_accel", "max_turn_rate_deg", "turn_accel_deg"]:
-		same = same and _node("Miner1", "Locomotion").get(property) == _node("Frigate", "Locomotion").get(property)
-		same = same and _node("Miner2", "Locomotion").get(property) == _node("Frigate", "Locomotion").get(property)
-	for property in ["ship_radius", "clearance_margin"]:
-		same = same and _node("Miner1", "RouteFollower").get(property) == _node("Frigate", "RouteFollower").get(property)
-	_check("Miner: Frigate locomotion, collision radius and clearance", same)
+	var profile := {"max_speed": 5.0, "max_reverse_speed": 4.0, "max_lateral_speed": 3.0, "forward_accel": 6.0, "reverse_accel": 3.0,
+		"lateral_accel": 2.5, "max_turn_rate_deg": 120.0, "turn_accel_deg": 240.0}
+	for property: String in profile:
+		same = same and _node("Miner1", "Locomotion").get(property) == profile[property]
+		same = same and _node("Miner2", "Locomotion").get(property) == profile[property]
+	same = same and _node("Miner1", "RouteFollower").ship_radius == 1.6 and _node("Miner1", "RouteFollower").clearance_margin == 1.0
+	_check("Miner: small-hull locomotion (5 u/s, 120 deg/s), collision radius 1.6 and clearance 1", same)
 
 
 # 1: the Miners select like the other ships (click, Shift-click, box).
@@ -240,23 +246,23 @@ func _test_group_and_other_ships() -> void:
 	_mining("Miner1").assign(NEAR)
 	_steps(1)
 	_frame(Vector2(4, 40), 40.0)
-	var ships := [_ship("Frigate"), _ship("Miner1")]
+	var ships := [_ship("FF01"), _ship("Miner1")]
 	_selection.set_selection(ships)
 	var click := _camera.unproject_position(_field.center(NEAR))
 	var hit: Vector3 = Plane(Vector3.UP, 0.0).intersects_ray(_camera.project_ray_origin(click), _camera.project_ray_normal(click))
 	var expected: Dictionary = _main.get_node("GroupOrders").assign(ships, Vector2(hit.x, hit.z))
 	_right_click(click)
 	var same := not expected.is_empty()
-	for ship: Node in expected:
-		same = same and ship.get_node("Locomotion").destination.distance_to(expected[ship]) < 0.01
+	for ship: Node in expected: # The order each ship received (a routed order steers via its route first).
+		same = same and ship.get_node("RouteFollower").requested.distance_to(expected[ship]) < 0.01
 	_check("4. group right-click over an asteroid: the usual group MOVE", same)
 	_check("4. the group MOVE cancels the miner's assignment, keeps the target", _mining("Miner1").status == MiningOperation.Status.CANCELED and _mining("Miner1").target == NEAR)
 	_reset()
-	_selection.set_selection([_ship("Frigate")])
-	var plans: int = _node("Frigate", "RouteFollower").plans
+	_selection.set_selection([_ship("FF01")])
+	var plans: int = _node("FF01", "RouteFollower").plans
 	_right_click(click)
-	_check("a Frigate's right-click over an asteroid is a normal MOVE", _node("Frigate", "RouteFollower").plans == plans + 1
-		and _node("Frigate", "RouteFollower").requested.distance_to(Vector2(hit.x, hit.z)) < 0.01)
+	_check("an FF-01's right-click over an asteroid is a normal MOVE", _node("FF01", "RouteFollower").plans == plans + 1
+		and _node("FF01", "RouteFollower").requested.distance_to(Vector2(hit.x, hit.z)) < 0.01)
 	_selection.set_selection([])
 
 
@@ -375,9 +381,9 @@ func _test_feedback() -> void:
 		and _main.get_node("ShipPanel/Panel/Layout/Scroll/Body/Cargo/Summary").text == "Cargo: %d / 1000" % cargo.quantity()
 		and tiles == cargo.amounts and cargo.quantity() > 0)
 	_check("extraction beam drawn while mining", _main.get_node("MiningView").beam_count == 1)
-	_selection.set_selection([_ship("Frigate")])
+	_selection.set_selection([_ship("FF01")])
 	await process_frame
-	_check("panel: no mining rows for a Frigate", not panel.visible)
+	_check("panel: no mining rows for an FF-01", not panel.visible)
 	_selection.set_selection([])
 
 
@@ -401,7 +407,7 @@ func _run_until_stopped(miners: Array) -> void:
 
 
 func _reset() -> void:
-	var spawn := {"Frigate": Vector2(-12, 0), "Gunship": Vector2(0, 0), "Destroyer": Vector2(14, 0), "Miner1": Vector2(-8, 14), "Miner2": Vector2(8, 14)}
+	var spawn := {"FF01": Vector2(-12, 0), "Miner1": Vector2(-8, 14), "Miner2": Vector2(8, 14)}
 	for ship_name in SHIPS:
 		var follower := _node(ship_name, "RouteFollower")
 		follower.status = follower.RouteStatus.NONE

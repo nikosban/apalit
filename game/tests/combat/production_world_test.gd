@@ -1,7 +1,7 @@
 extends SceneTree
 ## Combat migration M2: the combat stack on real production entities and geometry, on
-## main.tscn (three stations, 36 asteroids, the six starting ships), with one hostile
-## Gunship (`Raider`, the production gunship_unit with faction 1) added for the cases.
+## main.tscn (three stations, 36 asteroids, the three starting ships), with one hostile
+## FF-01 (`Raider`, the production ff01_unit with faction 1) added for the cases.
 ## Run with a fixed step:
 ##   <godot console> --headless --path . --fixed-fps 60 -s res://game/tests/combat/production_world_test.gd
 ##   W1 every ship's hull and loadout; one health owner per ship
@@ -13,7 +13,7 @@ extends SceneTree
 ##   W6 repeated scene resets with combat under way leave no projectiles or orphan nodes
 
 const MAIN := preload("res://main.tscn")
-const GUNSHIP := preload("res://game/ships/gunship_unit.tscn")
+const FF01 := preload("res://game/ships/ff01_unit.tscn")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const HOSTILE := 1
 const DT := 1.0 / 60.0
@@ -66,9 +66,9 @@ func _c(name: String) -> Variant:
 	return CombatShip.of(_ship(name))
 
 
-## Adds the hostile Gunship at a point (production variant, faction set before it enters).
+## Adds the hostile FF-01 at a point (production variant, faction set before it enters).
 func _raider(point: Vector2, heading: float) -> Node3D:
-	var raider: Node3D = GUNSHIP.instantiate()
+	var raider: Node3D = FF01.instantiate()
 	raider.name = "Raider"
 	raider.get_node("Combat").faction = HOSTILE
 	raider.get_node("Combat").stance = CombatShip.Stance.AGGRESSIVE
@@ -104,10 +104,8 @@ func _w1_hulls() -> void:
 			if child != combat and child.get("health") != null:
 				owners = false
 	_check("every starting ship has a Combat hull of 150, player faction (%s weapons)" % str(counts), hulls
-		and counts == {"Frigate": 0, "Gunship": 3, "Destroyer": 4, "Miner1": 0, "Miner2": 0, "Transporter": 0})
+		and counts == {"Miner1": 0, "Miner2": 0, "Transporter": 0})
 	_check("no other component of any ship holds a health value (one owner: Combat)", owners)
-	var launcher: Node = _ship("Destroyer").get_node("Weapons/DeckHardpoint/MissileCells")
-	_check("the Destroyer carries the E05 launcher (4 cells, 4-missile salvos, 12 missiles)", launcher.cells == 4 and launcher.salvo_size == 4 and launcher.rounds_left() == 12)
 
 
 func _w2_civilian_damage() -> void:
@@ -120,7 +118,7 @@ func _w2_civilian_damage() -> void:
 	CombatShip.of(raider).assign_target(transporter)
 	var hit := await _run(20.0, func() -> bool: return _c("Transporter").health < 150.0)
 	var records: Array = scene.get_node("Projectiles").records.filter(func(r: Dictionary) -> bool: return r.outcome == "damage" and r.ship == "Transporter")
-	_check("a hostile Gunship damages the Transporter (hull %.0f of 150, %d damaging rounds)" % [_c("Transporter").health, records.size()], hit and records.size() > 0)
+	_check("a hostile FF-01 damages the Transporter (hull %.0f of 150, %d damaging rounds)" % [_c("Transporter").health, records.size()], hit and records.size() > 0)
 	var friendly: Array = scene.get_node("Projectiles").records.filter(func(r: Dictionary) -> bool: return r.outcome == "damage" and r.ship == "Raider")
 	_check("no ship of the Transporter's faction damaged the Raider (it has no weapons and no one else is in range)", friendly.is_empty())
 
@@ -130,23 +128,28 @@ func _w3_station_blocks() -> void:
 	await _load()
 	var station: Node3D = scene.get_node("Stations/Station")
 	var centre := Vector2(station.global_position.x, station.global_position.z)
-	_put("Frigate", centre + Vector2(0, 27), 0.0)
+	_put("Miner2", centre + Vector2(0, 27), 0.0)
 	var raider := _raider(centre + Vector2(0, -27), PI)
 	# This case is about the weapon's line of fire from a fixed position: the Raider's
-	# Behavior (which would correctly reposition it around the station) is taken out.
+	# Behavior (which would correctly reposition it around the station) is taken out, and
+	# its rocket and missile stocks are emptied so only direct fire remains.
 	var behavior := raider.get_node("Behavior")
 	raider.remove_child(behavior)
 	behavior.free()
 	await physics_frame
-	CombatShip.of(raider).assign_target(_ship("Frigate"))
-	var cannon: Node = raider.get_node("Weapons/DorsalHardpoint/Cannon")
+	for weapon in CombatShip.of(raider).weapons:
+		if weapon.config.family in [&"rocket", &"missile"]:
+			weapon.ammo = 0
+			weapon.magazine = 0
+	CombatShip.of(raider).assign_target(_ship("Miner2"))
+	var cannon: Node = raider.get_node("Weapons/ForwardBastionHardpoint").weapon()
 	var reasons := {}
 	await _run(6.0, func() -> bool:
 		reasons[String(cannon.reason)] = true
 		return false)
-	var shots_at_frigate: Array = scene.get_node("Projectiles").records.filter(func(r: Dictionary) -> bool: return r.owner_name == "Raider")
-	_check("cannon across the Station (54 u, in range): holds fire, reason obscured by the station (%s), %d shots, Frigate hull %.0f" % [str(reasons.keys()), cannon.shots, _c("Frigate").health],
-		cannon.shots == 0 and reasons.has("Temporarily obscured (station)") and is_equal_approx(_c("Frigate").health, 150.0) and shots_at_frigate.is_empty())
+	var shots_at_miner: Array = scene.get_node("Projectiles").records.filter(func(r: Dictionary) -> bool: return r.owner_name == "Raider")
+	_check("cannon across the Station (54 u, in range): holds fire, reason obscured by the station (%s), %d shots, Miner2 hull %.0f" % [str(reasons.keys()), cannon.shots, _c("Miner2").health],
+		cannon.shots == 0 and reasons.has("Temporarily obscured (station)") and is_equal_approx(_c("Miner2").health, 150.0) and shots_at_miner.is_empty())
 	var projectiles: Node = scene.get_node("Projectiles")
 	var origin := Vector3(centre.x, 1.5, centre.y - 20.0)
 	var id: int = projectiles.spawn(raider, HOSTILE, origin, Vector3(0, 0, 40), 12.0, 90.0, 2.5, null, &"shell")
@@ -154,7 +157,7 @@ func _w3_station_blocks() -> void:
 	var done: Array = projectiles.records.filter(func(r: Dictionary) -> bool: return r.id == id)
 	var stopped: bool = done.size() == 1 and done[0].outcome == "station" and done[0].ship == "Station" and (done[0].point as Vector3).z < centre.y
 	_check("a round fired straight at the Station stops at its hull side, outcome 'station', no damage applied (%s)" % (str(done[0].outcome) + " at z %.2f" % (done[0].point as Vector3).z if not done.is_empty() else "none"),
-		stopped and not projectiles.damage_events.has(id) and is_equal_approx(_c("Frigate").health, 150.0))
+		stopped and not projectiles.damage_events.has(id) and is_equal_approx(_c("Miner2").health, 150.0))
 
 
 func _w4_station_hull() -> void:
@@ -173,7 +176,7 @@ func _w4_station_hull() -> void:
 	var raider := _raider(centre + Vector2(0, -40), PI)
 	await physics_frame
 	var hostile_id: int = projectiles.spawn(raider, HOSTILE, Vector3(centre.x, 1.5, centre.y - 20.0), Vector3(0, 0, 40), 12.0, 90.0, 2.5, null, &"shell")
-	var friendly_id: int = projectiles.spawn(_ship("Destroyer"), 0, Vector3(centre.x, 1.5, centre.y + 20.0), Vector3(0, 0, -40), 12.0, 90.0, 2.5, null, &"shell")
+	var friendly_id: int = projectiles.spawn(_ship("Transporter"), 0, Vector3(centre.x, 1.5, centre.y + 20.0), Vector3(0, 0, -40), 12.0, 90.0, 2.5, null, &"shell")
 	await _run(1.5)
 	var outcome := func(id: int) -> String:
 		var found: Array = projectiles.records.filter(func(r: Dictionary) -> bool: return r.id == id)
@@ -223,7 +226,7 @@ func _w6_resets() -> void:
 		await _load()
 		var raider := _raider(Vector2(-12, -40), 0.0)
 		await physics_frame
-		CombatShip.of(raider).assign_target(_ship("Frigate"))
+		CombatShip.of(raider).assign_target(_ship("Miner2"))
 		await _run(4.0)
 		leftovers += scene.get_node("Projectiles").active.size() + scene.get_node("Projectiles").ordnance.size()
 		_free()

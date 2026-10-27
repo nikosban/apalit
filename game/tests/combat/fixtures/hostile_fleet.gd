@@ -1,6 +1,7 @@
 extends Node
-## Combat prototype v0.3, E05 only: the hostile fleet's scenario controller (node
-## `HostileFleet` in encounters/e05_fleet.tscn; physics priority −2, before every ship).
+## Combat fixture, E05 only: the hostile fleet's scenario controller (node `HostileFleet`
+## in e05_fleet.tscn; physics priority −2, before every ship). The fleet is three FF-01s:
+## the lead (LEAD, at the wedge's point) and two escorts.
 ## It is not a general AI. Every command goes through CombatOrders (set_stance,
 ## assign_target, move); it never moves a ship, aims or fires itself. Once the scenario
 ## clock runs (EnemyController.started), every DECISION_INTERVAL:
@@ -8,16 +9,15 @@ extends Node
 ##     nearest to the fleet's centre (lower combat id on a tie), kept until it is
 ##     destroyed, then chosen again from the survivors;
 ##   2 stations: each hostile ship gets a point on a ring around the focus target at its
-##     useful range (the Destroyer DESTROYER_RANGE while it has missiles or torpedoes left;
-##     Gunships, and a Destroyer with only its cannon, GUNSHIP_RANGE: just beyond the
-##     cannon's effective range, well outside the Gatlings'),
-##     on the fleet's side of the target (the axis target → Destroyer, or → the fleet's
-##     centre without it); Gunships abreast at ± GUNSHIP_SPREAD so they stay inside the
-##     Destroyer's defensive radius. A station whose line of fire to the target crosses an
+##     useful range (LONG_RANGE while it has guided missiles left, otherwise ESCORT_RANGE:
+##     just beyond the cannon's effective range, well outside the point-defense guns),
+##     on the fleet's side of the target (the axis target → lead, or → the fleet's
+##     centre without it); escorts abreast at ± ESCORT_SPREAD so they stay inside the
+##     lead's defensive radius. A station whose line of fire to the target crosses an
 ##     asteroid (or that lies in one, or off the map) is rotated around the target in
 ##     ROTATION_STEP steps, nearest first, until it is clear;
-##   3 approach together: while the Destroyer is farther from its station than a Gunship's
-##     run to its own takes (time at top speed, APPROACH_SLACK), that Gunship, if it is still
+##   3 approach together: while the lead is farther from its station than an escort's
+##     run to its own takes (time at top speed, APPROACH_SLACK), that escort, if it is still
 ##     beyond its range band and has had no station order yet, holds back,
 ##     so the fleet arrives together with its escorts inside point-defense range;
 ##   4 orders: a ship is ordered to its station when it is idle but out of its range band
@@ -31,13 +31,14 @@ const RouteFollower := preload("res://game/navigation/route_follower.gd")
 const HOSTILE := 1
 const AGGRESSIVE := 2
 const DECISION_INTERVAL := 0.5 # s
-const DESTROYER_RANGE := 70.0 # u
-const GUNSHIP_RANGE := 50.0 # u
-const GUNSHIP_SPREAD := 10.0 # u
+const LEAD := "HostileFF01A"
+const LONG_RANGE := 70.0 # u
+const ESCORT_RANGE := 50.0 # u
+const ESCORT_SPREAD := 10.0 # u
 const BAND_IN := 12.0 # u closer than the range still counts as in range
 const BAND_OUT := 8.0 # u farther
 const RESTATION := 12.0 # u
-const APPROACH_SLACK := 2.0 # s a Gunship may set off before its run matches the Destroyer's
+const APPROACH_SLACK := 2.0 # s an escort may set off before its run matches the lead's
 const ROTATION_STEP := 15.0 # °
 const MAX_ROTATION := 120.0 # °
 const MAP_LIMIT := 135.0 # u from the centre on each axis
@@ -82,24 +83,24 @@ func _physics_process(delta: float) -> void:
 	var target := _planar(focus)
 	var anchor := _centre(fleet)
 	for ship: Node3D in fleet:
-		if _is_destroyer(ship):
+		if _is_lead(ship):
 			anchor = _planar(ship)
 	var axis := (anchor - target).normalized() if anchor.distance_to(target) > 0.01 else Vector2.RIGHT
-	# Approach together: the Destroyer's time to its station (0 without a Destroyer).
-	var destroyer_time := 0.0
+	# Approach together: the lead's time to its station (0 without a lead).
+	var lead_time := 0.0
 	for ship: Node3D in fleet:
-		if _is_destroyer(ship):
-			destroyer_time = maxf(0.0, _planar(ship).distance_to(target) - useful_range(ship)) / _top_speed(ship)
-	var spread := GUNSHIP_SPREAD
+		if _is_lead(ship):
+			lead_time = maxf(0.0, _planar(ship).distance_to(target) - useful_range(ship)) / _top_speed(ship)
+	var spread := ESCORT_SPREAD
 	for ship: Node3D in fleet:
 		var lateral := 0.0
-		if not _is_destroyer(ship):
+		if not _is_lead(ship):
 			lateral = spread
 			spread = -spread
-			var run := maxf(0.0, _planar(ship).distance_to(target) - GUNSHIP_RANGE) / _top_speed(ship)
-			var beyond: bool = _planar(ship).distance_to(target) > GUNSHIP_RANGE + BAND_OUT
-			if beyond and run < destroyer_time - APPROACH_SLACK and not _ordered.has(ship):
-				continue # Holds back until its run takes as long as the Destroyer's.
+			var run := maxf(0.0, _planar(ship).distance_to(target) - ESCORT_RANGE) / _top_speed(ship)
+			var beyond: bool = _planar(ship).distance_to(target) > ESCORT_RANGE + BAND_OUT
+			if beyond and run < lead_time - APPROACH_SLACK and not _ordered.has(ship):
+				continue # Holds back until its run takes as long as the lead's.
 		_station(ship, target, axis, lateral)
 
 
@@ -113,13 +114,13 @@ func ships_of(faction: int) -> Array[Node3D]:
 	return found
 
 
-## The useful range the controller keeps for a ship: DESTROYER_RANGE while it has guided
-## ordnance (missiles, torpedoes) left, otherwise GUNSHIP_RANGE (its cannon).
+## The useful range the controller keeps for a ship: LONG_RANGE while it has guided
+## missiles left, otherwise ESCORT_RANGE (its cannon).
 static func useful_range(ship: Node3D) -> float:
 	for weapon in CombatShip.of(ship).weapons:
-		if weapon.config.family in [&"missile", &"torpedo"] and weapon.rounds_left() > 0:
-			return DESTROYER_RANGE
-	return GUNSHIP_RANGE
+		if weapon.config.family == &"missile" and weapon.rounds_left() > 0:
+			return LONG_RANGE
+	return ESCORT_RANGE
 
 
 static func _top_speed(ship: Node3D) -> float:
@@ -127,8 +128,8 @@ static func _top_speed(ship: Node3D) -> float:
 	return maxf(0.1, top)
 
 
-static func _is_destroyer(ship: Node3D) -> bool:
-	return ship.has_node("Weapons/DeckHardpoint/MissileCells")
+static func _is_lead(ship: Node3D) -> bool:
+	return String(ship.name) == LEAD
 
 
 ## Whether the straight line between two planar points clears every asteroid.

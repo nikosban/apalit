@@ -4,7 +4,7 @@ extends SceneTree
 ## Run: <godot console> --headless --path . --fixed-fps 60 -s res://game/tests/combat/ff01_test.gd
 
 const UNIT := preload("res://game/ships/ff01_unit.tscn")
-const DESTROYER := preload("res://game/ships/destroyer_unit.tscn")
+const WARSHIP := preload("res://game/ships/archetypes/warship.tscn")
 const ARENA := preload("res://game/scenes/combat_test.tscn")
 const MAIN := preload("res://main.tscn")
 const Hardpoint := preload("res://game/weapons/hardpoint.gd")
@@ -16,7 +16,15 @@ const CombatShip := preload("res://game/combat/combat_ship.gd")
 const Behavior := preload("res://game/behavior/ship_behavior.gd")
 const Profiles := preload("res://game/behavior/weapon_profiles.gd")
 const EPS := 0.00001
-const SPAWN := Vector3(-18, 1.5, -12)
+const SPAWN := Vector3(-45, 1.5, 0)
+## The large-hull handling the FF-01 sets over the warship archetype.
+const HANDLING := {
+	"Locomotion": {"max_speed": 3.0, "max_reverse_speed": 1.5, "max_lateral_speed": 1.0, "forward_accel": 1.2, "reverse_accel": 0.5,
+		"lateral_accel": 0.3, "max_turn_rate_deg": 25.0, "turn_accel_deg": 20.0},
+	"RouteFollower": {"ship_radius": 6.2, "clearance_margin": 1.0},
+	"Avoidance": {"size_class": 3, "separation_margin": 1.0},
+	"Fuel": {"capacity": 400.0, "consumption": 1.0},
+}
 const MOUNTS := {
 	"ForwardBastionHardpoint": [Vector3(0, 0.55, -3), 0.0, 120.0, 1, ["cannon"]],
 	"AftBastionHardpoint": [Vector3(0, 0.55, 3), 180.0, 120.0, 1, ["cannon"]],
@@ -27,14 +35,7 @@ const MOUNTS := {
 	"BarrageHardpoint": [Vector3(0, 0, -5.85), 0.0, 0.0, 1, ["rocket"]],
 	"WayfarerHardpoint": [Vector3(0, 0.55, 0), 0.0, 160.0, 1, ["missile"]],
 }
-const ORIGINAL := {
-	"Gunship": ["res://game/ships/gunship_unit.tscn", Vector3(0, 1.5, 0), 0.0, 0],
-	"Destroyer": ["res://game/ships/destroyer_unit.tscn", Vector3(14, 1.5, 0), 0.0, 0],
-	"Gunship2": ["res://game/ships/gunship_unit.tscn", Vector3(2, 1.5, -12), 0.0, 0],
-	"HostileDestroyer": ["res://game/ships/destroyer_unit.tscn", Vector3(126, 1.5, 2), PI / 2.0, 1],
-	"HostileGunship": ["res://game/ships/gunship_unit.tscn", Vector3(117, 1.5, -6), PI / 2.0, 1],
-	"HostileGunship2": ["res://game/ships/gunship_unit.tscn", Vector3(117, 1.5, 11), PI / 2.0, 1],
-}
+
 
 var scene: Node3D
 var _checks := 0
@@ -64,7 +65,8 @@ func _check(message: String, ok: bool) -> void:
 
 func _authored() -> void:
 	var unit := UNIT.instantiate()
-	var reference := DESTROYER.instantiate()
+	var reference := WARSHIP.instantiate()
+	var defaults := Behavior.new()
 	_check("FF-01 inherits the shared warship archetype and instances ff01.tscn at identity",
 		UNIT.get_state().get_node_instance(0).resource_path == "res://game/ships/archetypes/warship.tscn"
 		and unit.get_node("Model").scene_file_path == "res://game/ships/ff01.tscn"
@@ -74,23 +76,27 @@ func _authored() -> void:
 		order == ["Locomotion", "RouteFollower", "Avoidance", "Scanner", "Docking", "Fuel", "Weapons", "Combat", "Behavior", "Model"])
 	for name: String in ["Locomotion", "RouteFollower", "Avoidance", "Scanner", "Docking", "Fuel", "Combat", "Behavior"]:
 		var a := unit.get_node(name)
-		var b := reference.get_node(name)
+		var b: Node = reference.get_node(name) if reference.has_node(name) else defaults
+		var handling: Dictionary = HANDLING.get(name, {})
 		var same: bool = a.get_script() == b.get_script()
 		for prop in b.get_property_list():
-			# Combat.durability is FF-01's own configuration (checked below).
+			# Combat.durability is FF-01's own configuration (checked below); the handling
+			# is the large hull's (checked against its values).
 			if prop.usage & PROPERTY_USAGE_STORAGE and not (name == "Combat" and prop.name == "durability") \
-					and not (name == "Behavior" and String(prop.name).begins_with("combat_")):
+					and not (name == "Behavior" and String(prop.name).begins_with("combat_")) and not handling.has(prop.name):
 				same = same and a.get(prop.name) == b.get(prop.name)
-		_check("%s uses the existing script and Destroyer baseline settings" % name, same)
+		for prop: String in handling:
+			same = same and a.get(prop) == handling[prop]
+		_check("%s uses the existing script, the shared defaults and the large-hull handling" % name, same)
 	var behavior := unit.get_node("Behavior")
-	_check("FF-01 alone opts into cannon positioning with the approved editable prototype parameters",
-		behavior.combat_positioning and not reference.get_node("Behavior").combat_positioning and behavior.combat_weapon_family == &"cannon"
+	_check("FF-01 opts into cannon positioning (off by default) with the approved editable prototype parameters",
+		behavior.combat_positioning and not defaults.combat_positioning and behavior.combat_weapon_family == &"cannon"
 		and behavior.combat_min_distance == 27.0 and behavior.combat_max_distance == 45.0 and behavior.combat_nominal_distance == 38.25
 		and behavior.combat_tangential_speed == 1.5 and behavior.combat_decision_interval == 0.5 and behavior.combat_order_interval == 1.0)
 	_check("FF-01 exposes a continuous transition region and limits cannon-facing adjustment to its flight course",
 		behavior.combat_transition_width > 0.0 and behavior.combat_course_slack_deg <= 10.0
 		and behavior.combat_course_response_time > 0.0 and behavior.combat_course_replan_deg > 0.0)
-	_check("Combat durability is ff01_durability.tres (160 / 100 / 30); the Destroyer has none",
+	_check("Combat durability is ff01_durability.tres (160 / 100 / 30); the archetype has none",
 		unit.get_node("Combat").durability == preload("res://game/ships/ff01_durability.tres") and reference.get_node("Combat").durability == null
 		and unit.get_node("Combat").durability.max_hull == 160.0 and unit.get_node("Combat").durability.max_armor == 100.0
 		and unit.get_node("Combat").durability.armor_resistance == 30.0)
@@ -160,6 +166,7 @@ func _authored() -> void:
 		and jets.all(func(name: String) -> bool: return model.get_node("Thrusters/" + name).mesh is BoxMesh))
 	unit.free()
 	reference.free()
+	defaults.free()
 
 
 # Built-in mesh/material values are compared, rather than scene-local resource IDs.
@@ -184,30 +191,26 @@ func _same_resource(a: Resource, b: Resource) -> bool:
 func _preserved_arena() -> void:
 	var arena := ARENA.instantiate()
 	var reference := MAIN.instantiate()
-	var expected := ORIGINAL.keys() + ["FF01"]
-	_check("Combat Test contains the original six ships plus FF-01 and an empty Stations container",
-		arena.get_node("Ships").get_children().map(func(node: Node) -> String: return str(node.name)) == expected
+	_check("Combat Test contains exactly the player FF-01 and the hostile FF-01, and an empty Stations container",
+		arena.get_node("Ships").get_children().map(func(node: Node) -> String: return str(node.name)) == ["FF01", "HostileFF01"]
 		and arena.get_node("Stations").get_child_count() == 0)
-	for name: String in ORIGINAL:
-		var row: Array = ORIGINAL[name]
-		var ship := arena.get_node("Ships/" + name)
-		var stance := CombatShip.Stance.AGGRESSIVE if row[3] == 1 else CombatShip.Stance.DEFENSIVE
-		_check("original %s: unchanged variant, transform, faction and stance" % name,
-			ship.scene_file_path == row[0] and ship.transform.is_equal_approx(Transform3D(Basis(Vector3.UP, row[2]), row[1]))
-			and ship.get_node("Combat").faction == row[3] and ship.get_node("Combat").stance == stance)
+	var hostile := arena.get_node("Ships/HostileFF01")
+	_check("HostileFF01: an FF-01 instance at (45, 1.5, 0) facing -X, hostile faction, Aggressive",
+		hostile.scene_file_path == UNIT.resource_path and hostile.transform.is_equal_approx(Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3(45, 1.5, 0)))
+		and hostile.get_node("Combat").faction == 1 and hostile.get_node("Combat").stance == CombatShip.Stance.AGGRESSIVE)
 	var overrides_ok := true
 	var state := ARENA.get_state()
 	for i in state.get_node_count():
 		var path := str(state.get_node_path(i)).trim_prefix("./")
-		if not path.begins_with("Ships/") or not ORIGINAL.has(path.get_slice("/", 1)):
+		if not path.begins_with("Ships/") or path.count("/") == 0:
 			continue
 		var child_override := path.count("/") > 1
-		if child_override and not (path.ends_with("/Combat") and path.get_slice("/", 1).begins_with("Hostile")):
+		if child_override and path != "Ships/HostileFF01/Combat":
 			overrides_ok = false
 		for p in state.get_node_property_count(i):
 			var property := str(state.get_node_property_name(i, p))
 			overrides_ok = overrides_ok and property in (["faction", "stance"] if child_override else ["transform"])
-	_check("no added overrides/components on original ships; their loadouts and shared configuration remain inherited", overrides_ok)
+	_check("no added overrides/components on the ships beyond the transforms and the hostile's faction and stance; loadouts remain inherited", overrides_ok)
 	var field := arena.get_node("Asteroids")
 	var original := reference.get_node("Asteroids")
 	var rocks_match: bool = field.get_child_count() == 36 and original.get_child_count() == 36 and field.get_script() == original.get_script()
@@ -221,16 +224,20 @@ func _preserved_arena() -> void:
 	_check("Combat Test remains a 760 by 760 arena, navigation half-size 380",
 		arena.get_node("StaticNavigation").map_half_size == 380.0 and arena.get_node("Ground").mesh.size == Vector2(760, 760))
 	var subject := arena.get_node("Ships/FF01")
-	_check("FF-01 is an unmodified friendly unit instance at (-18, 1.5, -12)", subject.scene_file_path == UNIT.resource_path
-		and subject.position == SPAWN and subject.basis.is_equal_approx(Basis.IDENTITY) and subject.get_node("Combat").faction == 0)
+	_check("FF-01 is an unmodified friendly unit instance at (-45, 1.5, 0) facing +X", subject.scene_file_path == UNIT.resource_path
+		and subject.position == SPAWN and subject.basis.is_equal_approx(Basis(Vector3.UP, -PI / 2.0)) and subject.get_node("Combat").faction == 0)
 	arena.free()
 	reference.free()
 
 
 func _load() -> void:
 	scene = ARENA.instantiate()
+	# A second friendly FF-01 (test-added) to receive the Guard command.
+	var friend: Node3D = UNIT.instantiate()
+	friend.name = "FriendFF01"
+	friend.position = Vector3(0, 1.5, 20)
+	scene.get_node("Ships").add_child(friend)
 	root.add_child(scene)
-	scene.get_node("HostileCommander").set_physics_process(false)
 	for ship in scene.get_node("Ships").get_children():
 		ship.get_node("Combat").stance = CombatShip.Stance.HOLD_FIRE
 		ship.get_node("Combat").set_physics_process(false)
@@ -326,7 +333,7 @@ func _selection_and_movement() -> void:
 func _commands() -> void:
 	var subject := scene.get_node("Ships/FF01")
 	var behavior := subject.get_node("Behavior")
-	var hostile := scene.get_node("Ships/HostileGunship")
+	var hostile := scene.get_node("Ships/HostileFF01")
 	hostile.get_node("Locomotion").place(Vector2(35, -40), 0.0)
 	hostile.get_node("Avoidance").reset()
 	scene.sensors.evaluate()
@@ -337,7 +344,7 @@ func _commands() -> void:
 	_check("Ctrl-right-click gives the existing Attack command to FF-01", behavior.command == Behavior.Command.ATTACK
 		and behavior.attack_target == hostile)
 	scene.orders.cancel([subject])
-	var friend := scene.get_node("Ships/Gunship")
+	var friend := scene.get_node("Ships/FriendFF01")
 	await _look_at(friend.global_position)
 	await _click(MOUSE_BUTTON_RIGHT, friend.global_position, true)
 	_check("Ctrl-right-click on a friendly ship gives the existing Guard command", behavior.command == Behavior.Command.GUARD

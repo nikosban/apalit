@@ -22,8 +22,8 @@ const STABLE_WAIT := 10.0 # s waiting with no change ends a scenario as a stable
 const SLACK := 1.0e-4
 const DRIFT_SHARE := 0.2 # of max_speed, as locomotion_test
 const REVERSAL_RATE := 1.0 # deg/s; turn-rate sign changes above this count as reversals
-const SHIPS := ["Frigate", "Gunship", "Destroyer"]
-const PAIRS := [["Frigate", "Gunship"], ["Frigate", "Destroyer"], ["Gunship", "Destroyer"]]
+const SHIPS := ["Miner", "Transporter", "FF01"]
+const PAIRS := [["Miner", "Transporter"], ["Miner", "FF01"], ["Transporter", "FF01"]]
 
 var _failures := 0
 var _lab: Node
@@ -53,7 +53,7 @@ func _initialize() -> void:
 		scenarios.append(Scenarios.crossing(pair[0], pair[1], true, profiles))
 		scenarios.append(Scenarios.crossing(pair[0], pair[1], false, profiles))
 		scenarios.append(Scenarios.overtake(pair[0], pair[1]))
-	for mover in [["Frigate", "Destroyer"], ["Gunship", "Destroyer"], ["Destroyer", "Gunship"]]:
+	for mover in [["Miner", "FF01"], ["Transporter", "FF01"], ["FF01", "Transporter"]]:
 		scenarios.append(Scenarios.parked(mover[0], mover[1], 0.0))
 		scenarios.append(Scenarios.parked(mover[0], mover[1], 3.0))
 	scenarios.append(Scenarios.combined())

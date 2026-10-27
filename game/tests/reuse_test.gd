@@ -26,8 +26,8 @@ const Docking := preload("res://game/stations/docking.gd")
 const MiningOperation := preload("res://game/mining/mining_operation.gd")
 const ShipLocomotion := preload("res://game/locomotion/ship_locomotion.gd")
 const WARSHIP := "res://game/ships/archetypes/warship.tscn"
-const VARIANT_OF := {"Frigate": "res://game/ships/frigate_unit.tscn", "Gunship": "res://game/ships/gunship_unit.tscn",
-	"Destroyer": "res://game/ships/destroyer_unit.tscn", "Miner1": "res://game/ships/miner_unit.tscn",
+const VARIANT_OF := {"FF01A": "res://game/ships/ff01_unit.tscn", "FF01B": "res://game/ships/ff01_unit.tscn",
+	"Miner1": "res://game/ships/miner_unit.tscn",
 	"Miner2": "res://game/ships/miner_unit.tscn", "Transporter1": "res://game/ships/transporter_unit.tscn",
 	"Transporter2": "res://game/ships/transporter_unit.tscn"}
 const IRON := &"iron"
@@ -64,7 +64,7 @@ func _initialize() -> void:
 	_test_definitions()
 	_test_propagation()
 	var nav := _arena.get_node("StaticNavigation")
-	while not (nav.is_ready(2.6) and nav.is_ready(5.1) and nav.is_ready(4.4) and nav.is_ready(7.2)):
+	while not (nav.is_ready(2.6) and nav.is_ready(5.1) and nav.is_ready(7.2)):
 		await physics_frame
 	await _test_runtime()
 	await _test_selection()
@@ -103,18 +103,24 @@ func _test_definitions() -> void:
 	var scenes := true
 	for ship: Node in _ships.get_children():
 		scenes = scenes and ship.scene_file_path == VARIANT_OF[String(ship.name)]
-	_check("R2. every ship is an instance of its variant (Frigate, Gunship, Destroyer, 2 Miners, 2 Transporters)", scenes and _ships.get_child_count() == 7)
-	var war := ["Frigate", "Gunship", "Destroyer"].map(func(n: String) -> Node: return _ships.get_node(n))
-	# Combat migration: the armed variants (Gunship, Destroyer) add a Behavior component (the
-	# unarmed Frigate has none); every other component is the archetype's.
-	var archetype := func(ship: Node) -> Array: return _components(ship).filter(func(c: Array) -> bool: return c[0] != "Behavior")
-	var structure: bool = war.all(func(ship: Node) -> bool: return archetype.call(ship) == archetype.call(war[0])) \
-		and war.map(func(ship: Node) -> bool: return ship.has_node("Behavior")) == [false, true, true]
+	_check("R2. every ship is an instance of its variant (2 FF-01s, 2 Miners, 2 Transporters)", scenes and _ships.get_child_count() == 6)
+	var war := ["FF01A", "FF01B"].map(func(n: String) -> Node: return _ships.get_node(n))
+	# Combat migration: the armed FF-01 variant adds a Behavior component; every other
+	# component is the warship archetype's (name and script, in its order; priorities are
+	# compared between the live instances, as they are set once in the tree).
+	var warship: Node = load(WARSHIP).instantiate()
+	var archetype := _components(warship).map(func(c: Array) -> Array: return c.slice(0, 2))
+	warship.free()
+	var structure := true
+	for ship: Node in war:
+		var own := _components(ship).filter(func(c: Array) -> bool: return c[0] != "Behavior")
+		structure = structure and own == _components(war[0]).filter(func(c: Array) -> bool: return c[0] != "Behavior") \
+			and own.map(func(c: Array) -> Array: return c.slice(0, 2)) == archetype and ship.has_node("Behavior")
 	var profiles := war.map(func(ship: Node) -> Array: return [ship.get_node("Locomotion").max_speed, ship.get_node("RouteFollower").ship_radius,
 		ship.get_node("Avoidance").size_class, ship.get_node("Fuel").capacity, ship.get_node("Scanner").radius])
-	_check("R2. the three warship variants share the archetype's components, scripts, order and priorities %s; their own settings %s" % [
-		str(_components(war[0]).map(func(c: Array) -> String: return c[0])), str(profiles)],
-		structure and profiles == [[5.0, 1.6, 1, 100.0, 50.0], [4.5, 3.4, 2, 200.0, 50.0], [3.0, 6.2, 3, 400.0, 50.0]])
+	_check("R2. both FF-01 instances share the warship archetype's components, scripts, order and priorities %s plus Behavior; their settings %s" % [
+		str(archetype.map(func(c: Array) -> String: return c[0])), str(profiles)],
+		structure and profiles == [[3.0, 6.2, 3, 400.0, 50.0], [3.0, 6.2, 3, 400.0, 50.0]])
 	_check("R2. instances of one variant are configured alike (Miner1 = Miner2, Transporter1 = Transporter2)",
 		_config(_ships.get_node("Miner1")) == _config(_ships.get_node("Miner2")) and _config(_ships.get_node("Transporter1")) == _config(_ships.get_node("Transporter2")))
 	var roles := [_names(_ships.get_node("Miner1")), _names(_ships.get_node("Transporter1"))]
@@ -138,7 +144,7 @@ func _test_propagation() -> void:
 	var edited := original.instantiate()
 	edited.scene_file_path = "" # Packed as a plain scene, standing in for the edited archetype file.
 	edited.get_node("Scanner").radius = 77.0 # No variant overrides it.
-	edited.get_node("Fuel").capacity = 999.0 # Overridden by the Gunship and the Destroyer only.
+	edited.get_node("Fuel").capacity = 999.0 # Overridden by the FF-01.
 	edited.get_node("Locomotion").max_speed = 99.0 # Overridden by every variant.
 	var packed := PackedScene.new()
 	packed.pack(edited)
@@ -148,17 +154,17 @@ func _test_propagation() -> void:
 	original.take_over_path(WARSHIP)
 	var restored := _warship_values()
 	_check("R3. archetype values (scanner radius, fuel capacity, max speed): before %s" % str(before),
-		before == [[50.0, 100.0, 5.0], [50.0, 200.0, 4.5], [50.0, 400.0, 3.0]])
+		before == [[50.0, 400.0, 3.0]])
 	_check("R3. edited archetype (radius 77, capacity 999, speed 99): %s - shared values propagate, every variant override is kept" % str(after),
-		after == [[77.0, 999.0, 5.0], [77.0, 200.0, 4.5], [77.0, 400.0, 3.0]])
+		after == [[77.0, 400.0, 3.0]])
 	_check("R3. archetype restored: %s" % str(restored), restored == before)
 
 
-# Scanner radius, fuel capacity and max speed of freshly loaded Frigate, Gunship and
-# Destroyer variants (loaded without the cache; their archetype comes from the cache).
+# Scanner radius, fuel capacity and max speed of a freshly loaded FF-01, the only warship
+# variant (loaded without the cache; its archetype comes from the cache).
 func _warship_values() -> Array:
 	var values := []
-	for variant in ["frigate", "gunship", "destroyer"]:
+	for variant in ["ff01"]:
 		var scene: PackedScene = ResourceLoader.load("res://game/ships/%s_unit.tscn" % variant, "", ResourceLoader.CACHE_MODE_IGNORE)
 		var ship := scene.instantiate()
 		values.append([ship.get_node("Scanner").radius, ship.get_node("Fuel").capacity, ship.get_node("Locomotion").max_speed])
@@ -173,7 +179,7 @@ func _test_runtime() -> void:
 	var miner2 := _ships.get_node("Miner2")
 	var t1 := _ships.get_node("Transporter1")
 	var t2 := _ships.get_node("Transporter2")
-	var frigate := _ships.get_node("Frigate")
+	var mover := _ships.get_node("FF01A")
 	var asteroid := _mineable_asteroid(miner1)
 	var fuel_start := _stations().map(func(s: Station) -> float: return s.fuel_stock)
 	# Independent assignments, orders and station set-ups.
@@ -186,15 +192,15 @@ func _test_runtime() -> void:
 	miner1.get_node("Mining").assign(asteroid)
 	var tri_ok: bool = miner2.get_node("Docking").can_dock(_tri)
 	miner2.get_node("Docking").dock(_tri)
-	var frigate_target := Vector2(-40, -60)
-	var ordered: bool = frigate.get_node("RouteFollower").order(frigate_target)
+	var mover_target := Vector2(-40, -60)
+	var ordered: bool = mover.get_node("RouteFollower").order(mover_target)
 	_a.get_node("Refinery").set_mineral(0, IRON)
 	_a.get_node("Refinery").set_enabled(0, true)
 	_a.get_node("Refinery").rates[IRON] = 8.0
 	for ingot: StringName in Shipyard.RECIPES[&"mining_ship"].ingots:
 		_yard_station.storage.add(ingot, Shipyard.RECIPES[&"mining_ship"].ingots[ingot])
 	var accepted := _yard.order(&"mining_ship")
-	_check("R4. set-up: Miner1 mines asteroid %d (base RefineryA), Transporter1 RefineryB -> Yard (iron 100), Miner2 docks at TriDepot (can dock %s), Frigate moves, RefineryA slot 1 iron at rate 8, Mining Ship ordered at the Yard" % [
+	_check("R4. set-up: Miner1 mines asteroid %d (base RefineryA), Transporter1 RefineryB -> Yard (iron 100), Miner2 docks at TriDepot (can dock %s), FF01A moves, RefineryA slot 1 iron at rate 8, Mining Ship ordered at the Yard" % [
 		asteroid, tri_ok], asteroid > 0 and tri_ok and ordered and accepted and _yard.state == Shipyard.State.CONSTRUCTING)
 
 	var produced_ordered := false
@@ -234,14 +240,15 @@ func _test_runtime() -> void:
 		t1.get_node("Transport").deliveries >= 1 and _yard_station.storage.quantity_of(IRON) == 100 and _b.storage.quantity_of(IRON) == 0
 		and t2.get_node("Cargo").inventory.quantity() == 0 and not t2.get_node("Transport").is_active() and not t2.get_node("Locomotion").has_destination
 		and t2.get_node("Docking").state == Docking.State.NONE)
-	var fuels := ["Miner1", "Miner2", "Transporter1", "Transporter2", "Frigate", "Gunship", "Destroyer"].map(func(n: String) -> float:
+	var fuels := ["Miner1", "Miner2", "Transporter1", "Transporter2", "FF01A", "FF01B"].map(func(n: String) -> float:
 		return snappedf(_ships.get_node(n).get_node("Fuel").fuel, 0.01))
-	_check("R4. fuel per ship follows its own travel and refuelling %s: the idle Transporter2, Gunship and Destroyer full, the Frigate below full" % str(fuels),
-		fuels[3] == 200.0 and fuels[5] == 200.0 and fuels[6] == 400.0 and fuels[4] < 100.0 and fuels[4] > 80.0)
-	var loco: ShipLocomotion = frigate.get_node("Locomotion")
-	_check("R4. Frigate arrived at its own destination (%.3f u off), the other warships never moved" % loco.planar_position.distance_to(frigate_target),
-		not loco.has_destination and loco.planar_position.distance_to(frigate_target) < 0.5
-		and _ships.get_node("Gunship/Locomotion").planar_position == Vector2(0, -25) and _ships.get_node("Destroyer/Locomotion").planar_position == Vector2(25, -25))
+	# FF01A flies at least the 44.7 u straight line at 1.0 fuel per u.
+	_check("R4. fuel per ship follows its own travel and refuelling %s: the idle Transporter2 and FF01B full, FF01A below full" % str(fuels),
+		fuels[3] == 200.0 and fuels[5] == 400.0 and fuels[4] < 400.0 - 44.7 and fuels[4] > 330.0)
+	var loco: ShipLocomotion = mover.get_node("Locomotion")
+	_check("R4. FF01A arrived at its own destination (%.3f u off), the other FF-01 never moved" % loco.planar_position.distance_to(mover_target),
+		not loco.has_destination and loco.planar_position.distance_to(mover_target) < 0.5
+		and _ships.get_node("FF01B/Locomotion").planar_position == Vector2(25, -25))
 
 	# R5. Stations: storage, fuel, refining and reservations kept apart.
 	var fuel_now := _stations().map(func(s: Station) -> float: return s.fuel_stock)
@@ -286,7 +293,7 @@ func _check_reservations() -> void:
 func _test_selection() -> void:
 	var selection := _arena.get_node("Selection")
 	var picked := []
-	for ship_name in ["Frigate", "Destroyer", "Transporter2"]:
+	for ship_name in ["FF01A", "FF01B", "Transporter2"]:
 		var ship: Node3D = _ships.get_node(ship_name)
 		var rig: Node3D = _arena.get_node("CameraRig")
 		rig.global_position = Vector3(ship.global_position.x, 0, ship.global_position.z)
@@ -294,7 +301,7 @@ func _test_selection() -> void:
 		_click(_camera.unproject_position(ship.global_position))
 		await process_frame
 		picked.append(", ".join(selection.selected.map(func(s: Node) -> String: return String(s.name))))
-	_check("R7. a click selects the intended ship: %s" % str(picked), picked == ["Frigate", "Destroyer", "Transporter2"])
+	_check("R7. a click selects the intended ship: %s" % str(picked), picked == ["FF01A", "FF01B", "Transporter2"])
 
 
 # --- R8. Totals -----------------------------------------------------------------------------

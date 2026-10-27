@@ -28,6 +28,10 @@ var _camera: Camera3D
 func _initialize() -> void:
 	await process_frame
 	_main = MAIN.instantiate()
+	var ff01: Node3D = load("res://game/ships/ff01_unit.tscn").instantiate()
+	ff01.name = "FF01"
+	ff01.position = Vector3(0, 1.5, 0)
+	_main.get_node("Ships").add_child(ff01)
 	root.add_child(_main)
 	_main.get_node("Survey").set_physics_process(false)
 	for ship in _main.get_node("Ships").get_children():
@@ -47,13 +51,13 @@ func _initialize() -> void:
 	_check("one ship selected: every mesh of Miner1 (nested hull) has the selected overlay, cyan fill 0.08; no other object highlighted",
 		_styled("Ships/Miner1", WorldHighlight.Style.SELECTED, Color(0.30, 0.75, 0.90, 0.08)) and _count() == 1)
 
-	_selection.set_selection([_ship("Frigate"), _ship("Gunship"), _ship("Destroyer")])
+	_selection.set_selection([_ship("FF01"), _ship("Miner2"), _ship("Transporter")])
 	_highlight.update(away, true)
 	_check("three ships selected: each has the selected overlay, Miner1's is cleared",
-		_styled("Ships/Frigate", WorldHighlight.Style.SELECTED) and _styled("Ships/Gunship", WorldHighlight.Style.SELECTED)
-		and _styled("Ships/Destroyer", WorldHighlight.Style.SELECTED) and _cleared("Ships/Miner1") and _count() == 3)
+		_styled("Ships/FF01", WorldHighlight.Style.SELECTED) and _styled("Ships/Miner2", WorldHighlight.Style.SELECTED)
+		and _styled("Ships/Transporter", WorldHighlight.Style.SELECTED) and _cleared("Ships/Miner1") and _count() == 3)
 	_selection._process(0.0)
-	_check("the green selection rings stay on the selected ships", [_ship("Frigate"), _ship("Gunship"), _ship("Destroyer")].all(func(s: Node3D) -> bool: return _selection._rings[s].visible) and not _selection._rings[_ship("Miner1")].visible)
+	_check("the green selection rings stay on the selected ships", [_ship("FF01"), _ship("Miner2"), _ship("Transporter")].all(func(s: Node3D) -> bool: return _selection._rings[s].visible) and not _selection._rings[_ship("Miner1")].visible)
 
 	_selection.set_selection([])
 	var over_miner := _screen(_ship("Miner2").global_position)
@@ -83,15 +87,15 @@ func _initialize() -> void:
 	_check("deselected station: its overlay is removed, nothing highlighted", _cleared("Stations/Station") and _count() == 0)
 
 	# Constant width on screen: the world thickness follows the camera distance.
-	_selection.set_selection([_ship("Gunship")])
+	_selection.set_selection([_ship("FF01")])
 	var widths := []
 	var pixels := []
 	for zoom in [8.0, 20.0, 40.0]:
 		_frame(Vector2(0, 0), zoom)
 		await process_frame
 		_highlight.update(away, true)
-		widths.append(snappedf(_highlight._materials[_ship("Gunship")][1].get_shader_parameter("thickness"), 0.0001))
-		pixels.append(snappedf(_highlight.outline_pixels(_ship("Gunship")), 0.001))
+		widths.append(snappedf(_highlight._materials[_ship("FF01")][1].get_shader_parameter("thickness"), 0.0001))
+		pixels.append(snappedf(_highlight.outline_pixels(_ship("FF01")), 0.001))
 	_check("outline width constant on screen at zoom 8 / 20 / 40: %s px (world %s u)" % [str(pixels), str(widths)],
 		pixels.all(func(p: float) -> bool: return absf(p - 2.0) < 0.01) and widths[0] < widths[1] and widths[1] < widths[2])
 
@@ -111,11 +115,11 @@ func _initialize() -> void:
 	await _test_asteroids()
 
 	# Overlays never change picking or the selection feedback: compare with the start.
-	_selection.set_selection([_ship("Frigate"), _ship("Gunship"), _ship("Destroyer"), _ship("Miner1"), _ship("Transporter")])
+	_selection.set_selection([_ship("FF01"), _ship("Miner1"), _ship("Miner2"), _ship("Transporter")])
 	_main.get_node("StationPanel").select(station)
 	_highlight.update(away, true)
 	var during := _measure()
-	_check("with overlays on five ships and the station: pick boxes, ring radii, mesh counts and station picks identical to the start (%d values)" % before.size(),
+	_check("with overlays on four ships and the station: pick boxes, ring radii, mesh counts and station picks identical to the start (%d values)" % before.size(),
 		during == before)
 	print("RESULT: %s (%d of %d checks failed)" % ["PASS" if _failures == 0 else "FAIL", _failures, _checks])
 	quit(0 if _failures == 0 else 1)

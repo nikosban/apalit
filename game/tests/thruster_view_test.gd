@@ -16,11 +16,13 @@ const MAIN := preload("res://main.tscn")
 const ThrusterView := preload("res://game/presentation/thruster_view.gd")
 const WorldHighlight := preload("res://game/presentation/world_highlight.gd")
 const UNITS := {
-	"Miner": "res://game/ships/miner_unit.tscn", "Frigate": "res://game/ships/frigate_unit.tscn",
-	"Gunship": "res://game/ships/gunship_unit.tscn", "Transporter": "res://game/ships/transporter_unit.tscn",
-	"Destroyer": "res://game/ships/destroyer_unit.tscn",
+	"Miner": "res://game/ships/miner_unit.tscn", "Transporter": "res://game/ships/transporter_unit.tscn",
+	"FF01": "res://game/ships/ff01_unit.tscn",
 }
-const SHIPS := ["Miner1", "Frigate", "Gunship", "Transporter", "Destroyer"] # One of each type.
+const SHIPS := ["Miner1", "Transporter", "FF01"] # One of each type (the FF-01 is added to the scene).
+# Hull family with black thruster parts and a main engine protruding past the hull; the
+# FF-01 blockout has its own dark-grey parts and a flush engine.
+const PROTRUDING_BLACK := ["Miner1", "Transporter"]
 const JETS := ["Retro_L", "Retro_R", "Bow_L", "Bow_R", "Lateral_L", "Lateral_R", "Stern_L", "Stern_R"]
 const OPEN := Vector2(118, 0) # Open ground (no ships, stations or obstacles).
 
@@ -35,6 +37,10 @@ var _camera: Camera3D
 func _initialize() -> void:
 	await process_frame
 	_main = MAIN.instantiate()
+	var ff01: Node3D = load(UNITS["FF01"]).instantiate()
+	ff01.name = "FF01"
+	ff01.position = Vector3(14, 1.5, 0)
+	_main.get_node("Ships").add_child(ff01)
 	root.add_child(_main)
 	_view = _main.get_node("ThrusterView")
 	_selection = _main.get_node("Selection")
@@ -74,13 +80,15 @@ func _test_parts() -> void:
 		var to_ship := ship.global_transform.affine_inverse()
 		for part: MeshInstance3D in thrusters.get_children():
 			var material := part.mesh.surface_get_material(0) as StandardMaterial3D
-			black = black and material != null and material.albedo_color.v < 0.05
+			if ship_name in PROTRUDING_BLACK:
+				black = black and material != null and material.albedo_color.v < 0.05
 			var box: AABB = (to_ship * part.global_transform) * part.get_aabb()
 			for i in 8:
 				inside = inside and Vector2(box.get_endpoint(i).x, box.get_endpoint(i).z).length() <= radius + 0.0001
 		emitters = emitters and _view.emitters_of(ship).size() == 9
 	_check("every type has Model/Thrusters with MainEngine (+ MainEngine2...) + 8 jet boxes (%s)" % (", ".join(found) if not found.is_empty() else "all"), found.is_empty())
-	_check("all thruster parts are black and inside the ship's collision radius", black and inside)
+	_check("all thruster parts are inside the ship's collision radius", inside)
+	_check("the Miner and Transporter thruster parts are black", black)
 	_check("ThrusterView knows the nine emitters of each type", emitters)
 	var under_ship := false
 	var effects := true
@@ -160,14 +168,14 @@ func _test_picking_and_outline() -> void:
 			var box: AABB = (ship.global_transform.affine_inverse() * mesh.global_transform) * mesh.get_aabb()
 			hits_hull = hits_hull or box.intersects_ray(origin, direction) != null
 		var engine_hit := engine_box.intersects_ray(origin, direction) != null
-		engine_only = engine_only and not hits_hull and engine_hit
-		if hits_hull or not engine_hit:
+		if ship_name in PROTRUDING_BLACK and (hits_hull or not engine_hit):
+			engine_only = false
 			hull_hit.append("%s (hull %s, engine %s, ray %s)" % [ship_name, hits_hull, engine_hit, str(direction.snapped(Vector3(0.01, 0.01, 0.01)))])
 		if _selection.pick(screen) == ship:
 			picked.append(ship_name)
 		ship.get_node("Locomotion").place(Vector2(saved.origin.x, saved.origin.z), ship.get_node("Locomotion").heading)
 	_check("Selection pick boxes include the thruster parts of each type", boxes)
-	_check("the ray through the protruding main engine misses the original hull and hits the engine box (each type) %s" % ", ".join(hull_hit), engine_only)
+	_check("the ray through the protruding main engine misses the original hull and hits the engine box (Miner, Transporter) %s" % ", ".join(hull_hit), engine_only)
 	_check("a click on the main engine picks the ship: %s" % str(picked), picked.size() == SHIPS.size())
 	var highlight: WorldHighlight = _main.get_node("WorldHighlight")
 	var outlined := true
@@ -332,7 +340,7 @@ func _test_produced() -> void:
 		await physics_frame
 	await process_frame
 	var ready := added.all(func(s: Node3D) -> bool: return _view.emitters_of(s).size() == 9 and _view.plume_of(s) != null and _view.state_of(s) == ThrusterView.State.IDLE)
-	_check("five produced ships (one per type) have their nine emitters and an idle plume", ready)
+	_check("three produced ships (one per type) have their nine emitters and an idle plume", ready)
 	var plume := _view.plume_of(added[0])
 	_remove(added[0])
 	for i in 3:

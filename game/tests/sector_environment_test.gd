@@ -96,7 +96,7 @@ func _initialize() -> void:
 	_check("Test Arena: sector half-size 150 (navigation, camera bounds), no tactical grid, local fuel scale 1, ships charged in full",
 		is_equal_approx(scene.sector_half_size(), 150.0) and rig.bounds == Rect2(-150, -150, 300, 300)
 		and scene.grid == null and not scene.has_node("TacticalGrid") and is_equal_approx(scene.local_fuel_scale, 1.0)
-		and is_equal_approx(scene.get_node("Ships/Frigate/Fuel").local_scale, 1.0) and scene.has_node("Ground"))
+		and is_equal_approx(scene.get_node("Ships/Miner1/Fuel").local_scale, 1.0) and scene.has_node("Ground"))
 	_check("Test Arena: environment unchanged (flat background A, no environment lighting, Strategic depth or god rays; sun 60 degrees up)",
 		env.sky_mode == 0 and not env.lighting_d and env.god_rays == null and not scene.strategic.e_enabled
 		and is_equal_approx(rad_to_deg(asin((scene.get_node("DirectionalLight3D") as DirectionalLight3D).global_basis.z.y)), 60.0))
@@ -127,17 +127,17 @@ func _case_showcase() -> void:
 		half > 150.0 and is_equal_approx(scene.get_node("StaticNavigation").map_half_size, half)
 		and scene.get_node("CameraRig").bounds == Rect2(-half, -half, 2.0 * half, 2.0 * half)
 		and scene.grid == null and not scene.has_node("TacticalGrid") and scene.strategic.sector_rect() == scene.get_node("CameraRig").bounds)
-	var gunship: Node3D = scene.ship("Gunship")
-	var inside: bool = scene._intent_valid(gunship, {"kind": scene.CommandKind.MOVE, "point": Vector2(half - 5.0, 0.0)})
-	var outside: bool = scene._intent_valid(gunship, {"kind": scene.CommandKind.MOVE, "point": Vector2(half + 5.0, 0.0)})
-	var radius: float = gunship.get_node("RouteFollower").planning_radius()
+	var transporter: Node3D = scene.ship("Transporter")
+	var inside: bool = scene._intent_valid(transporter, {"kind": scene.CommandKind.MOVE, "point": Vector2(half - 5.0, 0.0)})
+	var outside: bool = scene._intent_valid(transporter, {"kind": scene.CommandKind.MOVE, "point": Vector2(half + 5.0, 0.0)})
+	var radius: float = transporter.get_node("RouteFollower").planning_radius()
 	var navigation := scene.get_node("StaticNavigation")
 	_check("Showcase: MOVE valid inside the sector, refused outside it; navigation's map ends at the same bound",
 		inside and not outside and navigation.segment_clear(Vector2(half - radius - 2.0, -300), Vector2(half - radius - 2.0, -290), radius)
 		and not navigation.segment_clear(Vector2(half - 1.0, -300), Vector2(half - 1.0, -290), radius))
 	_check("Showcase: local fuel scale 0.1 applied to every ship's Fuel (tanks unchanged)",
 		is_equal_approx(scene.local_fuel_scale, 0.1) and scene.get_node("Ships").get_children().all(func(s: Node) -> bool:
-			return is_equal_approx(s.get_node("Fuel").local_scale, 0.1)) and is_equal_approx(scene.get_node("Ships/Frigate/Fuel").capacity, 100.0))
+			return is_equal_approx(s.get_node("Fuel").local_scale, 0.1)) and is_equal_approx(scene.get_node("Ships/Miner1/Fuel").capacity, 100.0))
 	var backdrop := scene.get_node("Backdrop") as MultiMeshInstance3D
 	var below: bool = backdrop.placement().all(func(t: Transform3D) -> bool: return t.origin.y < -50.0)
 	_check("Showcase: no ground; backdrop (%d rocks) far below the plane, in no obstacle group, not under the asteroid field, not on the Strategic layer" % backdrop.multimesh.instance_count,
@@ -199,6 +199,12 @@ func _case_sky() -> void:
 func _case_experiments() -> void:
 	_unload()
 	scene = SHOWCASE.instantiate()
+	# A hostile FF-01 where the Showcase's hostile fleet used to start (beyond sensor range).
+	var added: Node3D = load("res://game/ships/ff01_unit.tscn").instantiate()
+	added.name = "HostileFF01"
+	added.transform = Transform3D(Basis(Vector3.UP, -PI / 2), Vector3(214, 1.5, -58))
+	added.get_node("Combat").faction = 1
+	scene.get_node("Ships").add_child(added)
 	root.add_child(scene)
 	for i in 3:
 		await process_frame
@@ -266,7 +272,7 @@ func _case_experiments() -> void:
 	# Everything on together: gameplay information is unchanged.
 	var sensors := scene.get_node("Sensors")
 	sensors.evaluate()
-	var hostile: Node3D = scene.ship("HostileDestroyer")
+	var hostile: Node3D = scene.ship("HostileFF01")
 	var camera := scene.get_viewport().get_camera_3d()
 	var screen := camera.unproject_position(hostile.global_position)
 	var agree := true

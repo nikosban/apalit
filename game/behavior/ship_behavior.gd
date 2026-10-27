@@ -1,6 +1,6 @@
 extends Node
 ## Commands, Tactics and Weapon Profiles for one armed ship (node `Behavior`, in the
-## Gunship and Destroyer variants; migrated from the behavior prototype v0.1 accepted in
+## armed variant (FF-01); migrated from the behavior prototype v0.1 accepted in
 ## P01–P03 and E05). Friendly and hostile ships run the same code; a hostile ship's
 ## commands come from its commander. It never moves, turns or fires the ship itself: it
 ## decides movement intentions and hands them to the existing systems — a point through

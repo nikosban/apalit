@@ -1,6 +1,6 @@
 ﻿extends SceneTree
 ## Headless checks for ship obstruction by stationary ships, on the test arena
-## (game/scenes/movement_test.tscn, unchanged): a Miner and a Transporter are
+## (game/scenes/movement_test.tscn, unchanged): a Miner2 and a Transporter2 are
 ## added at run time, configured as in main.tscn (movement nodes only). Physics is
 ## stepped manually at 60 Hz in the game's order (per ship RouteFollower then
 ## Avoidance, then every Locomotion). Manual MOVE orders go through the lab's
@@ -10,14 +10,14 @@
 ## Scenarios (open area east of the obstacles, around (115, 0), unless stated):
 ##   1. MOVE onto or beside a stationary ship (directly underneath, offset, near the
 ##      separation boundary); a click on a moving ship; no valid destination.
-##   2. Close approaches past an idle Miner (the previously failing distances).
-##   3. The same approaches with the Miner moved away (reference).
+##   2. Close approaches past an idle Miner2 (the previously failing distances).
+##   3. The same approaches with the Miner2 moved away (reference).
 ##   4. Moving-ship encounters: crossing from either side, head-on, overtaking.
 ##   5. Two stationary ships with room between or around them (side by side,
 ##      staggered), and two across the arena's gap (impassable: hold short).
-##   7. Direct moves ending beyond a stationary Miner (every hull, several
+##   7. Direct moves ending beyond a stationary Miner2 (every hull, several
 ##      distances), and the same moves unobstructed (control).
-##   6. A stationary Miner in the arena's gap (insufficient clearance), then leaving.
+##   6. A stationary Miner2 in the arena's gap (insufficient clearance), then leaving.
 ## Measured: outcome, time, along-travel reversals, largest reverse speed, longest
 ## stall (stopped with an order), contacts (collision count), smallest footprint
 ## gap, acceleration / turn-limit violations, passing-side flips. Every check is PASS/FAIL.
@@ -30,9 +30,9 @@ const RouteFollower := preload("res://game/navigation/route_follower.gd")
 const ShipAvoidance := preload("res://game/avoidance/ship_avoidance.gd")
 const Scenarios := preload("res://game/scenes/avoidance_scenarios.gd")
 const DT := 1.0 / 60.0
-const SHIPS := ["Frigate", "Gunship", "Destroyer", "Miner", "Transporter"]
-const PARK := {"Frigate": Vector2(-135, 135), "Gunship": Vector2(-135, 70), "Destroyer": Vector2(-135, 0),
-	"Miner": Vector2(-135, -70), "Transporter": Vector2(-135, -135)}
+const SHIPS := ["Miner", "Transporter", "FF01", "Miner2", "Transporter2"]
+const PARK := {"Miner": Vector2(-135, 135), "Transporter": Vector2(-135, 70), "FF01": Vector2(-135, 0),
+	"Miner2": Vector2(-135, -70), "Transporter2": Vector2(-135, -135)}
 const CENTER := Vector2(115, 0)
 const TIME_LIMIT := 90.0 # s per run
 const HOLD_LIMIT := 15.0 # s stopped with an order ends a run as WAITING
@@ -50,8 +50,8 @@ func _initialize() -> void:
 	await process_frame
 	_lab = LAB.instantiate()
 	root.add_child(_lab)
-	_add_ship(MINER.instantiate(), "Miner", [5.0, 4.0, 3.0, 6.0, 3.0, 2.5, 120.0, 240.0], 1.6, 1)
-	_add_ship(TRANSPORTER.instantiate(), "Transporter", [4.5, 2.5, 2.0, 3.0, 1.5, 1.2, 60.0, 90.0], 4.1, 2)
+	_add_ship(MINER.instantiate(), "Miner2", [5.0, 4.0, 3.0, 6.0, 3.0, 2.5, 120.0, 240.0], 1.6, 1)
+	_add_ship(TRANSPORTER.instantiate(), "Transporter2", [4.5, 2.5, 2.0, 3.0, 1.5, 1.2, 60.0, 90.0], 4.1, 2)
 	_navigation = _lab.get_node("StaticNavigation")
 	for ship_name in SHIPS:
 		for child in ["Locomotion", "RouteFollower", "Avoidance"]:
@@ -103,10 +103,10 @@ func _add_ship(ship: Node3D, ship_name: String, profile: Array, radius: float, s
 func _test_occupied() -> void:
 	var group := _lab.get_node("GroupOrders")
 	var results := {true: [0, true], false: [0, true]} # far side of the blocker -> [count, all ok]
-	for case: Array in [["Gunship", "Miner", Vector2(0, 0)], ["Gunship", "Miner", Vector2(2, 0)], ["Gunship", "Miner", Vector2(0, -6)],
-			["Gunship", "Miner", Vector2(0, -6.4)], ["Gunship", "Miner", Vector2(4, 4)], ["Destroyer", "Miner", Vector2(0, 0)],
-			["Transporter", "Miner", Vector2(0, 0)], ["Frigate", "Gunship", Vector2(0, 0)], ["Miner", "Gunship", Vector2(2, 0)],
-			["Frigate", "Miner", Vector2(0, 0)]]:
+	for case: Array in [["Transporter", "Miner2", Vector2(0, 0)], ["Transporter", "Miner2", Vector2(2, 0)], ["Transporter", "Miner2", Vector2(0, -6)],
+			["Transporter", "Miner2", Vector2(0, -6.4)], ["Transporter", "Miner2", Vector2(4, 4)], ["FF01", "Miner2", Vector2(0, 0)],
+			["Transporter2", "Miner2", Vector2(0, 0)], ["Miner", "Transporter", Vector2(0, 0)], ["Miner2", "Transporter", Vector2(2, 0)],
+			["Miner", "Miner2", Vector2(0, 0)]]:
 		var mover: String = case[0]
 		var blocker: String = case[1]
 		var click: Vector2 = CENTER + case[2]
@@ -134,48 +134,48 @@ func _test_occupied() -> void:
 
 	# A click on a ship that is moving (with an order) is not resolved.
 	_reset()
-	_place("Miner", CENTER + Vector2(-20, 0), -PI / 2)
-	_follower("Miner").order(CENTER + Vector2(20, 0))
+	_place("Miner2", CENTER + Vector2(-20, 0), -PI / 2)
+	_follower("Miner2").order(CENTER + Vector2(20, 0))
 	for i in 60 * 3:
 		_step()
-	_place("Gunship", CENTER + Vector2(0, 30), 0.0)
-	var click := _locomotion("Miner").planar_position
-	_lab._move_single(_ship("Gunship"), click)
-	_check("1. a click on a moving ship keeps the clicked point (destination %.2f u from it)" % _locomotion("Gunship").destination.distance_to(click),
-		_locomotion("Gunship").destination.distance_to(click) < 0.01)
+	_place("Transporter", CENTER + Vector2(0, 30), 0.0)
+	var click := _locomotion("Miner2").planar_position
+	_lab._move_single(_ship("Transporter"), click)
+	_check("1. a click on a moving ship keeps the clicked point (destination %.2f u from it)" % _locomotion("Transporter").destination.distance_to(click),
+		_locomotion("Transporter").destination.distance_to(click) < 0.01)
 
-	# No valid destination (a Miner inside the closed box): rejected, the current order kept.
+	# No valid destination (a Miner2 inside the closed box): rejected, the current order kept.
 	_reset()
-	_place("Miner", Vector2(60, 50), 0.0)
-	_place("Gunship", CENTER + Vector2(0, 30), 0.0)
-	_follower("Gunship").order(CENTER + Vector2(0, -30))
+	_place("Miner2", Vector2(60, 50), 0.0)
+	_place("Transporter", CENTER + Vector2(0, 30), 0.0)
+	_follower("Transporter").order(CENTER + Vector2(0, -30))
 	for i in 60:
 		_step()
-	var before := _locomotion("Gunship").destination
-	var given: bool = _lab._move_single(_ship("Gunship"), Vector2(60, 50))
+	var before := _locomotion("Transporter").destination
+	var given: bool = _lab._move_single(_ship("Transporter"), Vector2(60, 50))
 	_check("1. no valid destination: command rejected, current order kept (destination unchanged, still moving)",
-		not given and _locomotion("Gunship").has_destination and _locomotion("Gunship").destination == before)
+		not given and _locomotion("Transporter").has_destination and _locomotion("Transporter").destination == before)
 
 
-# 2, 3. Close approaches past an idle Miner, and the same with the Miner moved away.
+# 2, 3. Close approaches past an idle Miner2, and the same with the Miner2 moved away.
 func _test_close_approaches() -> void:
 	var ok := true
 	var reference_ok := true
 	var stalls := 0
 	var runs := 0
 	var worst_added := 0.0
-	for set: Array in [["Gunship", [7.0, 8.0, 9.0, 10.0]], ["Transporter", [7.7, 8.7, 9.7, 10.7, 12.7]],
-			["Destroyer", [9.8, 11.8, 13.8, 16.8]], ["Frigate", [5.2, 7.2]]]:
+	for set: Array in [["Transporter", [7.0, 8.0, 9.0, 10.0]], ["Transporter2", [7.7, 8.7, 9.7, 10.7, 12.7]],
+			["FF01", [9.8, 11.8, 13.8, 16.8]], ["Miner", [5.2, 7.2]]]:
 		var mover: String = set[0]
 		for distance: float in set[1]:
 			for lateral: float in [0.0, 1.0, 2.0, 3.0, 4.0]:
 				var start := CENTER + Vector2(lateral, distance)
 				var target := CENTER + Vector2(lateral, -30)
 				_reset()
-				_place("Miner", CENTER, 0.0)
+				_place("Miner2", CENTER, 0.0)
 				_place(mover, start, 0.0)
 				_follower(mover).order(target)
-				var r := _simulate("2. %s from %.1f u, %.0f u off, past an idle Miner" % [mover, distance, lateral], mover, start)
+				var r := _simulate("2. %s from %.1f u, %.0f u off, past an idle Miner2" % [mover, distance, lateral], mover, start)
 				_reset()
 				_place(mover, start, 0.0)
 				_follower(mover).order(target)
@@ -186,8 +186,8 @@ func _test_close_approaches() -> void:
 				if r.arrived and alone.arrived:
 					worst_added = maxf(worst_added, r.time - alone.time)
 				ok = ok and r.arrived and r.contacts == 0 and r.clear and r.reversals == 0 and r.limits == 0
-	_check("2. close approaches past an idle Miner: %d of %d arrive (largest added time %.1f s) with no contact, reversal or limit violation" % [runs - stalls, runs, worst_added], ok)
-	_check("3. the same approaches with the Miner moved away all arrive", reference_ok)
+	_check("2. close approaches past an idle Miner2: %d of %d arrive (largest added time %.1f s) with no contact, reversal or limit violation" % [runs - stalls, runs, worst_added], ok)
+	_check("3. the same approaches with the Miner2 moved away all arrive", reference_ok)
 
 
 # 4. Moving-ship encounters (avoidance roles unchanged): crossing either side, head-on, overtaking.
@@ -196,9 +196,9 @@ func _test_moving_encounters() -> void:
 	for ship_name in SHIPS:
 		profiles[ship_name] = [_locomotion(ship_name).max_speed, _locomotion(ship_name).forward_accel]
 	var ok := true
-	for scenario: Dictionary in [Scenarios.crossing("Frigate", "Gunship", true, profiles), Scenarios.crossing("Frigate", "Gunship", false, profiles),
-			Scenarios.crossing("Miner", "Gunship", true, profiles), Scenarios.head_on("Frigate", "Gunship", 0.0), Scenarios.head_on("Miner", "Transporter", 0.0),
-			Scenarios.overtake("Frigate", "Gunship")]:
+	for scenario: Dictionary in [Scenarios.crossing("Miner", "Transporter", true, profiles), Scenarios.crossing("Miner", "Transporter", false, profiles),
+			Scenarios.crossing("Miner2", "Transporter", true, profiles), Scenarios.head_on("Miner", "Transporter", 0.0), Scenarios.head_on("Miner2", "Transporter2", 0.0),
+			Scenarios.overtake("Miner", "Transporter")]:
 		_reset()
 		_start_inside(scenario)
 		for entry: Dictionary in scenario.movers:
@@ -213,7 +213,7 @@ func _test_moving_encounters() -> void:
 
 
 # Translates a scenario (geometry unchanged) by the least whole units that put every
-# start footprint inside the sector (crossing from the right starts the Gunship at x 152).
+# start footprint inside the sector (crossing from the right starts the Transporter at x 152).
 func _start_inside(scenario: Dictionary) -> void:
 	var half: float = _navigation.map_half_size
 	var shift := Vector2.ZERO
@@ -228,8 +228,8 @@ func _start_inside(scenario: Dictionary) -> void:
 		entry.target += shift
 
 
-# 5. Two stationary ships (an idle Miner and an idle Frigate). Passable (open space):
-# 16 u apart (Gunship and Transporter fit between, the Destroyer must go around)
+# 5. Two stationary ships (an idle Miner2 and an idle Miner). Passable (open space):
+# 16 u apart (Transporter and Transporter2 fit between, the FF01 must go around)
 # and 4 u apart (everyone goes around; the two encounters start committed to opposite
 # sides), from the centre line and 3 u off; a staggered pair. Impassable: the two
 # ships across the arena's 10 u gap (walled on both sides): the mover holds short,
@@ -242,17 +242,17 @@ func _test_two_stationary() -> void:
 	var layouts := []
 	for spacing: float in [16.0, 4.0]:
 		for lateral: float in [0.0, 3.0]:
-			for mover in ["Gunship", "Transporter", "Destroyer"]:
+			for mover in ["Transporter", "Transporter2", "FF01"]:
 				layouts.append(["%.0f u apart, from %.0f u off" % [spacing, lateral], mover, Vector2(-spacing * 0.5, 0), Vector2(spacing * 0.5, 0),
-					Vector2(lateral, 12.0 if mover != "Destroyer" else 16.0), Vector2(lateral, -30)])
-	for mover in ["Gunship", "Destroyer"]:
-		layouts.append(["staggered (Miner 1 u left, Frigate 2 u right and 8 u on)", mover, Vector2(-1, 0), Vector2(2, -8),
-			Vector2(0, 12.0 if mover != "Destroyer" else 16.0), Vector2(0, -30)])
+					Vector2(lateral, 12.0 if mover != "FF01" else 16.0), Vector2(lateral, -30)])
+	for mover in ["Transporter", "FF01"]:
+		layouts.append(["staggered (Miner2 1 u left, Miner 2 u right and 8 u on)", mover, Vector2(-1, 0), Vector2(2, -8),
+			Vector2(0, 12.0 if mover != "FF01" else 16.0), Vector2(0, -30)])
 	for layout: Array in layouts:
 		var mover: String = layout[1]
 		_reset()
-		_place("Miner", CENTER + layout[2], 0.0)
-		_place("Frigate", CENTER + layout[3], 0.0)
+		_place("Miner2", CENTER + layout[2], 0.0)
+		_place("Miner", CENTER + layout[3], 0.0)
 		var start: Vector2 = CENTER + layout[4]
 		_place(mover, start, 0.0)
 		_follower(mover).order(CENTER + layout[5])
@@ -262,45 +262,45 @@ func _test_two_stationary() -> void:
 		ok = ok and r.arrived and r.contacts == 0 and r.clear and r.reversals == 0 and r.limits == 0 and r.flips == 0
 	_check("5. two stationary ships with room between or around them: %d of %d arrive; no contact, reversal, limit violation or passing-side flip" % [arrived, runs], ok)
 
-	# Impassable: Miner and Frigate across the gap (blocks at x -26..-6 and 4..24, y 37..43;
-	# only ships up to the Gunship fit through it, so the Gunship is the mover).
+	# Impassable: Miner2 and Miner across the gap (blocks at x -26..-6 and 4..24, y 37..43;
+	# only ships up to the Transporter fit through it, so the Transporter is the mover).
 	var held := true
 	for points: Array in [[Vector2(-3.5, 40), Vector2(1.5, 40)], [Vector2(-4.0, 39), Vector2(2.0, 41)]]:
-		var mover := "Gunship"
+		var mover := "Transporter"
 		_reset()
-		_place("Miner", points[0], 0.0)
-		_place("Frigate", points[1], 0.0)
+		_place("Miner2", points[0], 0.0)
+		_place("Miner", points[1], 0.0)
 		var start := Vector2(-1, 62)
 		_place(mover, start, 0.0)
 		_follower(mover).order(Vector2(-1, 15))
 		var r := _simulate("5. %s through the gap held by two stationary ships at %s, %s (impassable)" % [mover, points[0], points[1]], mover, start)
+		_place("Miner2", PARK["Miner2"], 0.0)
 		_place("Miner", PARK["Miner"], 0.0)
-		_place("Frigate", PARK["Frigate"], 0.0)
 		var after := _simulate("5. ... after both left", mover, start)
 		held = held and r.outcome == "WAITING" and r.contacts == 0 and r.clear and r.reversals == 0 and r.flips == 0 and after.arrived and after.contacts == 0
 	_check("5. two stationary ships across a gap too narrow to pass: the mover holds short (no contact, reversal or side flip), then arrives once they leave", held)
 
 
-# 6. Insufficient clearance: a Miner parked in the arena's gap (10 u between the gap
-# blocks): the Gunship holds short (order kept, no contact, no shuttling); once the
-# Miner has left it completes its order.
+# 6. Insufficient clearance: a Miner2 parked in the arena's gap (10 u between the gap
+# blocks): the Transporter holds short (order kept, no contact, no shuttling); once the
+# Miner2 has left it completes its order.
 func _test_insufficient() -> void:
 	_reset()
-	_place("Miner", Vector2(-1, 40), 0.0)
+	_place("Miner2", Vector2(-1, 40), 0.0)
 	var start := Vector2(-1, 62)
-	_place("Gunship", start, 0.0)
-	_follower("Gunship").order(Vector2(-1, 15))
-	var r := _simulate("6. Gunship through the gap held by a Miner", "Gunship", start)
+	_place("Transporter", start, 0.0)
+	_follower("Transporter").order(Vector2(-1, 15))
+	var r := _simulate("6. Transporter through the gap held by a Miner2", "Transporter", start)
 	var waited: bool = not r.arrived and r.outcome == "WAITING" and r.contacts == 0 and r.clear and r.reversals == 0 and r.limits == 0
-	_place("Miner", PARK["Miner"], 0.0)
-	var after := _simulate("6. ... after the Miner left", "Gunship", start)
-	_check("6. insufficient clearance: the Gunship holds short with its order (no contact, no shuttling), then arrives once the Miner left",
+	_place("Miner2", PARK["Miner2"], 0.0)
+	var after := _simulate("6. ... after the Miner2 left", "Transporter", start)
+	_check("6. insufficient clearance: the Transporter holds short with its order (no contact, no shuttling), then arrives once the Miner2 left",
 		waited and after.arrived and after.contacts == 0 and after.clear)
 
 
-# 7. Direct moves ending beyond a stationary Miner (the passing shift still applied
+# 7. Direct moves ending beyond a stationary Miner2 (the passing shift still applied
 # near the destination), every hull, destinations 0.3 / 2 / 5 / 10 u beyond the
-# Miner's clearance (both footprints + 1.5 u), from the centre line and 2 u off;
+# Miner2's clearance (both footprints + 1.5 u), from the centre line and 2 u off;
 # the original case (a MOVE 6.4 u beyond, resolved 1 u on); every move also
 # unobstructed (control). Per run: overshoot past the destination along the leg,
 # backward travel along the leg, reverse speed, along-leg reversals,
@@ -313,21 +313,21 @@ func _test_far_side() -> void:
 	var control_ok := true
 	var count := 0
 	_reset()
-	_place("Miner", CENTER, 0.0)
-	_place("Gunship", CENTER + Vector2(0, 30), 0.0)
-	_lab._move_single(_ship("Gunship"), CENTER + Vector2(0, -6.4))
-	var original := _far_run("7. Gunship MOVE 6.4 u beyond the Miner (original case)", "Gunship")
+	_place("Miner2", CENTER, 0.0)
+	_place("Transporter", CENTER + Vector2(0, 30), 0.0)
+	_lab._move_single(_ship("Transporter"), CENTER + Vector2(0, -6.4))
+	var original := _far_run("7. Transporter MOVE 6.4 u beyond the Miner2 (original case)", "Transporter")
 	ok = ok and _far_ok(original)
-	for mover in ["Gunship", "Frigate", "Transporter", "Destroyer"]:
+	for mover in ["Transporter", "Miner", "Transporter2", "FF01"]:
 		var clearance: float = _follower(mover).ship_radius + 1.6 + 1.5
 		for extra: float in [0.3, 2.0, 5.0, 10.0]:
 			for lateral: float in [0.0, 2.0]:
-				var start := CENTER + Vector2(lateral, 30.0 if mover != "Destroyer" else 35.0)
+				var start := CENTER + Vector2(lateral, 30.0 if mover != "FF01" else 35.0)
 				var target := CENTER + Vector2(lateral, -(clearance + extra))
 				for obstructed: bool in [true, false]:
 					_reset()
 					if obstructed:
-						_place("Miner", CENTER, 0.0)
+						_place("Miner2", CENTER, 0.0)
 					_place(mover, start, 0.0)
 					_follower(mover).order(target)
 					var r := _far_run("7. %s %.1f u beyond, %.0f u off%s" % [mover, clearance + extra, lateral, "" if obstructed else " (control)"], mover)

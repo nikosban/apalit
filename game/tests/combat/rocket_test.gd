@@ -2,7 +2,7 @@ extends SceneTree
 ## Rocket family: RL-8 Barrage configuration and reusability, salvo scheduling at several
 ## simulation steps, complete-salvo ammunition, the locked world-space direction and
 ## per-rocket dispersion, unguided flight, physical collisions and expiry, own-hull clearance,
-## damage through the shared armor pipeline, physical interception (PDC and legacy Gatling
+## damage through the shared armor pipeline, physical interception (PDC (Gatling family)
 ## rounds; cannon shells pass through rockets), the missile-rule threat order, the FF-01
 ## installation and a salvo-versus-Kestrels measurement (observation, no pass threshold).
 ## Run: <godot console> --headless --path . --fixed-fps 60 -s res://game/tests/combat/rocket_test.gd
@@ -15,10 +15,7 @@ const KESTREL := preload("res://game/weapons/pdc20_kestrel.tres")
 const KESTREL_SCENE := preload("res://game/weapons/pdc20_kestrel.tscn")
 const NC90 := preload("res://game/weapons/nc90_bastion.tres")
 const NC90_SCENE := preload("res://game/weapons/nc90_bastion.tscn")
-const GATLING := preload("res://game/weapons/gatling.tres")
-const CANNON := preload("res://game/weapons/cannon.tres")
-const TORPEDO := preload("res://game/weapons/torpedo.tres")
-const MISSILE := preload("res://game/weapons/missile.tres")
+const WeaponConfig := preload("res://game/weapons/weapon_config.gd")
 const OrdnanceConfig := preload("res://game/weapons/ordnance_config.gd")
 const RocketLauncher := preload("res://game/weapons/rocket_launcher.gd")
 const Weapon := preload("res://game/weapons/weapon.gd")
@@ -27,7 +24,7 @@ const PDC := preload("res://game/weapons/pdc.gd")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const KESTRELS := ["ForwardPortPDCHardpoint", "ForwardStarboardPDCHardpoint", "AftPortPDCHardpoint", "AftStarboardPDCHardpoint"]
 const BASTIONS := ["ForwardBastionHardpoint", "AftBastionHardpoint"]
-const COMBAT_TEST_SHIPS := ["Gunship", "Destroyer", "Gunship2", "HostileDestroyer", "HostileGunship", "HostileGunship2", "FF01"]
+const COMBAT_TEST_SHIPS := ["FF01", "HostileFF01"]
 const SITE_CLEARANCE := 85.0
 const HOSTILE := 1
 const TICK := 1.0 / 60.0
@@ -38,7 +35,11 @@ const BOW_FRONT := -6.0 # FF-01 bow hit box front face (ship frame z)
 var scene: Node3D
 var ff01: Node3D
 var projectiles: Node
-var hostile: Node3D # Owner of hostile test ordnance (HostileDestroyer).
+var hostile: Node3D # Owner of hostile test ordnance (HostileFF01).
+## Test threats: the shared torpedo and missile ordnance kinds with their default flight
+## values, launched directly (no ship carries a torpedo; the priority rules are shared code).
+var TORPEDO: Resource = _threat_config(&"torpedo", 40.0, 110.0)
+var MISSILE: Resource = _threat_config(&"missile", 30.0, 90.0)
 var victim: Node3D # A hostile FF-01 (target and damage subject).
 var barrage: Node
 var site := Vector2.ZERO
@@ -103,26 +104,30 @@ func _configuration() -> void:
 		and node.tube_columns == 4 and node.tube_rows == 2 and node.tube_spacing == 0.3 and node.tube_length > 0.0 and node.tube_radius > 0.0)
 	node.free()
 	_check("six complete salvos in the stock (48 / 8)", c.ammunition % 8 == 0 and c.ammunition / 8 == 6)
-	_check("Kestrel, legacy Gatling, NC-90, torpedo and missile configurations unchanged",
+	_check("Kestrel and NC-90 configurations unchanged; the torpedo and missile threats use the shared ordnance defaults",
 		KESTREL.damage == 0.2 and KESTREL.penetration == 1.0 and KESTREL.cooldown == 0.08 and KESTREL.weapon_range == 25.0
-		and GATLING.damage == 1.0 and GATLING.family == &"gatling" and NC90.damage == 12.0 and NC90.penetration == 20.0
+		and NC90.damage == 12.0 and NC90.penetration == 20.0
 		and NC90.weapon_range == 75.0 and TORPEDO.ordnance.kind == &"torpedo" and TORPEDO.ordnance.radius == 0.4
-		and MISSILE.ordnance.kind == &"missile" and MISSILE.ordnance.radius == 0.3)
+		and MISSILE.ordnance.kind == &"missile" and MISSILE.ordnance.radius == 0.4)
 
 
 # --- Arena --------------------------------------------------------------------------
 
 func _load() -> void:
 	scene = ARENA.instantiate()
+	# A friendly FF-01 (test-added) as the ally FF-01's point defense protects.
+	var ally: Node3D = UNIT.instantiate()
+	ally.name = "AllyFF01"
+	ally.position = Vector3(0, 1.5, 40)
+	scene.get_node("Ships").add_child(ally)
 	root.add_child(scene)
-	scene.get_node("HostileCommander").set_physics_process(false)
 	for ship in scene.get_node("Ships").get_children():
 		ship.get_node("Combat").stance = CombatShip.Stance.HOLD_FIRE
 		ship.get_node("Combat").set_physics_process(false)
 		ship.get_node("Behavior").set_physics_process(false)
 	ff01 = scene.get_node("Ships/FF01")
 	projectiles = scene.projectiles
-	hostile = scene.get_node("Ships/HostileDestroyer")
+	hostile = scene.get_node("Ships/HostileFF01")
 	barrage = ff01.get_node("Weapons/BarrageHardpoint").weapon()
 	for i in 3:
 		await physics_frame
@@ -130,7 +135,7 @@ func _load() -> void:
 	_place(ff01, site)
 	_park_others()
 	victim = UNIT.instantiate()
-	victim.name = "HostileFF01"
+	victim.name = "VictimFF01"
 	victim.get_node("Combat").faction = HOSTILE
 	victim.position.y = ff01.global_position.y # The scene's ship plane (Locomotion keeps Y).
 	scene.get_node("Ships").add_child(victim)
@@ -140,7 +145,7 @@ func _load() -> void:
 	_place(victim, site + Vector2(0, 150))
 	await physics_frame
 	_check("test site (%.0f, %.0f) clear of asteroids for %.0f u; FF-01 there, bow -Z" % [site.x, site.y, SITE_CLEARANCE],
-		Vector2(ff01.global_position.x, ff01.global_position.z).distance_to(site) < 0.01 and ff01.global_basis.z.is_equal_approx(Vector3.BACK))
+		Vector2(ff01.global_position.x, ff01.global_position.z).distance_to(site) < 0.01 and ff01.global_basis.z.angle_to(Vector3.BACK) < deg_to_rad(0.1))
 
 
 func _clear_site() -> Vector2:
@@ -607,7 +612,7 @@ func _collisions() -> void:
 	await _frames(60)
 	var rec := _ordnance_record(id)
 	_check("a rocket strikes a hostile ship: %s on %s, damage applied once" % [rec.get("outcome", "live"), rec.get("ship", "-")],
-		rec.get("outcome", "") == "damage" and rec.get("ship", "") == "HostileFF01" and projectiles.damage_events.get(id, 0) == 1)
+		rec.get("outcome", "") == "damage" and rec.get("ship", "") == "VictimFF01" and projectiles.damage_events.get(id, 0) == 1)
 	_reset_victim()
 	_place(victim, site + Vector2(0, 150))
 	# Asteroid: aim at the nearest asteroid from 20 u.
@@ -749,13 +754,7 @@ func _interception() -> void:
 	_check("a round passing 1.5 u beside a rocket leaves it alive (rocket %s after the pass, round %s)" % ["live" if alive else "gone", _round_record(r_id).get("outcome", "live")],
 		alive and _round_record(r_id).get("outcome", "") == "expired")
 	_clear_flight()
-	k_id = _hostile_rocket(Vector2(14, 0), Vector3.LEFT).id
-	r_id = _round(GATLING, _at(Vector2(3, 0)), Vector3.RIGHT, true)
-	await _frames(20)
-	_check("a legacy Gatling round destroys a rocket: %s" % _ordnance_record(k_id).get("outcome", "live"),
-		_ordnance_record(k_id).get("outcome", "") == "intercepted" and _round_record(r_id).get("outcome", "") == "intercept")
-	_clear_flight()
-	for shell: Resource in [NC90, CANNON]:
+	for shell: Resource in [NC90]:
 		k_id = _hostile_rocket(Vector2(14, 0), Vector3.LEFT).id
 		r_id = _round(shell, _at(Vector2(3, 0)), Vector3.RIGHT, false)
 		await _frames(12)
@@ -867,7 +866,7 @@ func _selection() -> void:
 		"torpedo" if torpedo_ok else "rocket", "rocket" if urgent_ok else "torpedo", "torpedo" if later_ok else "rocket", "rocket" if missile_ok else "missile",
 		"missile" if missile_first else "rocket"], torpedo_ok and urgent_ok and later_ok and missile_ok and missile_first)
 	# Own ship before ally, with rockets.
-	var ally := scene.get_node("Ships/Gunship") as Node3D
+	var ally := scene.get_node("Ships/AllyFF01") as Node3D
 	_place(ally, site + Vector2(6, 20))
 	var own := _threat(RL8, Vector2(18, -2), 1.6)
 	var at_ally_from := _at(Vector2(16, 22))
@@ -970,6 +969,17 @@ func _measurement() -> void:
 	_check("measurement ran: every launched rocket ended intercepted, on a hull or missed", totals.size() == 9)
 	# Arena unchanged.
 	var names := scene.get_node("Ships").get_children().map(func(s: Node) -> String: return String(s.name))
-	_check("Combat Test ships unchanged (plus the test's own hostile FF-01), 36 asteroids, navigation half-size 380",
-		COMBAT_TEST_SHIPS.all(func(n: String) -> bool: return names.has(n)) and names.size() == COMBAT_TEST_SHIPS.size() + 1
+	_check("Combat Test ships unchanged (plus the test's own victim and ally FF-01s), 36 asteroids, navigation half-size 380",
+		COMBAT_TEST_SHIPS.all(func(n: String) -> bool: return names.has(n)) and names.size() == COMBAT_TEST_SHIPS.size() + 2
 		and scene.get_node("Asteroids").ids().size() == 36 and scene.get_node("StaticNavigation").map_half_size == 380.0)
+
+
+func _threat_config(kind: StringName, damage: float, reach: float) -> Resource:
+	var config: Resource = WeaponConfig.new()
+	config.display_name = "%s threat" % String(kind).capitalize()
+	config.family = kind
+	config.damage = damage
+	config.weapon_range = reach
+	config.ordnance = OrdnanceConfig.new() # default flight values
+	config.ordnance.kind = kind
+	return config

@@ -25,8 +25,8 @@ const Station := preload("res://game/stations/station.gd")
 const Fuel := preload("res://game/fuel/fuel.gd")
 const ShipLocomotion := preload("res://game/locomotion/ship_locomotion.gd")
 const DT := 1.0 / 60.0
-const SHIPS := ["Frigate", "Gunship", "Destroyer", "Miner1", "Miner2", "Transporter"]
-const PARK := {"Frigate": Vector2(40, 30), "Gunship": Vector2(40, 15), "Destroyer": Vector2(40, -5), "Miner1": Vector2(40, -20),
+const SHIPS := ["Miner1", "Miner2", "Transporter"]
+const PARK := {"Miner1": Vector2(40, -20),
 	"Miner2": Vector2(40, -32), "Transporter": Vector2(-80, 30)}
 const NEAR_A := Vector2(-10, -40) # East of the loading station, off its approach lanes.
 const SEED := 20261014
@@ -515,7 +515,7 @@ func _test_percent_panel() -> void:
 	amount.get_line_edit().text = "300"
 	amount.get_line_edit().text_changed.emit("300")
 	await process_frame
-	_main.get_node("Selection").set_selection([_main.get_node("Ships/Frigate")])
+	_main.get_node("Selection").set_selection([_main.get_node("Ships/Miner1")])
 	await process_frame
 	unchanged = transport.required[METAL] == 250
 	editor.apply()

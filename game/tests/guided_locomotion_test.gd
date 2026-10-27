@@ -11,8 +11,8 @@ extends SceneTree
 const LAB := preload("res://game/scenes/movement_test.tscn")
 const ShipLocomotion := preload("res://game/locomotion/ship_locomotion.gd")
 const DT := 1.0 / 60.0
-const SHIPS := ["Frigate", "Gunship", "Destroyer"]
-const PARK := {"Frigate": Vector2(-135, 135), "Gunship": Vector2(-135, -135), "Destroyer": Vector2(-135, 0)}
+const SHIPS := ["Miner", "Transporter", "FF01"]
+const PARK := {"Miner": Vector2(-135, 135), "Transporter": Vector2(-135, -135), "FF01": Vector2(-135, 0)}
 const OPEN := Vector2(40, 100) # Open arena space, clear of the test obstacles.
 const SPEED := 1.5 # Station limits used throughout (the prototype's).
 const ACCEL := 1.0
@@ -54,10 +54,10 @@ func _test_default() -> void:
 	var off := true
 	for s in SHIPS:
 		off = off and not _lo(s).guided and _lo(s).guided_order_errors == 0 and _lo(s).remaining_points() == PackedVector2Array([_lo(s).planar_position])
-	_n("Frigate", "RouteFollower").order(OPEN + Vector2(0, -20))
+	_n("Miner", "RouteFollower").order(OPEN + Vector2(0, -20))
 	_steps(1)
-	_check("1. not guided by default; an ordinary order still gives a destination and moves the ship", off and _lo("Frigate").has_destination
-		and _lo("Frigate").velocity.length() > 0.0)
+	_check("1. not guided by default; an ordinary order still gives a destination and moves the ship", off and _lo("Miner").has_destination
+		and _lo("Miner").velocity.length() > 0.0)
 
 
 # 2 and 4. Turn in place: within the capped turn rate and turn acceleration, no overshoot, ends at rest.
@@ -140,29 +140,29 @@ func _test_moves() -> void:
 func _test_authority() -> void:
 	var legs := [{"turn": deg_to_rad(-90.0)}, {"move": OPEN + Vector2(10, 0), "reverse": false}] # Turn to face +X, then 10 u along +X.
 	_reset()
-	_place("Frigate", OPEN, 0.0)
-	_lo("Frigate").guide(legs, SPEED, ACCEL, TURN_RATE, TURN_ACCEL)
-	var reference := _fly("Frigate", false)
+	_place("Miner", OPEN, 0.0)
+	_lo("Miner").guide(legs, SPEED, ACCEL, TURN_RATE, TURN_ACCEL)
+	var reference := _fly("Miner", false)
 	_reset()
-	_place("Frigate", OPEN, 0.0)
-	_place("Gunship", OPEN + Vector2(5, 14), 0.0) # Passes across the guided path toward -Z.
-	_n("Gunship", "RouteFollower").order(OPEN + Vector2(5, -30))
-	_n("Frigate", "RouteFollower").order(OPEN + Vector2(-30, -30)) # Stale intent, given the same tick.
-	var status: int = _n("Frigate", "RouteFollower").status
-	_lo("Frigate").guide(legs, SPEED, ACCEL, TURN_RATE, TURN_ACCEL)
-	var disturbed := _fly("Frigate", true)
+	_place("Miner", OPEN, 0.0)
+	_place("Transporter", OPEN + Vector2(5, 14), 0.0) # Passes across the guided path toward -Z.
+	_n("Transporter", "RouteFollower").order(OPEN + Vector2(5, -30))
+	_n("Miner", "RouteFollower").order(OPEN + Vector2(-30, -30)) # Stale intent, given the same tick.
+	var status: int = _n("Miner", "RouteFollower").status
+	_lo("Miner").guide(legs, SPEED, ACCEL, TURN_RATE, TURN_ACCEL)
+	var disturbed := _fly("Miner", true)
 	var same: bool = reference.trace.size() == disturbed.trace.size()
 	for i in mini(reference.trace.size(), disturbed.trace.size()):
 		same = same and reference.trace[i].is_equal_approx(disturbed.trace[i])
 	_check("5. a same-tick ordinary order (RouteFollower status %s), a ship passing within %.1f u and direct avoid() input leave the guided trajectory identical tick by tick (%d ticks); no effective steering (Locomotion steering off, own avoidance neutral)" % [
-		_n("Frigate", "RouteFollower").RouteStatus.keys()[status], disturbed.closest, reference.ticks], same and disturbed.neutral and disturbed.closest < 6.0)
-	var at := _lo("Frigate").planar_position
-	var heading := _lo("Frigate").heading
+		_n("Miner", "RouteFollower").RouteStatus.keys()[status], disturbed.closest, reference.ticks], same and disturbed.neutral and disturbed.closest < 6.0)
+	var at := _lo("Miner").planar_position
+	var heading := _lo("Miner").heading
 	var still := true
 	for i in 600:
 		_steps(1)
-		still = still and _lo("Frigate").planar_position.distance_to(at) < 0.000001 and absf(_lo("Frigate").heading - heading) < 0.000001 \
-			and not _lo("Frigate").has_destination
+		still = still and _lo("Miner").planar_position.distance_to(at) < 0.000001 and absf(_lo("Miner").heading - heading) < 0.000001 \
+			and not _lo("Miner").has_destination
 	_check("6. after guidance: the stale order does not resume, no movement or rotation for 10 s (also: heading target was the old order's bearing)", still)
 
 
@@ -180,7 +180,7 @@ func _fly(s: String, disturb: bool) -> Dictionary:
 				_lo(ship)._step(DT)
 			var avoidance := _n(s, "Avoidance")
 			neutral = neutral and not _lo(s)._steering and not _lo(s).has_destination and avoidance.offset == Vector2.ZERO and avoidance.speed_cap == INF
-			closest = minf(closest, _lo(s).planar_position.distance_to(_lo("Gunship").planar_position) - 1.6 - 3.4)
+			closest = minf(closest, _lo(s).planar_position.distance_to(_lo("Transporter").planar_position) - 1.6 - 3.4)
 		else:
 			_steps(1)
 		trace.append(Vector3(_lo(s).planar_position.x, _lo(s).planar_position.y, _lo(s).heading))
@@ -190,23 +190,23 @@ func _fly(s: String, disturb: bool) -> Dictionary:
 # 7. Collision enforcement still applies to guided motion; nothing recovers.
 func _test_collision() -> void:
 	_reset()
-	_place("Frigate", OPEN, 0.0)
-	_place("Gunship", OPEN + Vector2(0, -8), 0.0) # On the guided path (circles touch at 5.0 u).
-	_lo("Frigate").guide([{"move": OPEN + Vector2(0, -12), "reverse": false}], SPEED, ACCEL, TURN_RATE, TURN_ACCEL)
+	_place("Miner", OPEN, 0.0)
+	_place("Transporter", OPEN + Vector2(0, -8), 0.0) # On the guided path (circles touch at 5.0 u).
+	_lo("Miner").guide([{"move": OPEN + Vector2(0, -12), "reverse": false}], SPEED, ACCEL, TURN_RATE, TURN_ACCEL)
 	var closest := INF
 	for i in 60 * 20:
 		_steps(1)
-		closest = minf(closest, _lo("Frigate").planar_position.distance_to(_lo("Gunship").planar_position))
-	_check("7. guided move toward a parked ship: stops at the contact (closest centres %.3f u, contact at 5.0), never inside, %d contact(s), leg not completed (no recovery)" % [closest, _lo("Frigate").collision_count],
-		closest >= 5.0 - 0.001 and _lo("Frigate").collision_count >= 1 and _lo("Frigate").guided)
+		closest = minf(closest, _lo("Miner").planar_position.distance_to(_lo("Transporter").planar_position))
+	_check("7. guided move toward a parked ship: stops at the contact (closest centres %.3f u, contact at 5.0), never inside, %d contact(s), leg not completed (no recovery)" % [closest, _lo("Miner").collision_count],
+		closest >= 5.0 - 0.001 and _lo("Miner").collision_count >= 1 and _lo("Miner").guided)
 
 
 # 8. Without propulsion the guided ship holds still; it goes on once restored; the
 # committed motion (what Fuel charges) is exactly the guided travel.
 func _test_propulsion() -> void:
 	_reset()
-	_place("Frigate", OPEN, 0.0)
-	var lo := _lo("Frigate")
+	_place("Miner", OPEN, 0.0)
+	var lo := _lo("Miner")
 	var target := OPEN + Vector2(0, -12)
 	lo.guide([{"move": target, "reverse": false}], SPEED, ACCEL, TURN_RATE, TURN_ACCEL)
 	var travelled := 0.0
@@ -238,42 +238,42 @@ func _test_propulsion() -> void:
 # 9. place() cancels guidance.
 func _test_place() -> void:
 	_reset()
-	_place("Frigate", OPEN, 0.0)
-	_lo("Frigate").guide([{"move": OPEN + Vector2(0, -12), "reverse": false}], SPEED, ACCEL, TURN_RATE, TURN_ACCEL)
+	_place("Miner", OPEN, 0.0)
+	_lo("Miner").guide([{"move": OPEN + Vector2(0, -12), "reverse": false}], SPEED, ACCEL, TURN_RATE, TURN_ACCEL)
 	_steps(30)
-	_place("Frigate", OPEN, 0.0)
+	_place("Miner", OPEN, 0.0)
 	_steps(30)
-	_check("9. place() cancels guidance (not guided, no legs, stays put)", not _lo("Frigate").guided and _lo("Frigate").remaining_points().size() == 1
-		and _lo("Frigate").planar_position == OPEN)
+	_check("9. place() cancels guidance (not guided, no legs, stays put)", not _lo("Miner").guided and _lo("Miner").remaining_points().size() == 1
+		and _lo("Miner").planar_position == OPEN)
 
 
 # 10. move_to() during guidance is refused and counted (the safety net; callers must never do it).
 func _test_order_guard() -> void:
 	var legs := [{"move": OPEN + Vector2(0, -12), "reverse": false}]
 	_reset()
-	_place("Frigate", OPEN, 0.0)
-	_lo("Frigate").guide(legs, SPEED, ACCEL, TURN_RATE, TURN_ACCEL)
-	var reference := _fly("Frigate", false)
+	_place("Miner", OPEN, 0.0)
+	_lo("Miner").guide(legs, SPEED, ACCEL, TURN_RATE, TURN_ACCEL)
+	var reference := _fly("Miner", false)
 	_reset()
-	_place("Frigate", OPEN, 0.0)
-	_lo("Frigate").guide(legs, SPEED, ACCEL, TURN_RATE, TURN_ACCEL)
+	_place("Miner", OPEN, 0.0)
+	_lo("Miner").guide(legs, SPEED, ACCEL, TURN_RATE, TURN_ACCEL)
 	_steps(20)
-	var follower := _n("Frigate", "RouteFollower")
+	var follower := _n("Miner", "RouteFollower")
 	var before := [follower.status, follower.requested, follower.route, follower.plans]
 	var taken: bool = follower.order(OPEN + Vector2(30, 0)) # Stage 2b: refused by RouteFollower itself.
 	var unchanged: bool = [follower.status, follower.requested, follower.route, follower.plans] == before and follower.guided_refusals == 1
-	_lo("Frigate").move_to(OPEN + Vector2(30, 0)) # The Locomotion safety net, reached directly.
-	var rest := _fly("Frigate", false)
+	_lo("Miner").move_to(OPEN + Vector2(30, 0)) # The Locomotion safety net, reached directly.
+	var rest := _fly("Miner", false)
 	var same: bool = reference.ticks == rest.ticks + 20 and reference.trace[reference.ticks - 1].is_equal_approx(rest.trace[rest.ticks - 1])
-	_check("10. during guidance: RouteFollower.order() refused with its route and command state unchanged (taken: %s); a direct move_to() ignored and counted (%d); guided trajectory unchanged, no destination afterwards" % [taken, _lo("Frigate").guided_order_errors],
-		not taken and unchanged and _lo("Frigate").guided_order_errors == 1 and same and not _lo("Frigate").has_destination)
+	_check("10. during guidance: RouteFollower.order() refused with its route and command state unchanged (taken: %s); a direct move_to() ignored and counted (%d); guided trajectory unchanged, no destination afterwards" % [taken, _lo("Miner").guided_order_errors],
+		not taken and unchanged and _lo("Miner").guided_order_errors == 1 and same and not _lo("Miner").has_destination)
 
 
 # 11. remaining_points().
 func _test_remaining_points() -> void:
 	_reset()
-	_place("Frigate", OPEN, 0.0)
-	var lo := _lo("Frigate")
+	_place("Miner", OPEN, 0.0)
+	var lo := _lo("Miner")
 	var a := OPEN + Vector2(0, -6)
 	var b := OPEN + Vector2(0, -3)
 	var before := lo.remaining_points()

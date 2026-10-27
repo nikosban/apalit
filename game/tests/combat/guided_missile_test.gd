@@ -9,10 +9,10 @@ const WAYFARER := preload("res://game/weapons/gcm4_wayfarer.tres")
 const WAYFARER_SCENE := preload("res://game/weapons/gcm4_wayfarer.tscn")
 const GuidedConfig := preload("res://game/weapons/guided_missile_config.gd")
 const GuidedLauncher := preload("res://game/weapons/guided_missile_launcher.gd")
-const MISSILE := preload("res://game/weapons/missile.tres")
-const TORPEDO := preload("res://game/weapons/torpedo.tres")
+const WeaponConfig := preload("res://game/weapons/weapon_config.gd")
+const OrdnanceConfig := preload("res://game/weapons/ordnance_config.gd")
 const KESTREL := preload("res://game/weapons/pdc20_kestrel.tres")
-const GATLING := preload("res://game/weapons/gatling.tres")
+
 const CANNON := preload("res://game/weapons/nc90_bastion.tres")
 const ROCKET := preload("res://game/weapons/rl8_barrage.tres")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
@@ -76,7 +76,7 @@ func _configuration() -> void:
 	_check("approved provisional ejection, clearance and orientation values", o.eject_speed == 5.0 and o.clearance == 8.0 and o.transition_timeout == 1.5 and o.hull_margin == 0.5 and o.orient_rate_deg == 75.0 and o.powered_within_deg == 15.0)
 	_check("approved provisional guidance, avoidance and secondary safety limits", o.steering_deadband_deg == 3.0 and o.arrival_distance == 2.0 and o.avoidance and o.avoid_lookahead == 1.4 and o.avoid_margin == 1.0 and o.lifetime == 30.0 and o.max_travel == 400.0)
 	_check("approved provisional interception and presentation values", o.radius == 0.3 and o.length == 0.6 and o.body_radius == 0.06 and o.trail_time == 0.35 and o.thruster_scale == 0.25 and o.thruster_length == 1.0 and o.rcs_scale == 0.25)
-	_check("legacy missile and torpedo resource values unchanged", MISSILE.damage == 30.0 and MISSILE.cooldown == 4.0 and MISSILE.ammunition == 6 and not MISSILE.has_penetration and MISSILE.ordnance.turn_rate_deg == 40.0 and TORPEDO.damage == 40.0 and TORPEDO.cooldown == 6.0 and TORPEDO.ammunition == 4 and not TORPEDO.has_penetration)
+
 
 
 func _silence(node: Node) -> void:
@@ -91,6 +91,11 @@ func _load() -> void:
 		await process_frame
 	scene = ARENA.instantiate()
 	scene.get_node("Asteroids").session_seed = 5005
+	# A friendly FF-01 (test-added) as a same-faction observer.
+	var observer: Node3D = UNIT.instantiate()
+	observer.name = "ObserverFF01"
+	observer.position = Vector3(0, 1.5, 40)
+	scene.get_node("Ships").add_child(observer)
 	root.add_child(scene)
 	_silence(scene)
 	attacker = scene.get_node("Ships/FF01")
@@ -223,7 +228,7 @@ func _installation() -> void:
 		# Include the entire missile's length, not just the collision centre.
 		clear = clear and local.y - WAYFARER.ordnance.length * 0.5 > 0.55
 	_check("four distinct vertical cells; every ejection trajectory and missile tail clears the FF-01 hull", launcher.muzzles.size() == 4 and distinct.size() == 4 and clear)
-	_check("existing seven ships plus test target, 36 asteroids and Combat Test +/-380 preserved", scene.get_node("Ships").get_child_count() == 8 and scene.get_node("Asteroids").ids().size() == 36 and scene.get_node("StaticNavigation").map_half_size == 380.0)
+	_check("the two Combat Test FF-01s plus the test observer and target, 36 asteroids and Combat Test +/-380 preserved", scene.get_node("Ships").get_child_count() == 4 and scene.get_node("Asteroids").ids().size() == 36 and scene.get_node("StaticNavigation").map_half_size == 380.0)
 	var bearings := true
 	for direction: Vector2 in [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2.DOWN]:
 		_place(victim, SITE + direction * 60)
@@ -273,7 +278,7 @@ func _commitment() -> void:
 				scene.contacts.set_contact(0, victim, false)
 				_place(victim, SITE + Vector2(70, 15))
 			"stance": CombatShip.of(attacker).stance = CombatShip.Stance.HOLD_FIRE
-			"target": CombatShip.of(attacker).target = scene.get_node("Ships/HostileGunship")
+			"target": CombatShip.of(attacker).target = scene.get_node("Ships/HostileFF01")
 			"destroyed": CombatShip.of(victim).destroy()
 			"freed":
 				# Production removal clears ship-level references before freeing the node.
@@ -345,7 +350,7 @@ func _guidance() -> void:
 	scene.sensors.evaluate()
 	_tick()
 	_check("same-target reacquisition resumes active guidance", node.has_contact and node.target == victim and node.target_id == victim.get_instance_id() and node.last_known.is_equal_approx(victim.global_position))
-	CombatShip.of(attacker).target = scene.get_node("Ships/HostileGunship")
+	CombatShip.of(attacker).target = scene.get_node("Ships/HostileFF01")
 	_tick()
 	_check("changing the ship's selected target never retargets an in-flight missile", node.target == victim)
 	scene.contacts.set_contact(0, victim, false)
@@ -408,13 +413,21 @@ func _expiry() -> void:
 		_check("deadline damage allowed only before expiration", CombatShip.of(victim).health == (139.0 if before else 160.0))
 	await _load()
 	_place(victim, Vector2.ZERO)
-	var legacy := _direct(MISSILE, Transform3D(Basis.looking_at(Vector3.RIGHT), Vector3(-1.9, 1.5, 0)))
+	# A missile without an FF-01 launch profile: the shared ordnance defaults (no transition
+	# timeout), launched directly.
+	var plain: Resource = WeaponConfig.new()
+	plain.family = &"missile"
+	plain.damage = 30.0
+	plain.weapon_range = 90.0
+	plain.ordnance = OrdnanceConfig.new()
+	plain.ordnance.kind = &"missile"
+	var legacy := _direct(plain, Transform3D(Basis.looking_at(Vector3.RIGHT), Vector3(-1.9, 1.5, 0)))
 	legacy.phase = "powered"
 	legacy.velocity = Vector3.RIGHT * 32
 	legacy.age = 9.0 - 1.0 / 64.0
 	var id: int = legacy.id
 	_tick(1.0 / 32.0)
-	_check("legacy missile keeps collision-before-expiration semantics", not legacy.strict_flight_expiration and _record(id).get("outcome") == "damage")
+	_check("a missile without a launch profile keeps collision-before-expiration semantics", not legacy.strict_flight_expiration and _record(id).get("outcome") == "damage")
 
 
 func _impacts() -> void:
@@ -461,7 +474,7 @@ func _obstacles() -> void:
 	await _load()
 	_rock(Vector3(SITE.x + 30, 1.5, SITE.y), 9.0)
 	# A same-faction observer beyond the rock provides legitimate shared contact.
-	_place(scene.get_node("Ships/Gunship"), SITE + Vector2(60, 30))
+	_place(scene.get_node("Ships/ObserverFF01"), SITE + Vector2(60, 30))
 	scene.sensors.evaluate()
 	var node := _direct()
 	var id: int = node.id
@@ -528,7 +541,7 @@ func _overshoot() -> void:
 
 
 func _interception() -> void:
-	for round_config: Resource in [KESTREL, GATLING, CANNON]:
+	for round_config: Resource in [KESTREL, CANNON]:
 		await _load()
 		var from := Vector3(SITE.x + 20, 1.5, SITE.y)
 		var node := _direct(WAYFARER, Transform3D(Basis.looking_at(Vector3.RIGHT), from))
@@ -570,7 +583,7 @@ func _throughput_run(kind: String, seed: int) -> Dictionary:
 		victim.get_node("Locomotion").move_to(SITE + Vector2(50, -60))
 	if kind == "asteroid":
 		_rock(Vector3(SITE.x, 1.5, SITE.y - 30), 9.0)
-		_place(scene.get_node("Ships/Gunship"), SITE + Vector2(30, -60))
+		_place(scene.get_node("Ships/ObserverFF01"), SITE + Vector2(30, -60))
 	scene.sensors.evaluate()
 	var barrage: Node = attacker.get_node("Weapons/BarrageHardpoint").weapon()
 	_reset(barrage)

@@ -20,8 +20,8 @@ const Docking := preload("res://game/stations/docking.gd")
 const Station := preload("res://game/stations/station.gd")
 const RouteFollower := preload("res://game/navigation/route_follower.gd")
 const DT := 1.0 / 60.0
-const SHIPS := ["Frigate", "Gunship", "Destroyer", "Miner1", "Miner2", "Transporter"]
-const PARK := {"Frigate": Vector2(40, 30), "Gunship": Vector2(40, 15), "Destroyer": Vector2(40, -5), "Miner1": Vector2(40, -20),
+const SHIPS := ["FF01", "Miner1", "Miner2", "Transporter"]
+const PARK := {"FF01": Vector2(40, -5), "Miner1": Vector2(40, -20),
 	"Miner2": Vector2(40, -32), "Transporter": Vector2(-80, 30)}
 const NO_ROUTE := Vector2(20, -20) # Centre of the no-route zone (open space near the spawn).
 const NO_ROUTE_RADIUS := 3.0
@@ -47,6 +47,10 @@ var _notices: Array[String] = []
 func _initialize() -> void:
 	await process_frame
 	_main = MAIN.instantiate()
+	var ff01: Node3D = load("res://game/ships/ff01_unit.tscn").instantiate()
+	ff01.name = "FF01"
+	ff01.position = Vector3(14, 1.5, 0)
+	_main.get_node("Ships").add_child(ff01)
 	var navigation := _main.get_node("StaticNavigation")
 	var obstacles: NodePath = navigation.obstacles_path
 	var script := GDScript.new()
@@ -74,16 +78,16 @@ func _initialize() -> void:
 			_mining(ship_name).notice.connect(func(text: String) -> void: _notices.append(text))
 
 	# A queued order (map not ready yet) that then finds no route.
-	var queued := _follower("Frigate").order(NO_ROUTE)
-	var waiting := _follower("Frigate").status == RouteFollower.RouteStatus.WAITING
+	var queued := _follower("FF01").order(NO_ROUTE)
+	var waiting := _follower("FF01").status == RouteFollower.RouteStatus.WAITING
 	for ship_name in SHIPS:
 		while not _navigation.is_ready(_follower(ship_name).planning_radius()):
 			await physics_frame
 	_notices.clear()
 	_steps(1)
 	_check("queued order without a route: queued first, then refused; status and request restored, no movement, a notice",
-		queued and waiting and _follower("Frigate").status == RouteFollower.RouteStatus.NONE and _follower("Frigate").requested == Vector2.ZERO
-		and not _locomotion("Frigate").has_destination and _notices == ["No route found"])
+		queued and waiting and _follower("FF01").status == RouteFollower.RouteStatus.NONE and _follower("FF01").requested == Vector2.ZERO
+		and not _locomotion("FF01").has_destination and _notices == ["No route found"])
 
 	_test_move_direct()
 	_test_move_routed()
@@ -103,40 +107,40 @@ func _initialize() -> void:
 # avoidance and arrives.
 func _test_move_direct() -> void:
 	_reset()
-	_place("Gunship", Vector2(0, 0))
-	_follower("Gunship").order(Vector2(0, 30))
+	_place("Transporter", Vector2(0, 0))
+	_follower("Transporter").order(Vector2(0, 30))
 	_steps(60)
-	var before := _route_state("Gunship")
-	_select(["Gunship"])
+	var before := _route_state("Transporter")
+	_select(["Transporter"])
 	_notices.clear()
 	_right_click_at(NO_ROUTE)
 	_check("MOVE without a route (direct move running): refused with a notice, RouteFollower and Locomotion unchanged",
-		_notices == ["No route found"] and _route_state("Gunship") == before and _lab_notice() == "No route found")
+		_notices == ["No route found"] and _route_state("Transporter") == before and _lab_notice() == "No route found")
 	_steps(1)
-	_check("... the running move is still followed (direct, avoidance active)", _follower("Gunship").status == RouteFollower.RouteStatus.DIRECT
-		and _node("Gunship", "Avoidance").target.distance_to(_follower("Gunship").aim_point) < 0.001)
-	var arrived := _run_until(func() -> bool: return not _locomotion("Gunship").has_destination, 60 * 30)
-	_check("... and arrives at its destination", arrived >= 0 and _position("Gunship").distance_to(Vector2(0, 30)) < 0.1)
+	_check("... the running move is still followed (direct, avoidance active)", _follower("Transporter").status == RouteFollower.RouteStatus.DIRECT
+		and _node("Transporter", "Avoidance").target.distance_to(_follower("Transporter").aim_point) < 0.001)
+	var arrived := _run_until(func() -> bool: return not _locomotion("Transporter").has_destination, 60 * 30)
+	_check("... and arrives at its destination", arrived >= 0 and _position("Transporter").distance_to(Vector2(0, 30)) < 0.1)
 
 
 # The same while following a planned route (before: steered at a frozen aim point forever).
 func _test_move_routed() -> void:
 	_reset()
-	_place("Gunship", Vector2(0, 30))
-	_follower("Gunship").order(Vector2(120, 120))
-	var routed := _follower("Gunship").status == RouteFollower.RouteStatus.ROUTE and _follower("Gunship").route.size() > 2
+	_place("Transporter", Vector2(0, 30))
+	_follower("Transporter").order(Vector2(120, 100)) # A planned route with corners for the Transporter.
+	var routed := _follower("Transporter").status == RouteFollower.RouteStatus.ROUTE and _follower("Transporter").route.size() > 2
 	_steps(120)
-	var before := _route_state("Gunship")
-	_select(["Gunship"])
+	var before := _route_state("Transporter")
+	_select(["Transporter"])
 	_notices.clear()
 	_right_click_at(NO_ROUTE)
 	_check("MOVE without a route (routed order running): refused, route, status and destination unchanged",
-		routed and _notices == ["No route found"] and _route_state("Gunship") == before)
-	var aim := _follower("Gunship").aim_point
+		routed and _notices == ["No route found"] and _route_state("Transporter") == before)
+	var aim := _follower("Transporter").aim_point
 	_steps(60)
-	_check("... route following goes on (aim point advancing)", _follower("Gunship").aim_point.distance_to(aim) > 1.0)
-	var arrived := _run_until(func() -> bool: return not _locomotion("Gunship").has_destination, 60 * 120)
-	_check("... and arrives at its destination", arrived >= 0 and _position("Gunship").distance_to(Vector2(120, 120)) < 0.1)
+	_check("... route following goes on (aim point advancing)", _follower("Transporter").aim_point.distance_to(aim) > 1.0)
+	var arrived := _run_until(func() -> bool: return not _locomotion("Transporter").has_destination, 60 * 120)
+	_check("... and arrives at its destination", arrived >= 0 and _position("Transporter").distance_to(Vector2(120, 100)) < 0.1)
 
 
 # A refused MOVE does not cancel the ship's assignments.

@@ -1,6 +1,6 @@
 extends Node
-## Combat prototype v0.3, E05 only: battle result and pacing record (node `FleetBattle` in
-## encounters/e05_fleet.tscn; physics priority 4, after the projectiles). It only
+## Combat fixture, E05 only: battle result and pacing record (node `FleetBattle` in
+## e05_fleet.tscn; physics priority 4, after the projectiles). It only
 ## observes. Times are the scenario clock (EnemyController.time).
 ##   Result: once every ship of one faction is destroyed (alive false; hulks count as
 ##   destroyed), the battle ends once: VICTORY when the hostile fleet is gone, DEFEAT when
@@ -57,7 +57,7 @@ func _physics_process(_delta: float) -> void:
 		var combat = CombatShip.of(ship)
 		if combat != null and combat.alive:
 			survivors.append({"name": String(ship.name), "faction": combat.faction, "hull": combat.health})
-			lines.append("%s  hull %d / %d" % [DisplayName.of(ship), roundi(combat.health), roundi(combat.rules.hull_health)])
+			lines.append("%s  hull %d / %d" % [DisplayName.of(ship), roundi(combat.health), roundi(combat.max_health)])
 	var title: String = ["VICTORY - hostile fleet destroyed", "DEFEAT - your fleet was destroyed", "DRAW - both fleets destroyed"][winner]
 	result = "%s\nElapsed %d:%02d\n%s" % [title, floori(elapsed / 60.0), int(elapsed) % 60, "Survivors:\n" + "\n".join(lines) if not lines.is_empty() else "No survivors"]
 	_arena.result_text = result

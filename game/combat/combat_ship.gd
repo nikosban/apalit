@@ -3,7 +3,7 @@ extends Node
 ## physics priority 2, after Locomotion, Fuel and Docking). Migrated from the combat
 ## prototype (v0.5). Every ship has one: it owns the ship's hull (`health`, the only health
 ## owner), its faction and its targeting; a ship whose `Weapons` node has no hardpoints
-## (Frigate, Miner, Transporter) takes damage and can be targeted but never fires. The same
+## (Miner, Transporter) takes damage and can be targeted but never fires. The same
 ## code runs for every faction; only commands differ (player input or scripted orders,
 ## both through CombatOrders).
 ##

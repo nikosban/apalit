@@ -9,7 +9,8 @@ extends SceneTree
 const MAIN := preload("res://main.tscn")
 const Station := preload("res://game/stations/station.gd")
 const Berth := preload("res://game/stations/berth.gd")
-const SHIPS := ["Miner1", "Frigate", "Gunship", "Transporter", "Destroyer"]
+const FF01 := preload("res://game/ships/ff01_unit.tscn") # The largest hull (radius 6.2), added to the scene.
+const SHIPS := ["Miner1", "Transporter", "FF01"]
 const MARKERS := ["ParkStop", "Handover", "ExitBack", "ExitA", "ExitB"]
 const BOXES := [[Vector2(0, 0), Vector2(4, 3)], [Vector2(6, 0), Vector2(2, 0.6)], [Vector2(-6, 0), Vector2(2, 0.6)]] # Station hull (frame).
 const HEADS := [[Vector2(8.6, 0), Vector2(0.6, 1.0)], [Vector2(-8.6, 0), Vector2(0.6, 1.0)]] # Visible docking heads (not obstacles).
@@ -25,6 +26,10 @@ var _checks := 0
 func _initialize() -> void:
 	await process_frame
 	_main = MAIN.instantiate()
+	var ff01 := FF01.instantiate()
+	ff01.name = "FF01"
+	ff01.position = Vector3(14, 1.5, 0)
+	_main.get_node("Ships").add_child(ff01)
 	root.add_child(_main)
 	_navigation = _main.get_node("StaticNavigation")
 	for station in _main.get_node("Stations").get_children():
@@ -96,7 +101,7 @@ func _test_rectangles() -> void:
 		for hold: Dictionary in station.holds:
 			for berth in station.berths:
 				holds = minf(holds, berth.rect_gap(hold.point))
-	_check("holding positions outside both rectangles by more than a Destroyer radius (closest %.2f u)" % holds, holds > 6.2)
+	_check("holding positions outside both rectangles by more than an FF-01 radius (closest %.2f u)" % holds, holds > 6.2)
 
 
 func _test_poses() -> void:
@@ -121,7 +126,7 @@ func _test_poses() -> void:
 		inside and heads >= 0.0 and handovers >= 0.999)
 
 
-# Fixed exits sized for the Destroyer: end points outside the rectangle by the margin
+# Fixed exits sized for the FF-01: end points outside the rectangle by the margin
 # for every class; per side, whether the departure leg is clear of static obstacles
 # (a blocked side is recorded, not used in stage 2b while the other is clear).
 func _test_exits() -> void:
@@ -177,7 +182,7 @@ func _test_occupancy() -> void:
 	var axis := berth.axis()
 	var normal := Vector2(-axis.y, axis.x)
 	var start := _planar(berth.global_position)
-	var r := _r("Gunship")
+	var r := _r("Transporter")
 	var cases := {
 		"parked": berth.park_point(r),
 		"just inside the far end": start + axis * (14.4 + r - 0.01),
@@ -191,10 +196,10 @@ func _test_occupancy() -> void:
 	var rows: Array[String] = []
 	for label: String in cases:
 		_park_all()
-		(_main.get_node("Ships/Gunship/Locomotion")).place(cases[label], 0.0)
+		(_main.get_node("Ships/Transporter/Locomotion")).place(cases[label], 0.0)
 		var expected := _own_rect_gap(start, axis, cases[label]) < r
 		var occupants := station.berth_occupants(0)
-		var reported := occupants.has(_main.get_node("Ships/Gunship"))
+		var reported := occupants.has(_main.get_node("Ships/Transporter"))
 		ok = ok and reported == expected and occupants.size() == (1 if expected else 0) and station.berth_occupants(1).is_empty()
 		rows.append("%s %s" % [label, "occupied" if reported else "clear"])
 	_park_all()

@@ -1,9 +1,9 @@
 extends SceneTree
 ## Combat migration M6: combat behavior with real production docking, on main.tscn (real
-## stations, real right-clicks through the scene's input, the production Behavior on the
-## starting Gunship). Run with a fixed step:
+## stations, real right-clicks through the scene's input, the production Behavior on an
+## FF-01 added where the starting warships were). Run with a fixed step:
 ##   <godot console> --headless --path . --fixed-fps 60 -s res://game/tests/combat/combat_docking_test.gd
-##   K1 a guarding Gunship receives Dock (right-click on the Station): Guard ends for good,
+##   K1 a guarding FF-01 receives Dock (right-click on the Station): Guard ends for good,
 ##      the station has movement authority, Behavior requests nothing, it docks normally
 ##   K2 Behavior's own movement requests are refused while the station has the ship
 ##      (approach, entry, docked, exit), nothing changes
@@ -18,7 +18,7 @@ extends SceneTree
 ##      movement orders
 
 const MAIN := preload("res://main.tscn")
-const GUNSHIP := preload("res://game/ships/gunship_unit.tscn")
+const FF01 := preload("res://game/ships/ff01_unit.tscn")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const Behavior := preload("res://game/behavior/ship_behavior.gd")
 const Docking := preload("res://game/stations/docking.gd")
@@ -60,6 +60,10 @@ func _free() -> void:
 func _load() -> void:
 	_free()
 	scene = MAIN.instantiate()
+	var ff01: Node3D = FF01.instantiate()
+	ff01.name = "FF01"
+	ff01.position = Vector3(0, 1.5, 0)
+	scene.get_node("Ships").add_child(ff01)
 	root.add_child(scene)
 	station = scene.get_node("Stations/Station")
 	for i in 10:
@@ -112,15 +116,15 @@ func _records(of_station: Node3D, ship: Object) -> Array:
 
 func _k1_k3() -> void:
 	print("\n=== K1 Guard, then Dock at a real station")
-	var gunship := _ship("Gunship")
-	var b = Behavior.of(gunship)
-	var docking: Docking = gunship.get_node("Docking")
-	var locomotion = gunship.get_node("Locomotion")
-	var follower = gunship.get_node("RouteFollower")
-	scene.orders.guard([gunship], _ship("Destroyer"))
+	var ff01 := _ship("FF01")
+	var b = Behavior.of(ff01)
+	var docking: Docking = ff01.get_node("Docking")
+	var locomotion = ff01.get_node("Locomotion")
+	var follower = ff01.get_node("RouteFollower")
+	scene.orders.guard([ff01], _ship("Transporter"))
 	await _run(3.0)
-	var guarding: bool = b.command == Behavior.Command.GUARD and b.guard_target == _ship("Destroyer")
-	scene.selection().set_selection([gunship])
+	var guarding: bool = b.command == Behavior.Command.GUARD and b.guard_target == _ship("Transporter")
+	scene.selection().set_selection([ff01])
 	await _right_click(station.global_position)
 	await physics_frame
 	var handed: bool = b.command == Behavior.Command.DOCK and b.guard_target == null and docking.is_docking_at(station)
@@ -135,7 +139,7 @@ func _k1_k3() -> void:
 		if (refused[phase] as Array).size() < 3:
 			var plans: int = follower.plans
 			var state: int = docking.state
-			(refused[phase] as Array).append(scene.autonomous_move(gunship, Vector2(-20, 12)))
+			(refused[phase] as Array).append(scene.autonomous_move(ff01, Vector2(-20, 12)))
 			plans_ok = plans_ok and follower.plans == plans and docking.state == state
 		return docking.state == Docking.State.DOCKED)
 	_check("Guard then a right-click on the Station: Guard ends for good, the command is Dock, the station has the ship (%s)" % str(states),
@@ -147,8 +151,8 @@ func _k1_k3() -> void:
 	var all_refused: bool = refused.values().all(func(list: Array) -> bool: return not list.is_empty() and list.all(func(r: bool) -> bool: return not r))
 	_check("autonomous_move refused on the approach, in the controlled entry and docked (%s); no plan, docking unchanged" % str(refused), all_refused and plans_ok)
 	print("\n=== K3 player Move held during the controlled exit")
-	scene.orders.set_stance([gunship], CombatShip.Stance.AGGRESSIVE)
-	var raider: Node3D = GUNSHIP.instantiate()
+	scene.orders.set_stance([ff01], CombatShip.Stance.AGGRESSIVE)
+	var raider: Node3D = FF01.instantiate()
 	raider.name = "Raider"
 	raider.get_node("Combat").faction = 1
 	raider.get_node("Combat").stance = CombatShip.Stance.HOLD_FIRE
@@ -157,14 +161,14 @@ func _k1_k3() -> void:
 	scene.register_ship(raider) # As a ship added at run time (picking, notices, removal).
 	docking.undock()
 	await _run(1.0)
-	var exit_refused: bool = docking.under_control() and not scene.autonomous_move(gunship, Vector2(-20, 12))
+	var exit_refused: bool = docking.under_control() and not scene.autonomous_move(ff01, Vector2(-20, 12))
 	var click := Vector3(-20, 0, 12)
 	await _right_click(click)
 	var held: bool = docking.under_control() and docking.has_held_command() and b.command == Behavior.Command.DOCK
 	var released := await _run(60.0, func() -> bool: return not docking.under_control())
 	await physics_frame
 	var recorded: bool = b.command == Behavior.Command.MOVE and locomotion.has_destination and follower.requested.distance_to(Vector2(click.x, click.z)) < 3.0
-	var in_contact: bool = CombatShip.of(gunship).target_status(raider) == CombatShip.TargetState.VALID
+	var in_contact: bool = CombatShip.of(ff01).target_status(raider) == CombatShip.TargetState.VALID
 	var requests: int = b.move_requests
 	var destination: Vector2 = locomotion.destination
 	var kept := true
@@ -179,16 +183,16 @@ func _k1_k3() -> void:
 
 func _k4() -> void:
 	print("\n=== K4 destroyed while docked")
-	var gunship := _ship("Gunship")
-	var docking: Docking = gunship.get_node("Docking")
-	scene.selection().set_selection([gunship])
+	var ff01 := _ship("FF01")
+	var docking: Docking = ff01.get_node("Docking")
+	scene.selection().set_selection([ff01])
 	await _right_click(station.global_position)
 	var docked := await _run(150.0, func() -> bool: return docking.state == Docking.State.DOCKED)
-	var before := _records(station, gunship)
-	CombatShip.of(gunship).destroy()
-	var after := _records(station, gunship)
-	var gone: WeakRef = weakref(gunship)
-	gunship = null
+	var before := _records(station, ff01)
+	CombatShip.of(ff01).destroy()
+	var after := _records(station, ff01)
+	var gone: WeakRef = weakref(ff01)
+	ff01 = null
 	var removed := await _run(4.0, func() -> bool: return gone.get_ref() == null)
 	_check("docked (%s), then destroyed: station records %s -> %s at once; hulk removed" % [docked, str(before), str(after)],
 		docked and before == ["berth %d" % before[0].substr(6).to_int()] and after.is_empty() and removed)
@@ -232,8 +236,8 @@ func _k5() -> void:
 
 func _k6() -> void:
 	print("\n=== K6 civilian ships")
-	var civilians := ["Frigate", "Transporter"].map(func(n: String) -> Node3D: return _ship(n))
+	var civilians := ["Transporter"].map(func(n: String) -> Node3D: return _ship(n))
 	var none: bool = civilians.all(func(s: Node3D) -> bool: return s != null and s.get_node_or_null("Behavior") == null)
-	var armed: bool = ["Destroyer"].all(func(n: String) -> bool: return _ship(n).get_node_or_null("Behavior") != null)
-	_check("no Behavior on the unarmed and civilian ships (Frigate, Transporter; the Miners were removed above); the armed Destroyer has one",
+	var armed: bool = ["FF01"].all(func(n: String) -> bool: return _ship(n).get_node_or_null("Behavior") != null)
+	_check("no Behavior on the civilian ships (Transporter; the Miners were removed above); the armed FF-01 has one",
 		none and armed)

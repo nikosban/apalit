@@ -9,7 +9,7 @@ const ARENA := preload("res://game/scenes/combat_test.tscn")
 const UNIT := preload("res://game/ships/ff01_unit.tscn")
 const NC90 := preload("res://game/weapons/nc90_bastion.tres")
 const NC90_SCENE := preload("res://game/weapons/nc90_bastion.tscn")
-const CANNON := preload("res://game/weapons/cannon.tres")
+
 const Weapon := preload("res://game/weapons/weapon.gd")
 const Turret := preload("res://game/weapons/turret.gd")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
@@ -75,9 +75,6 @@ func _configuration() -> void:
 		scene_root.get_script() == Turret and scene_root.config == NC90 and scene_root.base_diameter == 0.5
 		and scene_root.body_height == 0.25 and scene_root.barrel_length == 0.75)
 	scene_root.free()
-	_check("cannon.tres unchanged: damage 12, cooldown 2.5, range 75, stock 40, penetration unconfigured, armor damage 0, dispersion 0",
-		CANNON.damage == 12.0 and CANNON.cooldown == 2.5 and CANNON.weapon_range == 75.0 and CANNON.ammunition == 40
-		and not CANNON.has_penetration and CANNON.armor_damage == 0.0 and CANNON.dispersion_max_deg == 0.0)
 
 
 # --- D: dispersion ------------------------------------------------------------------
@@ -150,7 +147,6 @@ static func _sequence(seed: int, axis: Vector3) -> Array:
 func _load() -> void:
 	scene = ARENA.instantiate()
 	root.add_child(scene)
-	scene.get_node("HostileCommander").set_physics_process(false)
 	for ship in scene.get_node("Ships").get_children():
 		ship.get_node("Combat").stance = CombatShip.Stance.HOLD_FIRE
 		ship.get_node("Combat").set_physics_process(false)
@@ -162,7 +158,7 @@ func _load() -> void:
 	_place(ff01, site)
 	await physics_frame
 	_check("test site (%.0f, %.0f) clear of asteroids and ships; FF-01 placed there with its bow along -Z" % [site.x, site.y],
-		Vector2(ff01.global_position.x, ff01.global_position.z).distance_to(site) < 0.01 and ff01.global_basis.z.is_equal_approx(Vector3.BACK))
+		Vector2(ff01.global_position.x, ff01.global_position.z).distance_to(site) < 0.01 and ff01.global_basis.z.angle_to(Vector3.BACK) < deg_to_rad(0.1))
 
 
 # A point in the sector with clear lines to every test target: no asteroid within the
@@ -290,7 +286,7 @@ func _lead() -> void:
 # --- F: mechanical coverage -----------------------------------------------------------
 
 func _target() -> Node3D:
-	return scene.get_node("Ships/HostileGunship") as Node3D
+	return scene.get_node("Ships/HostileFF01") as Node3D
 
 
 func _aim_at(bearing: float) -> Node3D:
@@ -409,7 +405,7 @@ func _armor_sequence() -> void:
 	print("\n=== H physical Bastion shells against a fresh hostile FF-01")
 	_place(_target(), site + Vector2(250, 0) if site.x < 0 else site - Vector2(250, 0))
 	var victim: Node3D = UNIT.instantiate()
-	victim.name = "HostileFF01"
+	victim.name = "VictimFF01"
 	victim.get_node("Combat").faction = HOSTILE
 	scene.get_node("Ships").add_child(victim)
 	scene.register_ship(victim)

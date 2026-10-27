@@ -1,9 +1,6 @@
 [gd_scene format=3]
 
 [ext_resource type="PackedScene" path="res://game/camera/camera_rig.tscn" id="1_rig"]
-[ext_resource type="PackedScene" path="res://game/ships/frigate_unit.tscn" id="3_frigate_unit"]
-[ext_resource type="PackedScene" path="res://game/ships/gunship_unit.tscn" id="4_gunship_unit"]
-[ext_resource type="PackedScene" path="res://game/ships/destroyer_unit.tscn" id="5_destroyer_unit"]
 [ext_resource type="Script" path="res://game/scenes/movement_lab.gd" id="6_lab"]
 [ext_resource type="PackedScene" path="res://game/debug/debug_ui.tscn" id="8_debug"]
 [ext_resource type="Script" path="res://game/navigation/static_navigation.gd" id="9_navigation"]
@@ -303,15 +300,6 @@ obstacles_path = NodePath("../Asteroids")
 script = ExtResource("18_survey")
 
 [node name="Ships" type="Node3D" parent="."]
-
-[node name="Frigate" parent="Ships" instance=ExtResource("3_frigate_unit")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 1.5, 0)
-
-[node name="Gunship" parent="Ships" instance=ExtResource("4_gunship_unit")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
-
-[node name="Destroyer" parent="Ships" instance=ExtResource("5_destroyer_unit")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 1.5, 0)
 
 [node name="Miner1" parent="Ships" instance=ExtResource("23_miner_unit")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 1.5, 14)

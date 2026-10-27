@@ -6,8 +6,7 @@
 [ext_resource type="Script" path="res://game/navigation/static_navigation.gd" id="4_navigation"]
 [ext_resource type="Script" path="res://game/collision/planar_collision.gd" id="5_collision"]
 [ext_resource type="Script" path="res://game/survey/survey.gd" id="6_survey"]
-[ext_resource type="PackedScene" path="res://game/ships/gunship_unit.tscn" id="7_gunship"]
-[ext_resource type="PackedScene" path="res://game/ships/destroyer_unit.tscn" id="8_destroyer"]
+[ext_resource type="PackedScene" path="res://game/ships/ff01_unit.tscn" id="7_ff01"]
 [ext_resource type="Script" path="res://game/sensors/contact_board.gd" id="9_contacts"]
 [ext_resource type="Script" path="res://game/combat/projectile_system.gd" id="10_projectiles"]
 [ext_resource type="Script" path="res://game/combat/combat_effects.gd" id="11_effects"]
@@ -57,7 +56,6 @@ size = Vector3(0.05, 0.05, 1)
 script = ExtResource("1_arena")
 scenario_keys = false
 scenarios = ExtResource("23_encounters")
-encounter = true
 
 [node name="SimClock" type="Node" parent="."]
 script = ExtResource("90_clock")
@@ -93,51 +91,37 @@ script = ExtResource("6_survey")
 
 [node name="Ships" type="Node3D" parent="."]
 
-[node name="Gunship" parent="Ships" instance=ExtResource("7_gunship")]
+[node name="FF01B" parent="Ships" instance=ExtResource("7_ff01")]
 transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -22, 1.5, -8)
 
-[node name="Combat" parent="Ships/Gunship" index="7"]
+[node name="Combat" parent="Ships/FF01B" index="7"]
 faction = 0
 combat_id = 1
 stance = 2
 
-[node name="Destroyer" parent="Ships" instance=ExtResource("8_destroyer")]
+[node name="FF01A" parent="Ships" instance=ExtResource("7_ff01")]
 transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -24, 1.5, 8)
 
-[node name="Combat" parent="Ships/Destroyer" index="7"]
+[node name="Combat" parent="Ships/FF01A" index="7"]
 faction = 0
 combat_id = 2
 stance = 2
 
-[node name="HostileGunship" parent="Ships" instance=ExtResource("7_gunship")]
+[node name="HostileFF01B" parent="Ships" instance=ExtResource("7_ff01")]
 transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 22, 1.5, -8)
 
-[node name="Combat" parent="Ships/HostileGunship" index="7"]
+[node name="Combat" parent="Ships/HostileFF01B" index="7"]
 faction = 1
 combat_id = 3
 stance = 2
 
-[node name="HostileDestroyer" parent="Ships" instance=ExtResource("8_destroyer")]
+[node name="HostileFF01A" parent="Ships" instance=ExtResource("7_ff01")]
 transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 24, 1.5, 8)
 
-[node name="Combat" parent="Ships/HostileDestroyer" index="7"]
+[node name="Combat" parent="Ships/HostileFF01A" index="7"]
 faction = 1
 combat_id = 4
 stance = 2
-
-[node name="MissileCells" parent="Ships/Destroyer/Weapons/DeckHardpoint" index="0"]
-cell_size = Vector3(0.8, 0.2, 1.2)
-cells = 2
-cell_columns = 1
-salvo_size = 1
-ammunition_override = -1
-
-[node name="MissileCells" parent="Ships/HostileDestroyer/Weapons/DeckHardpoint" index="0"]
-cell_size = Vector3(0.8, 0.2, 1.2)
-cells = 2
-cell_columns = 1
-salvo_size = 1
-ammunition_override = -1
 
 [node name="Contacts" type="Node" parent="."]
 script = ExtResource("9_contacts")

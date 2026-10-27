@@ -55,6 +55,12 @@ func _unload() -> void:
 
 func _load_main() -> void:
 	scene = MAIN.instantiate()
+	# Two player ships beside the scene's own, where the retired warships started.
+	for added: Array in [["Transporter2", "res://game/ships/transporter_unit.tscn", Vector3(0, 1.5, 0)], ["FF01", "res://game/ships/ff01_unit.tscn", Vector3(14, 1.5, 0)]]:
+		var ship: Node3D = load(added[1]).instantiate()
+		ship.name = added[0]
+		ship.position = added[2]
+		scene.get_node("Ships").add_child(ship)
 	var field := scene.get_node("Asteroids")
 	field.session_seed = 4242
 	var template: MeshInstance3D = field.get_child(0)
@@ -186,7 +192,7 @@ func _case_entry() -> void:
 	var below: bool = view.state == StrategicView.State.TACTICAL and _rig().zoom_target > 100.0 and _leaks() == 0
 	await _set_zoom(150.0)
 	var pose: Transform3D = _rig().global_transform
-	var ship: Node3D = scene.ship("Gunship")
+	var ship: Node3D = scene.ship("Transporter2")
 	var last := _screen(ship.global_position)
 	_wheel(false)
 	await process_frame
@@ -203,7 +209,7 @@ func _case_entry() -> void:
 	var top_down: bool = (-_camera().global_basis.z).dot(Vector3.DOWN) > 0.9999
 	var yaw_kept: bool = _camera().global_basis.x.is_equal_approx(pose.basis.x)
 	_check("Tactical shows no Strategic geometry; an outward notch below the limit only zooms the rig; at the limit it starts the handoff (Strategic camera current)", below and entering)
-	_check("handoff %d frames; the Gunship's marker moves at most %.1f px per frame (no jump); Strategic is top-down at the rig's yaw; rig untouched" % [frames, worst],
+	_check("handoff %d frames; the Transporter2's marker moves at most %.1f px per frame (no jump); Strategic is top-down at the rig's yaw; rig untouched" % [frames, worst],
 		view.is_active() and worst < 40.0 and top_down and yaw_kept and _rig().global_transform == pose)
 
 
@@ -401,47 +407,47 @@ func _case_commands() -> void:
 	await _click(_screen(station.global_position))
 	_check("station marker: DOCK for the miner; a click selects that station (panel: %s)" % str(scene.get_node("StationPanel").station),
 		dock.get("kind") == scene.CommandKind.DOCK and dock.get("station") == station and scene.get_node("StationPanel").station == station)
-	var gunship: Node3D = scene.ship("Gunship")
-	var destroyer: Node3D = scene.ship("Destroyer")
-	await _click(_screen(gunship.global_position))
-	var one: bool = scene.selection().selected == [gunship]
-	await _click(_screen(destroyer.global_position), MOUSE_BUTTON_LEFT, true)
+	var transporter: Node3D = scene.ship("Transporter2")
+	var ff01: Node3D = scene.ship("FF01")
+	await _click(_screen(transporter.global_position))
+	var one: bool = scene.selection().selected == [transporter]
+	await _click(_screen(ff01.global_position), MOUSE_BUTTON_LEFT, true)
 	var two: bool = scene.selection().selected.size() == 2
 	scene.selection().set_selection([])
-	var a := _screen(gunship.global_position)
-	var b := _screen(destroyer.global_position)
+	var a := _screen(transporter.global_position)
+	var b := _screen(ff01.global_position)
 	var box := Rect2(a, Vector2.ZERO).expand(b).grow(14.0)
 	_button(box.position, MOUSE_BUTTON_LEFT, true)
 	_motion(box.end)
 	_button(box.end, MOUSE_BUTTON_LEFT, false)
 	await process_frame
 	var boxed: Array = scene.selection().selected
-	_check("ship markers: click selects, Shift-click adds, a drag box selects both (%d)" % boxed.size(), one and two and boxed.has(gunship) and boxed.has(destroyer))
-	scene.selection().set_selection([gunship])
+	_check("ship markers: click selects, Shift-click adds, a drag box selects both (%d)" % boxed.size(), one and two and boxed.has(transporter) and boxed.has(ff01))
+	scene.selection().set_selection([transporter])
 	var goal := Vector3(60, 0, -60)
 	await _click(_screen(goal), MOUSE_BUTTON_RIGHT)
-	var destination: Vector2 = gunship.get_node("Locomotion").destination
+	var destination: Vector2 = transporter.get_node("Locomotion").destination
 	_check("a right-click on open space moves to the ground point under it through the Strategic camera (%.2f u off)" % destination.distance_to(Vector2(goal.x, goal.z)),
-		gunship.get_node("Locomotion").has_destination and destination.distance_to(Vector2(goal.x, goal.z)) < 0.5)
+		transporter.get_node("Locomotion").has_destination and destination.distance_to(Vector2(goal.x, goal.z)) < 0.5)
 	var markers = scene.markers
 	var keep: float = markers.interactive_emphasis
 	markers.interactive_emphasis = 2.0 # Markers not interactive: only a hull pick could find a ship.
-	var by_hull: Node3D = scene.selection().pick_any(_screen(gunship.global_position))
+	var by_hull: Node3D = scene.selection().pick_any(_screen(transporter.global_position))
 	markers.interactive_emphasis = keep
-	_check("hidden hulls never pick in Strategic (markers made non-interactive: nothing found at the Gunship)", by_hull == null)
+	_check("hidden hulls never pick in Strategic (markers made non-interactive: nothing found at the Transporter2)", by_hull == null)
 	var env: Vector2 = view.layout()[0].env
 	if scene.selection().pick_any(env) == null and view.station_at(env) == null:
-		scene.selection().set_selection([gunship])
+		scene.selection().set_selection([transporter])
 		await _click(env)
-		_check("a left-click on an environmental cluster marker keeps the selection (not a click on empty space)", scene.selection().selected == [gunship])
+		_check("a left-click on an environmental cluster marker keeps the selection (not a click on empty space)", scene.selection().selected == [transporter])
 
 
 ## C8: boundary only for a refused order outside the sector; selected ships' orders.
 func _case_boundary_and_orders() -> void:
 	print("\n=== C8 boundary feedback and order lines")
-	var gunship: Node3D = scene.ship("Gunship")
-	scene.selection().set_selection([gunship])
-	var before: Vector2 = gunship.get_node("Locomotion").destination
+	var transporter: Node3D = scene.ship("Transporter2")
+	scene.selection().set_selection([transporter])
+	var before: Vector2 = transporter.get_node("Locomotion").destination
 	var outside := Vector2.INF # Outside the square, on screen, away from the ship panel (right).
 	for point in [Vector3(-156, 0, 0), Vector3(0, 0, -156), Vector3(0, 0, 156), Vector3(156, 0, 0)]:
 		var at := _screen(point)
@@ -451,14 +457,14 @@ func _case_boundary_and_orders() -> void:
 	await _click(outside, MOUSE_BUTTON_RIGHT)
 	var shown: float = view.boundary_alpha()
 	_check("a right-click outside the command square (on screen: %s) shows the boundary (alpha %.2f, none before) and gives no order" % [_rect().has_point(outside), shown],
-		_rect().has_point(outside) and shown_before == 0.0 and shown > 0.0 and gunship.get_node("Locomotion").destination == before)
+		_rect().has_point(outside) and shown_before == 0.0 and shown > 0.0 and transporter.get_node("Locomotion").destination == before)
 	for i in 120:
 		await process_frame
 	_check("the boundary fades away again (alpha %.2f after 2 s)" % view.boundary_alpha(), view.boundary_alpha() == 0.0)
-	var lines: Array = view.order_lines(gunship)
+	var lines: Array = view.order_lines(transporter)
 	var route: Dictionary = lines[0] if not lines.is_empty() else {}
-	var ends: bool = not route.is_empty() and (route.points[route.points.size() - 1] as Vector2).distance_to(gunship.get_node("Locomotion").destination) < 0.01
-	_check("the selected Gunship's order line is its simulated route, ending at its destination (%d points)" % (route.points.size() if not route.is_empty() else 0), route.get("kind") == "route" and ends)
+	var ends: bool = not route.is_empty() and (route.points[route.points.size() - 1] as Vector2).distance_to(transporter.get_node("Locomotion").destination) < 0.01
+	_check("the selected Transporter2's order line is its simulated route, ending at its destination (%d points)" % (route.points.size() if not route.is_empty() else 0), route.get("kind") == "route" and ends)
 
 
 ## C9: exit restores the Tactical pose exactly; reversal both ways.
@@ -499,8 +505,8 @@ func _case_exit_and_reversal() -> void:
 func _case_handoff_input() -> void:
 	print("\n=== C10 input during the handoff")
 	await _to_tactical()
-	var gunship: Node3D = scene.ship("Gunship")
-	scene.selection().set_selection([gunship])
+	var transporter: Node3D = scene.ship("Transporter2")
+	scene.selection().set_selection([transporter])
 	var empty := _rect().size * Vector2(0.12, 0.55) # Left: away from the ship panel.
 	_button(empty, MOUSE_BUTTON_LEFT, true) # Pressed in Tactical on empty space...
 	await process_frame
@@ -508,11 +514,11 @@ func _case_handoff_input() -> void:
 	await process_frame
 	_button(empty, MOUSE_BUTTON_LEFT, false) # ...released during the handoff.
 	await process_frame
-	var kept: bool = scene.selection().selected == [gunship]
-	var before: Vector2 = gunship.get_node("Locomotion").destination
-	var planned: int = gunship.get_node("RouteFollower").plans
+	var kept: bool = scene.selection().selected == [transporter]
+	var before: Vector2 = transporter.get_node("Locomotion").destination
+	var planned: int = transporter.get_node("RouteFollower").plans
 	await _click(_rect().size * 0.3, MOUSE_BUTTON_RIGHT)
-	var no_order: bool = gunship.get_node("RouteFollower").plans == planned and gunship.get_node("Locomotion").destination == before
+	var no_order: bool = transporter.get_node("RouteFollower").plans == planned and transporter.get_node("Locomotion").destination == before
 	var during: bool = view.transitioning()
 	await _settle()
 	await _click(empty) # A full click after the handoff behaves normally (nothing there: clears).
@@ -553,13 +559,13 @@ func _case_paused_and_ui() -> void:
 func _case_fog() -> void:
 	print("\n=== C12 fog of war (E05)")
 	scene = E05.instantiate()
-	scene.scenario_index = 4
+	scene.scenario_index = 0
 	root.add_child(scene)
 	await process_frame
 	await process_frame
 	view = scene.strategic
 	view.auto_hover = false
-	var hidden: Node3D = scene.ship("HostileDestroyer")
+	var hidden: Node3D = scene.ship("HostileFF01A")
 	hidden.get_node("Locomotion").place(Vector2(140, 140), 0.0)
 	scene.get_node("HostileFleet").process_mode = Node.PROCESS_MODE_DISABLED
 	for i in 20:

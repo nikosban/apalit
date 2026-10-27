@@ -7,6 +7,14 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-27 — Legacy ship cleanup
+
+The legacy Frigate, Gunship and Destroyer are removed with their hull and variant scenes, legacy weapon configurations, the combat lab with E01–E04 / P01–P03, and their dedicated tests; retained scenes and shared-system tests now use the Miner, Transporter and FF-01, with the ship architecture and shared systems unchanged. Known limits: `combat_positioning_test`'s detour check (sensitive to the new opponent) and the pre-existing `fleet_test` hostile-focus failure stay open, E05 balance and duration assertions only print measurements, and the `sensors.gd` `last_known()` freed-contact script error is recorded as a separate production task.
+
+## 2026-10-27 — Combat Test: two FF-01 frigates
+
+`combat_test.tscn` now holds only a player FF-01 at (−45, 0) and an Aggressive hostile `HostileFF01` at (45, 0), facing each other; the other warships and `HostileCommander` are removed, with asteroids, sector, camera and lighting unchanged. Verified by scene diff only; the combat suites that load this scene still expect the removed ships and were not run.
+
 ## 2026-10-27 — Stage 6B: FF-01 combat positioning and continuous movement
 
 FF-01 gains opt-in autonomous cannon-band positioning with one-step combat heading/speed inputs, and movement becomes continuous: braking-aware course turns for single-ship MOVEs under way, a rate-limited route aim anchor, Waypoint Moves flown through as one route, and a non-flickering cruise plume. PlanarCollision now contains every ship within ±`map_half_size` through four sector-edge rectangles (course turns need 3 × lookahead of edge and obstacle clearance); `combat_positioning_test` covers it and the regression retains only the three known failures.

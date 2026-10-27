@@ -65,11 +65,10 @@ func setup(parent: Node, prototype: bool, start: Vector2, target_at: Vector2, si
 		arena.get_node("Stations").add_child(station)
 	# Remove irrelevant ships before registration, retaining production variants.
 	for ship in arena.get_node("Ships").get_children():
-		if ship.name not in [&"FF01", &"HostileGunship"]:
+		if ship.name not in [&"FF01", &"HostileFF01"]:
 			ship.free()
-	arena.get_node("HostileCommander").free()
 	subject = arena.get_node("Ships/FF01")
-	enemy = arena.get_node("Ships/HostileGunship")
+	enemy = arena.get_node("Ships/HostileFF01")
 	if reverse_factions:
 		subject.get_node("Combat").faction = 1
 		enemy.get_node("Combat").faction = 0

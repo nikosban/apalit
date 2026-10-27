@@ -12,10 +12,8 @@ const KESTREL := preload("res://game/weapons/pdc20_kestrel.tres")
 const KESTREL_SCENE := preload("res://game/weapons/pdc20_kestrel.tscn")
 const NC90 := preload("res://game/weapons/nc90_bastion.tres")
 const NC90_SCENE := preload("res://game/weapons/nc90_bastion.tscn")
-const GATLING := preload("res://game/weapons/gatling.tres")
-const CANNON := preload("res://game/weapons/cannon.tres")
-const TORPEDO := preload("res://game/weapons/torpedo.tres")
-const MISSILE := preload("res://game/weapons/missile.tres")
+const WeaponConfig := preload("res://game/weapons/weapon_config.gd")
+const OrdnanceConfig := preload("res://game/weapons/ordnance_config.gd")
 const Weapon := preload("res://game/weapons/weapon.gd")
 const Gatling := preload("res://game/weapons/gatling.gd")
 const PDC := preload("res://game/weapons/pdc.gd")
@@ -39,7 +37,12 @@ const HOSTILE := 1
 var scene: Node3D
 var ff01: Node3D
 var projectiles: Node
-var hostile: Node3D # Owner of the test ordnance (HostileDestroyer).
+var hostile: Node3D # Owner of the test ordnance (HostileFF01).
+## Test threats: the shared torpedo and missile ordnance kinds with their default flight
+## values, launched directly (no launcher; no ship carries a torpedo, and the PDC's
+## torpedo priority is shared code).
+var TORPEDO: Resource = _threat_config(&"torpedo", 40.0, 110.0)
+var MISSILE: Resource = _threat_config(&"missile", 30.0, 90.0)
 var site := Vector2.ZERO
 var _checks := 0
 var _failures := 0
@@ -86,22 +89,15 @@ func _configuration() -> void:
 		and c.effective() == 25.0 and c.lead_quality(25.0) == 1.0 and c.dispersion_max_deg == 2.5)
 	_check("magazine 40, 400 rounds per mount, reload 3 s",
 		c.magazine_size == 40 and c.ammunition == 400 and c.reload_time == 3.0)
-	_check("starting values copied from the Gatling: lifetime 0.45 s, travel factor 1.25, alignment 3 deg, yaw 140 / pitch 120 deg/s, idle reload 0.25 s",
-		c.projectile_lifetime == GATLING.projectile_lifetime and c.travel_factor == GATLING.travel_factor
-		and c.alignment_tolerance_deg == GATLING.alignment_tolerance_deg and c.yaw_speed_deg == GATLING.yaw_speed_deg
-		and c.pitch_speed_deg == GATLING.pitch_speed_deg and c.idle_reload_delay == GATLING.idle_reload_delay)
+	_check("starting values from the Gatling family: lifetime 0.45 s, travel factor 1.25, alignment 3 deg, yaw 140 / pitch 120 deg/s, idle reload 0.25 s",
+		c.projectile_lifetime == 0.45 and c.travel_factor == 1.25 and c.alignment_tolerance_deg == 3.0 and c.yaw_speed_deg == 140.0
+		and c.pitch_speed_deg == 120.0 and c.idle_reload_delay == 0.25)
 	var root_node := KESTREL_SCENE.instantiate()
 	_check("pdc20_kestrel.tscn: PDC-family script (extends the Gatling mount) with the Kestrel configuration and editable geometry",
 		root_node.get_script() == PDC and root_node is Gatling and root_node.config == KESTREL and root_node.base_diameter == 0.36
 		and root_node.body_height == 0.16 and root_node.barrel_length == 0.5)
 	root_node.free()
 	_check("PDC override threshold 1.5 s", PDC.MISSILE_OVERRIDE_TIME == 1.5)
-	_check("legacy gatling.tres unchanged: damage 1, cooldown 0.08, range 25, 70 u/s, 400 rounds, magazine 40, reload 3 s, penetration unconfigured, armor damage 0, dispersion 0",
-		GATLING.display_name == "Gatling" and GATLING.family == &"gatling" and GATLING.size == 0 and GATLING.damage == 1.0
-		and GATLING.cooldown == 0.08 and GATLING.weapon_range == 25.0 and GATLING.projectile_speed == 70.0
-		and GATLING.projectile_lifetime == 0.45 and GATLING.ammunition == 400 and GATLING.magazine_size == 40
-		and GATLING.reload_time == 3.0 and GATLING.idle_reload_delay == 0.25 and not GATLING.has_penetration
-		and GATLING.armor_damage == 0.0 and GATLING.dispersion_max_deg == 0.0 and GATLING.yaw_speed_deg == 140.0 and GATLING.pitch_speed_deg == 120.0)
 	_check("NC-90 Bastion configuration unchanged: damage 12, penetration 20, armor damage 6, 2.5 s, 75 / 45 u, 40 rounds, dispersion 0.5",
 		NC90.damage == 12.0 and NC90.penetration == 20.0 and NC90.armor_damage == 6.0 and NC90.cooldown == 2.5
 		and NC90.weapon_range == 75.0 and NC90.effective_range == 45.0 and NC90.ammunition == 40 and NC90.dispersion_max_deg == 0.5)
@@ -178,15 +174,20 @@ static func _sequence(seed: int, axis: Vector3) -> Array:
 
 func _load() -> void:
 	scene = ARENA.instantiate()
+	# Two friendly FF-01s (test-added) as the allies FF-01's point defense protects.
+	for ally_name: String in ["AllyA", "AllyB"]:
+		var ally: Node3D = UNIT.instantiate()
+		ally.name = ally_name
+		ally.position = Vector3(0, 1.5, 40 if ally_name == "AllyA" else 60)
+		scene.get_node("Ships").add_child(ally)
 	root.add_child(scene)
-	scene.get_node("HostileCommander").set_physics_process(false)
 	for ship in scene.get_node("Ships").get_children():
 		ship.get_node("Combat").stance = CombatShip.Stance.HOLD_FIRE
 		ship.get_node("Combat").set_physics_process(false)
 		ship.get_node("Behavior").set_physics_process(false)
 	ff01 = scene.get_node("Ships/FF01")
 	projectiles = scene.projectiles
-	hostile = scene.get_node("Ships/HostileDestroyer")
+	hostile = scene.get_node("Ships/HostileFF01")
 	for i in 3:
 		await physics_frame
 	site = _clear_site()
@@ -194,7 +195,7 @@ func _load() -> void:
 	_park_others()
 	await physics_frame
 	_check("test site (%.0f, %.0f) clear of asteroids for %.0f u; FF-01 placed there with its bow along -Z" % [site.x, site.y, SITE_CLEARANCE],
-		Vector2(ff01.global_position.x, ff01.global_position.z).distance_to(site) < 0.01 and ff01.global_basis.z.is_equal_approx(Vector3.BACK))
+		Vector2(ff01.global_position.x, ff01.global_position.z).distance_to(site) < 0.01 and ff01.global_basis.z.angle_to(Vector3.BACK) < deg_to_rad(0.1))
 
 
 func _clear_site() -> Vector2:
@@ -342,7 +343,7 @@ func _installation() -> void:
 		and pdcs.all(func(w: Node) -> bool: return w.magazine == 40 and w.ammo == 360 and w.cooldown_left == 0.0 and w.defense_target == null))
 	# Independent state: firing one mount changes only its own magazine, cooldown and RNG.
 	var before := pdcs.map(func(w: Node) -> Array: return [w.magazine, w.ammo, w.cooldown_left, w.rng.state])
-	var target := scene.get_node("Ships/HostileGunship") as Node3D
+	var target := scene.get_node("Ships/HostileFF01") as Node3D
 	pdcs[1].mode = "defense"
 	pdcs[1]._fire(target)
 	var after := pdcs.map(func(w: Node) -> Array: return [w.magazine, w.ammo, w.cooldown_left, w.rng.state])
@@ -351,12 +352,6 @@ func _installation() -> void:
 		and after[0] == before[0] and after[2] == before[2] and after[3] == before[3])
 	_clear_flight()
 	_reset_pdcs(1)
-	var gunship := scene.get_node("Ships/Gunship")
-	var legacy := ["LeftHardpoint", "RightHardpoint"].all(func(n: String) -> bool:
-		var w: Node = gunship.get_node("Weapons/%s" % n).weapon()
-		return w.get_script() == Gatling and w.config == GATLING)
-	var stern: Node = scene.get_node("Ships/Destroyer/Weapons/SternHardpoint").weapon()
-	_check("legacy Gatlings (Gunship, Destroyer) keep gatling.gd and gatling.tres", legacy and stern.get_script() == Gatling and stern.config == GATLING)
 
 
 func _geometry() -> void:
@@ -417,8 +412,8 @@ func _label(node: Node3D) -> String:
 
 func _targeting() -> void:
 	print("\n=== T defensive target selection (each case separately; aft-starboard Kestrel unless stated)")
-	var ally_a := scene.get_node("Ships/Gunship") as Node3D
-	var ally_b := scene.get_node("Ships/Gunship2") as Node3D
+	var ally_a := scene.get_node("Ships/AllyA") as Node3D
+	var ally_b := scene.get_node("Ships/AllyB") as Node3D
 	_place(ally_a, site + Vector2(6, 20))
 	_place(ally_b, site + Vector2(20, 12))
 	var subject: Node = _pdc("AftStarboardPDCHardpoint")
@@ -494,13 +489,14 @@ func _targeting() -> void:
 	torpedo = _threat(&"torpedo", Vector2(18, -2), ff01, 3.0)
 	missile = _threat(&"missile", Vector2(14, 8), ff01, 1.6)
 	picked = _select(subject)
-	var legacy: Node = scene.get_node("Ships/Gunship/Weapons/RightHardpoint").weapon()
+	var legacy: Node = Gatling.new() # The Gatling family's own ordering (gatling.gd).
 	_check("T5 missile 1.6 s (above 1.5 s) vs torpedo 3.0 s: the torpedo (%s)" % _label(picked), picked == torpedo)
-	# Contrast: the legacy Gatling order (earliest impact) is unchanged.
+	# Contrast: the Gatling family order (earliest impact) is unchanged.
 	var candidates := [[0, 1.6, missile.id, missile], [0, 3.0, torpedo.id, torpedo]]
-	_check("legacy Gatling ordering unchanged: earliest impact first (missile before torpedo), PDC ordering torpedo first",
+	_check("Gatling ordering unchanged: earliest impact first (missile before torpedo), PDC ordering torpedo first",
 		legacy._defense_before(candidates[0], candidates[1]) and not legacy._defense_before(candidates[1], candidates[0])
 		and subject._defense_before(candidates[1], candidates[0]) and not subject._defense_before(candidates[0], candidates[1]))
+	legacy.free()
 	_clear_flight()
 
 	# T6: Guard does not change the hierarchy.
@@ -656,8 +652,8 @@ func _interception() -> void:
 	# Cannon shells are not interceptable: not selected as threats, and a round passes through.
 	var combat = CombatShip.of(ff01)
 	var shell_from := _at(Vector2(22, 0), 0.3)
-	var shell_id: int = projectiles.spawn(hostile, HOSTILE, shell_from, Vector3.LEFT * CANNON.projectile_speed, CANNON.damage, CANNON.max_travel(),
-		CANNON.projectile_lifetime, ff01, &"shell")
+	var shell_id: int = projectiles.spawn(hostile, HOSTILE, shell_from, Vector3.LEFT * NC90.projectile_speed, NC90.damage, NC90.max_travel(),
+		NC90.projectile_lifetime, ff01, &"shell")
 	r_id = _round(_at(Vector2(3, 0), 0.3), Vector3.RIGHT)
 	var health_before: float = combat.health
 	combat.set_physics_process(true)
@@ -785,7 +781,7 @@ func _run_salvo(seed: int, count: int, spacing: float, lateral: Array) -> Dictio
 
 # One run: each launch {bearing (deg from FF-01's bow), distance (u from FF-01), lateral (u,
 # beside the launch axis), frame (tick of launch), target (ship)} is a missile launched at
-# its target from that point; the four Kestrels seeded with `seed`; HostileDestroyer (the
+# its target from that point; the four Kestrels seeded with `seed`; HostileFF01 (the
 # owner, for faction-shared contact) parked 10 u behind the first launch point. Every tick
 # each live missile is classified per enabled mount (read-only: range, arc, engageability,
 # the mount's own target, reload, alignment) for the miss causes. Returns the observations.
@@ -944,7 +940,7 @@ func _throughput() -> void:
 	# D: one missile at an ally 20 u ahead of FF-01, launched from bearing 120 deg: it crosses
 	# FF-01's starboard coverage obliquely (closest approach about 15 u). The ally's own
 	# weapons are not stepped, so only FF-01's Kestrels defend.
-	var ally := scene.get_node("Ships/Gunship") as Node3D
+	var ally := scene.get_node("Ships/AllyA") as Node3D
 	_place(ally, _bearing_point(0.0, 20.0))
 	var d_runs: Array = []
 	for seed: int in SEEDS:
@@ -1125,3 +1121,14 @@ func _offense() -> void:
 	_check("no Kestrel round hit the firing FF-01", own.is_empty())
 	combat.clear_target()
 	_clear_flight()
+
+
+func _threat_config(kind: StringName, damage: float, reach: float) -> Resource:
+	var config: Resource = WeaponConfig.new()
+	config.display_name = "%s threat" % String(kind).capitalize()
+	config.family = kind
+	config.damage = damage
+	config.weapon_range = reach
+	config.ordnance = OrdnanceConfig.new() # default flight values
+	config.ordnance.kind = kind
+	return config

@@ -24,7 +24,7 @@ const MiningOperation := preload("res://game/mining/mining_operation.gd")
 const Docking := preload("res://game/stations/docking.gd")
 const Station := preload("res://game/stations/station.gd")
 const DT := 1.0 / 60.0
-const PARK := {"Frigate": Vector2(40, 30), "Gunship": Vector2(40, 15), "Destroyer": Vector2(40, -5), "Miner1": Vector2(40, -20),
+const PARK := {"Miner1": Vector2(40, -20),
 	"Miner2": Vector2(40, -32), "Transporter": Vector2(-80, 30), "TransporterB": Vector2(-10, -45), "TransporterC": Vector2(10, -60)}
 const NO_ROUTE := Vector2(20, -20)
 const NAVIGATION_SOURCE := """extends "res://game/navigation/static_navigation.gd"

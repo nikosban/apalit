@@ -11,14 +11,14 @@ const CROSSING_TIME := 9.0 # s; both crossing ships reach the crossing point at 
 ## The lab's scenario keys 4-9, 0 and -, in that order.
 static func lab_presets(profiles: Dictionary) -> Array:
 	return [
-		head_on("Frigate", "Gunship", 0.0),
-		crossing("Frigate", "Gunship", true, profiles),
-		crossing("Frigate", "Gunship", false, profiles),
-		overtake("Frigate", "Gunship"),
-		parked("Gunship", "Destroyer", 0.0),
-		parked("Gunship", "Destroyer", 3.0),
+		head_on("Miner", "Transporter", 0.0),
+		crossing("Miner", "Transporter", true, profiles),
+		crossing("Miner", "Transporter", false, profiles),
+		overtake("Miner", "Transporter"),
+		parked("Transporter", "FF01", 0.0),
+		parked("Transporter", "FF01", 3.0),
 		combined(),
-		crossing("Gunship", "Destroyer", true, profiles),
+		crossing("Transporter", "FF01", true, profiles),
 	]
 
 
@@ -66,12 +66,12 @@ static func converging(a: String, b: String, from_right: bool) -> Dictionary:
 			{"ship": b, "start": Vector2(115 + 7 * s, 45), "target": Vector2(115 - 7 * s, -45)}]}
 
 
-## Frigate and Gunship head-on beside a parked Destroyer on the Frigate's starboard side.
+## Miner and Transporter head-on beside a parked FF01 on the Miner's starboard side.
 static func combined() -> Dictionary:
-	return {"name": "combined head-on beside parked Destroyer", "center": Vector2(115, 0),
-		"parked": [{"ship": "Destroyer", "point": Vector2(122, 0)}], "movers": [
-			{"ship": "Frigate", "start": Vector2(110, 45), "target": Vector2(110, -45)},
-			{"ship": "Gunship", "start": Vector2(110, -45), "target": Vector2(110, 45)}]}
+	return {"name": "combined head-on beside parked FF01", "center": Vector2(115, 0),
+		"parked": [{"ship": "FF01", "point": Vector2(122, 0)}], "movers": [
+			{"ship": "Miner", "start": Vector2(110, 45), "target": Vector2(110, -45)},
+			{"ship": "Transporter", "start": Vector2(110, -45), "target": Vector2(110, 45)}]}
 
 
 # Distance covered in CROSSING_TIME from rest at full forward acceleration, then top speed.

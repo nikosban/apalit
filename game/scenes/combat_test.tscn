@@ -1,8 +1,6 @@
 [gd_scene format=3]
 
 [ext_resource type="PackedScene" path="res://game/camera/camera_rig.tscn" id="1_rig"]
-[ext_resource type="PackedScene" path="res://game/ships/gunship_unit.tscn" id="4_gunship_unit"]
-[ext_resource type="PackedScene" path="res://game/ships/destroyer_unit.tscn" id="5_destroyer_unit"]
 [ext_resource type="Script" path="res://game/scenes/movement_lab.gd" id="6_lab"]
 [ext_resource type="PackedScene" path="res://game/debug/debug_ui.tscn" id="8_debug"]
 [ext_resource type="Script" path="res://game/navigation/static_navigation.gd" id="9_navigation"]
@@ -32,7 +30,6 @@
 [ext_resource type="Script" path="res://game/presentation/combat_overlay.gd" id="97_overlay"]
 [ext_resource type="Script" path="res://game/ui/combat_hud.gd" id="98_hud"]
 
-[ext_resource type="Script" path="res://game/behavior/hostile_commander.gd" id="99_commander"]
 [ext_resource type="PackedScene" path="res://game/ships/ff01_unit.tscn" id="100_ff01"]
 
 [sub_resource type="Environment" id="Environment_lab"]
@@ -293,38 +290,15 @@ script = ExtResource("18_survey")
 
 [node name="Ships" type="Node3D" parent="."]
 
-[node name="Gunship" parent="Ships" instance=ExtResource("4_gunship_unit")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
-
-[node name="Destroyer" parent="Ships" instance=ExtResource("5_destroyer_unit")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 1.5, 0)
-
-[node name="Gunship2" parent="Ships" instance=ExtResource("4_gunship_unit")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 1.5, -12)
-
-[node name="HostileDestroyer" parent="Ships" instance=ExtResource("5_destroyer_unit")]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 126, 1.5, 2)
-
-[node name="Combat" parent="Ships/HostileDestroyer" index="7"]
-faction = 1
-stance = 2
-
-[node name="HostileGunship" parent="Ships" instance=ExtResource("4_gunship_unit")]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 117, 1.5, -6)
-
-[node name="Combat" parent="Ships/HostileGunship" index="7"]
-faction = 1
-stance = 2
-
-[node name="HostileGunship2" parent="Ships" instance=ExtResource("4_gunship_unit")]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 117, 1.5, 11)
-
-[node name="Combat" parent="Ships/HostileGunship2" index="7"]
-faction = 1
-stance = 2
-
 [node name="FF01" parent="Ships" instance=ExtResource("100_ff01")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 1.5, -12)
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -45, 1.5, 0)
+
+[node name="HostileFF01" parent="Ships" instance=ExtResource("100_ff01")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 45, 1.5, 0)
+
+[node name="Combat" parent="Ships/HostileFF01" index="7"]
+faction = 1
+stance = 2
 
 [node name="Contacts" type="Node" parent="."]
 script = ExtResource("91_contacts")
@@ -420,13 +394,4 @@ script = ExtResource("97_overlay")
 [node name="CombatHUD" type="CanvasLayer" parent="."]
 script = ExtResource("98_hud")
 
-[node name="HostileCommander" type="Node" parent="."]
-script = ExtResource("99_commander")
-tactic = 2
-escorted = "HostileDestroyer"
-escorts = PackedStringArray("HostileGunship", "HostileGunship2")
-objectives = PackedVector2Array(20, 0, -30, 8)
-
-[editable path="Ships/HostileDestroyer"]
-[editable path="Ships/HostileGunship"]
-[editable path="Ships/HostileGunship2"]
+[editable path="Ships/HostileFF01"]

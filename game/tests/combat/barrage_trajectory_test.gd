@@ -3,7 +3,7 @@ extends "res://game/tests/combat/launch_profiles_test.gd"
 ## Append -- --measure-only to capture a pre-correction baseline without accuracy gates.
 ## Append -- --visual for the rendered production-scene inspection inherited below.
 
-const AGILE_UNIT := preload("res://game/ships/frigate_unit.tscn")
+const AGILE_UNIT := preload("res://game/ships/miner_unit.tscn") # The most agile hull (small-hull handling).
 
 var measured: Dictionary = {}
 var measure_only := false
@@ -254,7 +254,7 @@ func _missile_signatures() -> void:
 
 
 func _agile_controls() -> void:
-	# Use the production Frigate's real handling for a sharper maneuver; no movement
+	# Use the production Miner's real small-hull handling for a sharper maneuver; no movement
 	# parameters, velocities or positions are changed after its initial placement.
 	for side in [-1.0, 1.0]:
 		var steady_hits := 0
@@ -286,7 +286,7 @@ func _agile_controls() -> void:
 			if not abrupt:
 				steady_hits = summary.hits
 			elif not measure_only:
-				_check("production Frigate maneuver defeats hits from the same locked solution", steady_hits > 0 and summary.hits < steady_hits)
+				_check("production small-hull (Miner) maneuver defeats hits from the same locked solution", steady_hits > 0 and summary.hits < steady_hits)
 
 
 func _preview() -> void:

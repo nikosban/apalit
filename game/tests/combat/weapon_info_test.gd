@@ -48,7 +48,7 @@ func _free() -> void:
 func _load(quiet: bool) -> Node3D:
 	_free()
 	scene = E05.instantiate()
-	scene.scenario_index = 4
+	scene.scenario_index = 0
 	var sensors := scene.get_node("Sensors") # A3 / A4 checks without the fog of war (fog_test covers it)
 	scene.remove_child(sensors)
 	sensors.free()
@@ -120,78 +120,82 @@ func _case_reasons() -> void:
 			asteroid = each
 	var center := Vector2(asteroid.global_position.x, asteroid.global_position.z)
 	var radius := asteroid.scale.x * 0.5
-	# Clear water first: Destroyer heading east, the target 50 u ahead.
+	# Clear water first: FF01A heading east, the target 50 u ahead.
 	var open := Vector2(-20, 110)
-	for name in ["Gunship", "Gunship2", "HostileGunship2", "HostileDestroyer"]:
-		_place(name, Vector2(-140 + 10 * ["Gunship", "Gunship2", "HostileGunship2", "HostileDestroyer"].find(name), -140), EAST)
-	_place("Destroyer", open, EAST)
-	_place("HostileGunship", open + Vector2(50, 0), WEST)
-	var destroyer = CombatShip.of(scene.ship("Destroyer"))
-	destroyer.stance = CombatShip.Stance.AGGRESSIVE
-	var target: Node3D = scene.ship("HostileGunship")
+	for name in ["FF01B", "FF01C", "HostileFF01C", "HostileFF01A"]:
+		_place(name, Vector2(-140 + 10 * ["FF01B", "FF01C", "HostileFF01C", "HostileFF01A"].find(name), -140), EAST)
+	_place("FF01A", open, EAST)
+	_place("HostileFF01B", open + Vector2(50, 0), WEST)
+	var ff01a = CombatShip.of(scene.ship("FF01A"))
+	ff01a.stance = CombatShip.Stance.AGGRESSIVE
+	var target: Node3D = scene.ship("HostileFF01B")
 	await physics_frame
-	var cannon := _weapon("Destroyer", "cannon")
-	var gatling := _weapon("Destroyer", "gatling")
-	var torpedo := _weapon("Destroyer", "torpedo")
-	var missile := _weapon("Destroyer", "missile")
+	var cannon := _weapon("FF01A", "cannon")
+	var gatling := _weapon("FF01A", "gatling")
+	var rocket := _weapon("FF01A", "rocket")
+	var missile := _weapon("FF01A", "missile")
 	var r := {}
-	for w in [cannon, gatling, torpedo, missile]:
+	for w in [cannon, gatling, rocket, missile]:
 		r[w.config.family] = w.assess(target)
 	print("  ahead 50 u: " + str(r))
-	_check("50 u ahead: cannon, torpedo and missiles can engage; the Gatling is out of range (25 u)",
-		r[&"cannon"].capable and r[&"torpedo"].capable and r[&"missile"].capable and not r[&"gatling"].capable and r[&"gatling"].reason.begins_with("Out of range"))
-	_place("HostileGunship", open + Vector2(-30, 0), WEST) # astern
+	_check("50 u ahead: cannon, rockets and missiles can engage; point defense is out of range (25 u)",
+		r[&"cannon"].capable and r[&"rocket"].capable and r[&"missile"].capable and not r[&"gatling"].capable and r[&"gatling"].reason.begins_with("Out of range"))
+	_place("HostileFF01B", open + Vector2(-30, 0), WEST) # astern
 	await physics_frame
-	var astern := {"cannon": cannon.assess(target), "torpedo": torpedo.assess(target), "missile": missile.assess(target)}
+	var astern := {"cannon": cannon.assess(target), "rocket": rocket.assess(target), "missile": missile.assess(target)}
 	print("  astern 30 u: " + str(astern))
-	_check("dead astern 30 u: the cannon is outside its traverse (blind arc), the torpedo outside its launch cone, missiles still capable",
-		astern.cannon.state == TS.OUTSIDE_ARC and astern.torpedo.reason.begins_with("Outside launch cone") and astern.missile.capable)
-	# Behind the asteroid: Destroyer west of it facing east, target east of it.
-	_place("Destroyer", center + Vector2(-(radius + 16.0), 0), EAST)
-	_place("HostileGunship", center + Vector2(radius + 12.0, 0), WEST)
+	_check("dead astern 30 u: the forward cannon is outside its traverse (blind arc), missiles still capable",
+		astern.cannon.state == TS.OUTSIDE_ARC and astern.missile.capable)
+	# Behind the asteroid: FF01A west of it facing east, target east of it.
+	_place("FF01A", center + Vector2(-(radius + 16.0), 0), EAST)
+	_place("HostileFF01B", center + Vector2(radius + 12.0, 0), WEST)
 	await physics_frame
-	var hidden := {"cannon": cannon.assess(target), "torpedo": torpedo.assess(target), "missile": missile.assess(target)}
+	var hidden := {"cannon": cannon.assess(target), "rocket": rocket.assess(target), "missile": missile.assess(target)}
 	print("  behind asteroid r %.1f: %s" % [radius, str(hidden)])
-	_check("an asteroid between: cannon and torpedo obstructed (asteroid), missiles still capable (they avoid obstacles)",
-		hidden.cannon.state == TS.OBSCURED and hidden.torpedo.state == TS.OBSCURED and hidden.missile.capable)
-	_place("Destroyer", open, EAST)
-	_place("HostileGunship", open + Vector2(50, 0), WEST)
+	_check("an asteroid between: the cannon obstructed (asteroid), missiles still capable (they avoid obstacles)",
+		hidden.cannon.state == TS.OBSCURED and hidden.missile.capable)
+	_place("FF01A", open, EAST)
+	_place("HostileFF01B", open + Vector2(50, 0), WEST)
 	await physics_frame
 	cannon.ammo = 0
-	missile.cancel_salvo("test set-up") # E05's salvo launcher may be mid-salvo from the last tick
+	missile.cancel_salvo("test set-up") # E05's salvo launchers may be mid-salvo from the last tick
+	rocket.cancel_salvo()
 	missile.cooldown_left = 1.5
 	var empty: Dictionary = cannon.assess(target)
 	var reloading: Dictionary = missile.assess(target)
 	_check("no ammunition: '%s'; reloading: '%s' (capable, waiting)" % [empty.reason, reloading.reason],
 		not empty.capable and empty.reason == "Out of ammunition" and reloading.capable and reloading.reason.begins_with("Reloading"))
 	scene.contacts.set_contact(0, target, false)
-	var lost: Dictionary = torpedo.assess(target)
+	var lost: Dictionary = rocket.assess(target)
 	_check("no sensor contact: '%s', not capable" % lost.reason, not lost.capable and lost.state == TS.CONTACT_LOST)
 	scene.contacts.set_contact(0, target, true)
 	# The same target assigned for real: one tick of the authorization gives the same reasons.
 	var before := {}
-	for w in [cannon, gatling, torpedo, missile]:
+	for w in [cannon, gatling, rocket, missile]:
 		before[w] = w.assess(target, true)
 	missile.cooldown_left = 1.5 + 1.0 / 60.0 # stays reloading after the tick
-	torpedo.cooldown_left = 3.0
+	rocket.cooldown_left = 3.0
 	before[missile] = missile.assess(target, true)
-	before[torpedo] = torpedo.assess(target, true)
-	scene.orders.assign_target([scene.ship("Destroyer")], target)
+	before[rocket] = rocket.assess(target, true)
+	scene.orders.assign_target([scene.ship("FF01A")], target)
 	await physics_frame
 	var same := true
-	for w in [cannon, gatling, torpedo, missile]:
+	for w in [cannon, gatling, rocket, missile]:
 		var expect: Dictionary = before[w]
 		var reason: String = w.reason
 		if expect.reason.begins_with("Reloading") and reason.begins_with("Reloading"):
+			continue
+		# Out of range reports the live muzzle distance, which moves with a turning turret.
+		if expect.state == w.state and expect.reason.begins_with("Out of range") and reason.begins_with("Out of range"):
 			continue
 		if expect.state != w.state or (expect.reason != reason and not (expect.reason == "Ready" and reason == "Firing")):
 			same = false
 			print("  differs: %s assess '%s' / authorization '%s'" % [w.name, expect.reason, reason])
 	_check("assigned for real, the next tick's authorization gives the reasons the readout showed", same)
-	var text := CombatHud.inspect_text([scene.ship("Destroyer")], target)
+	var text := CombatHud.inspect_text([scene.ship("FF01A")], target)
 	print(text.indent("  "))
 	_check("the HUD readout lists the distance and every weapon with its assess() reason",
-		text.contains("Destroyer") and text.contains("50.0 u") and text.contains("- Cannon: Out of ammunition") and text.contains("- Gatling: Out of range"))
+		text.contains("FF-01") and text.contains("50.0 u") and text.contains("- NC-90 Bastion: Out of ammunition") and text.contains("- PDC-20 Kestrel: Out of range"))
 
 
 ## W3: envelopes only on request; Alt does not change orders or target-selection clicks.
@@ -199,27 +203,27 @@ func _case_display() -> void:
 	print("\n=== W3 envelope display and the Alt modifier")
 	await _load(true)
 	var envelopes: Node = scene.envelopes
-	var destroyer: Node3D = scene.ship("Destroyer")
-	var gunship: Node3D = scene.ship("Gunship")
+	var ff01a: Node3D = scene.ship("FF01A")
+	var ff01b: Node3D = scene.ship("FF01B")
 	var rig: Node3D = scene.get_node("CameraRig")
-	rig.global_position = Vector3(destroyer.global_position.x + 10, 0, destroyer.global_position.z)
+	rig.global_position = Vector3(ff01a.global_position.x + 10, 0, ff01a.global_position.z)
 	rig.rotation = Vector3.ZERO
 	await process_frame
-	scene.selection().set_selection([destroyer])
+	scene.selection().set_selection([ff01a])
 	await process_frame
 	var idle_drawn: int = envelopes.drawn_weapons
 	_press_alt(true)
 	await process_frame
 	await process_frame
 	var single: int = envelopes.drawn_weapons
-	var weapons: int = CombatShip.of(destroyer).weapons.size()
+	var weapons: int = CombatShip.of(ff01a).weapons.size()
 	# Alt held: a right-click on the ground still moves the ship.
 	var camera := scene.get_viewport().get_camera_3d()
-	var goal := Vector3(destroyer.global_position.x + 12, 0, destroyer.global_position.z + 6)
+	var goal := Vector3(ff01a.global_position.x + 12, 0, ff01a.global_position.z + 6)
 	_mouse(camera.unproject_position(goal), MOUSE_BUTTON_RIGHT, true)
 	await process_frame
-	var moved: bool = destroyer.get_node("Locomotion").has_destination
-	scene.selection().set_selection([destroyer, gunship])
+	var moved: bool = ff01a.get_node("Locomotion").has_destination
+	scene.selection().set_selection([ff01a, ff01b])
 	await process_frame
 	var outlines: Array = envelopes.visible_ships
 	var outline_weapons: int = envelopes.drawn_weapons
@@ -231,9 +235,9 @@ func _case_display() -> void:
 	_check("two ships selected with Alt: one outline each, no per-weapon envelopes (%d ships, %d weapons); released: none" % [outlines.size(), outline_weapons],
 		outlines.size() == 2 and outline_weapons == 0 and released == 0)
 	# Target selection shows the envelopes without Alt, and an Alt-click assigns as usual.
-	scene.selection().set_selection([destroyer])
-	var hostile: Node3D = scene.ship("HostileGunship")
-	_place("HostileGunship", Vector2(destroyer.global_position.x + 40, destroyer.global_position.z), WEST)
+	scene.selection().set_selection([ff01a])
+	var hostile: Node3D = scene.ship("HostileFF01B")
+	_place("HostileFF01B", Vector2(ff01a.global_position.x + 40, ff01a.global_position.z), WEST)
 	await physics_frame
 	await process_frame
 	scene.begin_target_selection()
@@ -244,7 +248,7 @@ func _case_display() -> void:
 	await process_frame
 	_press_alt(false)
 	_check("target selection shows the envelopes without Alt (%d); an Alt-click on the hostile assigns it and closes selection" % during,
-		during == weapons and CombatShip.of(destroyer).manual_target == hostile and not scene.target_selection)
+		during == weapons and CombatShip.of(ff01a).manual_target == hostile and not scene.target_selection)
 
 
 func _press_alt(down: bool) -> void:

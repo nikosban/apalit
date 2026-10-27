@@ -1,13 +1,13 @@
 extends SceneTree
 ## Combat migration M7: the integrated production scenes. Run with a fixed step:
 ##   <godot console> --headless --path . --fixed-fps 60 -s res://game/tests/combat/combat_scene_test.gd
-## On game/scenes/combat_test.tscn (the standalone combat arena, three player warships
-## and a hostile Destroyer and two Gunships under the minimal HostileCommander):
-##   S1 the commander's orders run on the hostile ships' own Behavior (Attack-Move, Guard,
-##      Aggressive); the fleet starts beyond sensor range, hidden by the fog of war
-##   S2 the full battle with the player's warships Aggressive (as the E05 passive runs):
-##      detection, fire, 4-missile salvos, point-defense interceptions, kills, a result;
-##      nothing in flight, no stale reference and no orphan node afterwards
+## On game/scenes/combat_test.tscn (the standalone combat arena: a player FF-01 and an
+## Aggressive hostile FF-01 facing each other, no commander):
+##   S1 the hostile ship acts on its own Behavior (Aggressive, no command); one authority
+##      per world service
+##   S2 the full battle with the player's FF-01 Aggressive: detection, fire, 4-missile
+##      salvos, point-defense interceptions, a kill, a result; nothing in flight, no stale
+##      reference and no orphan node afterwards
 ##   S5 controls: a right-click on a visible hostile targets it (no MOVE); at Tactical zoom
 ##      the markers pick own ships and never select a hostile; the ship panel shows the hull
 ##      and, for armed ships only, tactic, the loadout's profiles and weapons
@@ -27,11 +27,8 @@ const Behavior := preload("res://game/behavior/ship_behavior.gd")
 const Profiles := preload("res://game/behavior/weapon_profiles.gd")
 const SimClock := preload("res://game/time/sim_clock.gd")
 const DT := 1.0 / 60.0
-const PLAYER_WARSHIPS := ["Gunship", "Gunship2", "Destroyer"]
-## Keep the original three ships' Aggressive orders. FF-01 keeps its authored tactic,
-## but its new launcher means it can still be fighting after those three ships die.
-const PLAYER_FLEET := ["Gunship", "Gunship2", "Destroyer", "FF01"]
-const HOSTILES := ["HostileDestroyer", "HostileGunship", "HostileGunship2"]
+const PLAYER_FLEET := ["FF01"]
+const HOSTILES := ["HostileFF01"]
 
 var scene: Node3D
 var _checks := 0
@@ -122,17 +119,11 @@ func _s1_s2() -> void:
 	print("\n=== S1 commander and fog")
 	await _load(COMBAT_TEST)
 	await process_frame
-	var hidden := HOSTILES.all(func(n: String) -> bool: return not scene.player_sees(_ship(n)))
-	await _look_at(_ship("HostileDestroyer").global_position)
-	var models_hidden := HOSTILES.all(func(n: String) -> bool: return not _ship(n).visible)
-	var unpicked: bool = scene.selection().pick_any(_screen(_ship("HostileDestroyer").global_position)) == null
 	await _run(3.0)
 	var commands := HOSTILES.map(func(n: String) -> String: return Behavior.COMMAND_NAMES[Behavior.of(_ship(n)).command])
 	var tactics := HOSTILES.all(func(n: String) -> bool: return CombatShip.of(_ship(n)).stance == CombatShip.Stance.AGGRESSIVE)
-	print("  commander: %s" % str(scene.get_node("HostileCommander").log))
-	_check("the hostile fleet starts hidden: not seen, models not drawn, not pickable at its position", hidden and models_hidden and unpicked)
-	_check("commander orders carried out by the ships' own Behavior: %s, all Aggressive" % str(commands),
-		commands == ["Attack-Move", "Guard", "Guard"] and tactics)
+	_check("no commander: the hostile FF-01 acts on its own Behavior (command %s), Aggressive" % str(commands),
+		not scene.has_node("HostileCommander") and commands == ["None"] and tactics)
 	# One authority each; one combat component per ship; one command handler per Behavior.
 	var count := func(script_path: String) -> int:
 		return scene.find_children("*", "", true, false).filter(func(n: Node) -> bool: return n.get_script() != null and n.get_script().resource_path == script_path).size()
@@ -144,7 +135,7 @@ func _s1_s2() -> void:
 		str(singles), count.call("res://game/combat/combat_ship.gd"), ships.size(), scene.command_given.get_connections().size(), behaviors],
 		singles == [1, 1, 1, 1, 1] and count.call("res://game/combat/combat_ship.gd") == ships.size() and scene.command_given.get_connections().size() == behaviors)
 	print("\n=== S2 battle")
-	scene.orders.set_stance(PLAYER_WARSHIPS.map(func(n: String) -> Node3D: return _ship(n)), CombatShip.Stance.AGGRESSIVE)
+	scene.orders.set_stance(PLAYER_FLEET.map(func(n: String) -> Node3D: return _ship(n)), CombatShip.Stance.AGGRESSIVE)
 	var projectiles: Node = scene.get_node("Projectiles")
 	var launches := []
 	projectiles.ordnance_launched.connect(func(node: Node3D) -> void: launches.append({"time": SimClock.now(), "owner": node.owner_name, "kind": String(node.kind)}))
@@ -190,64 +181,61 @@ func _s1_s2() -> void:
 func _s5_controls() -> void:
 	print("\n=== S5 controls")
 	await _load(COMBAT_TEST)
-	var gunship := _ship("Gunship")
-	var hostile := _ship("HostileGunship")
-	scene.get_node("HostileCommander").process_mode = Node.PROCESS_MODE_DISABLED
+	var ff01_ship := _ship("FF01")
+	var hostile := _ship("HostileFF01")
 	hostile.get_node("Locomotion").place(Vector2(0, -45), 0.0)
 	hostile.get_node("Avoidance").reset()
 	scene.orders.set_stance([hostile], CombatShip.Stance.HOLD_FIRE)
 	await physics_frame
 	scene.sensors.evaluate()
 	await physics_frame
-	scene.selection().set_selection([gunship])
+	scene.selection().set_selection([ff01_ship])
 	await _look_at(hostile.global_position)
-	var destination_before: bool = gunship.get_node("Locomotion").has_destination
+	var destination_before: bool = ff01_ship.get_node("Locomotion").has_destination
 	await _click(MOUSE_BUTTON_RIGHT, _screen(hostile.global_position))
 	_check("right-click on a visible hostile: it becomes the selected ship's manual target; no MOVE given ('%s')" % scene._notice.text,
-		CombatShip.of(gunship).manual_target == hostile and gunship.get_node("Locomotion").has_destination == destination_before and scene._notice.text.begins_with("Target: "))
+		CombatShip.of(ff01_ship).manual_target == hostile and ff01_ship.get_node("Locomotion").has_destination == destination_before and scene._notice.text.begins_with("Target: "))
 	# Tactical zoom (Phase B): the markers are drawn over the visible models and pick them.
 	var rig := scene.get_node("CameraRig")
 	rig.zoom_distance = 120.0
 	rig._apply_zoom()
-	await _look_at(gunship.global_position)
-	var tactical: bool = scene.markers.emphasis() >= scene.markers.interactive_emphasis and gunship.visible
+	await _look_at(ff01_ship.global_position)
+	var tactical: bool = scene.markers.emphasis() >= scene.markers.interactive_emphasis and ff01_ship.visible
 	scene.selection().set_selection([])
-	await _click(MOUSE_BUTTON_LEFT, _screen(gunship.global_position))
-	var picked_own: bool = scene.selection().selected == [gunship]
+	await _click(MOUSE_BUTTON_LEFT, _screen(ff01_ship.global_position))
+	var picked_own: bool = scene.selection().selected == [ff01_ship]
 	await _click(MOUSE_BUTTON_LEFT, _screen(hostile.global_position))
 	var hostile_selected: bool = scene.selection().selected.has(hostile)
-	_check("Tactical zoom: models kept, markers interactive; a click on the Gunship's marker selects it; a hostile marker is never selected",
+	_check("Tactical zoom: models kept, markers interactive; a click on the FF-01's marker selects it; a hostile marker is never selected",
 		tactical and picked_own and not hostile_selected)
 	rig.zoom_distance = 20.0
 	rig._apply_zoom()
 	await process_frame
 	# Armed ship panels remain covered on the combat arena itself.
 	var panel: Node = scene.get_node("ShipPanel")
-	var rows := {}
-	for name in ["Gunship", "Destroyer"]:
-		scene.selection().set_selection([_ship(name)])
-		await process_frame
-		var items := []
-		for i in panel._profile.item_count:
-			items.append(panel._profile.get_item_text(i))
-		rows[name] = [panel._hull.text, panel._combat.visible, items]
-	print("  panel: %s" % str(rows))
-	_check("armed ship panels: hull and Combat with the loadout's profiles (Gunship: Mid-range, Close Quarters; Destroyer: all three)",
-		rows.Gunship == ["Hull: 150 / 150", true, ["Mid-range", "Close Quarters"]] and rows.Destroyer == ["Hull: 150 / 150", true, ["Siege", "Mid-range", "Close Quarters"]])
-	scene.selection().set_selection([gunship])
+	scene.selection().set_selection([ff01_ship])
+	await process_frame
+	var items := []
+	for i in panel._profile.item_count:
+		items.append(panel._profile.get_item_text(i))
+	var row := [panel._hull.text, panel._combat.visible, items]
+	print("  panel: %s" % str(row))
+	_check("armed ship panel: hull and Combat with the FF-01 loadout's profiles (Siege, Mid-range, Close Quarters)",
+		row == ["Hull: 160 / 160", true, ["Siege", "Mid-range", "Close Quarters"]])
+	scene.selection().set_selection([ff01_ship])
 	await process_frame
 	panel._tactic.item_selected.emit(panel._tactic.get_item_index(CombatShip.Stance.AGGRESSIVE))
-	_check("the panel's tactic selector sets the tactic through CombatOrders", CombatShip.of(gunship).stance == CombatShip.Stance.AGGRESSIVE
+	_check("the panel's tactic selector sets the tactic through CombatOrders", CombatShip.of(ff01_ship).stance == CombatShip.Stance.AGGRESSIVE
 		and scene.orders.history[-1].channel == "engagement")
 
 
 func _s5_unarmed_panel() -> void:
 	print("\n=== S5 unarmed panel on the Test Arena")
 	await _load(MAIN)
-	scene.selection().set_selection([_ship("Frigate")])
+	scene.selection().set_selection([_ship("Miner1")])
 	await process_frame
 	var panel: Node = scene.get_node("ShipPanel")
-	_check("unarmed Frigate panel: hull 150, no Combat section and no weapon profiles",
+	_check("unarmed Miner1 panel: hull 150, no Combat section and no weapon profiles",
 		panel._hull.text == "Hull: 150 / 150" and not panel._combat.visible and panel._profile.item_count == 0)
 
 
@@ -255,6 +243,12 @@ func _s5_unarmed_panel() -> void:
 # a ship under way (fuel).
 func _economy() -> Dictionary:
 	await _load(MAIN)
+	# An armed player ship (with Behavior) added for the order checks, as at run time.
+	var ff01: Node3D = load("res://game/ships/ff01_unit.tscn").instantiate()
+	ff01.name = "FF01"
+	ff01.position = Vector3(0, 1.5, 0)
+	scene.get_node("Ships").add_child(ff01)
+	scene.register_ship(ff01)
 	var miner := _ship("Miner1")
 	var field: Node = scene.get_node("Asteroids")
 	var nearest := -1
@@ -276,14 +270,14 @@ func _economy() -> Dictionary:
 		yard_station.storage.add(entry[0], entry[1])
 	var shipyard: Node = yard_station.get_node("Shipyard")
 	shipyard.order(&"mining_ship")
-	_ship("Frigate").get_node("RouteFollower").order(Vector2(-30, -40))
+	_ship("Transporter").get_node("RouteFollower").order(Vector2(-30, -40))
 	await _run(25.0, func() -> bool: return miner.get_node("Cargo").inventory.quantity() > 0)
-	return {"miner": miner, "refinery": refinery, "shipyard": shipyard, "frigate": _ship("Frigate")}
+	return {"miner": miner, "refinery": refinery, "shipyard": shipyard, "mover": _ship("Transporter")}
 
 
 func _state(e: Dictionary) -> Array:
 	return [SimClock.now(), e.miner.get_node("Cargo").inventory.quantity(), e.refinery.slots[0].processed + e.refinery.slots[0].progress,
-		e.shipyard.elapsed, e.frigate.get_node("Fuel").fuel, e.frigate.get_node("Locomotion").planar_position]
+		e.shipyard.elapsed, e.mover.get_node("Fuel").fuel, e.mover.get_node("Locomotion").planar_position]
 
 
 func _s3_pause() -> void:
@@ -301,12 +295,12 @@ func _s3_pause() -> void:
 	print("  1 s before %s\n  paused     %s\n  2 s later  %s" % [str(earlier), str(during), str(after)])
 	_check("running, then paused (Space): clock, mining, refining, construction, fuel and movement stand still for 2 s", paused and running and during == after)
 	# Orders and camera while paused.
-	var gunship := _ship("Gunship")
-	scene.selection().set_selection([gunship])
+	var ff01_ship := _ship("FF01")
+	scene.selection().set_selection([ff01_ship])
 	await _look_at(Vector3(20, 0, 20))
 	await _click(MOUSE_BUTTON_RIGHT, _screen(Vector3(20, 0, 20)))
-	var position: Vector2 = gunship.get_node("Locomotion").planar_position
-	var taken: bool = Behavior.of(gunship).command == Behavior.Command.MOVE and gunship.get_node("Locomotion").has_destination
+	var position: Vector2 = ff01_ship.get_node("Locomotion").planar_position
+	var taken: bool = Behavior.of(ff01_ship).command == Behavior.Command.MOVE and ff01_ship.get_node("Locomotion").has_destination
 	var rig: Node3D = scene.get_node("CameraRig")
 	var rig_before := rig.global_position
 	var press := InputEventKey.new()
@@ -320,14 +314,14 @@ func _s3_pause() -> void:
 	release.pressed = false
 	Input.parse_input_event(release)
 	await process_frame
-	var still: bool = gunship.get_node("Locomotion").planar_position == position
+	var still: bool = ff01_ship.get_node("Locomotion").planar_position == position
 	_check("while paused a right-click MOVE is taken (Behavior: Move) without moving the ship; the camera pans (%.1f u)" % rig.global_position.distance_to(rig_before),
 		taken and still and rig.global_position.distance_to(rig_before) > 1.0)
 	await _key(KEY_SPACE)
 	await _run(3.0)
 	var resumed := _state(e)
 	_check("resumed: everything goes on, the ship moves toward its order", not scene.time_control.paused and resumed[0] > after[0] and resumed[3] > after[3]
-		and gunship.get_node("Locomotion").planar_position.distance_to(position) > 0.5)
+		and ff01_ship.get_node("Locomotion").planar_position.distance_to(position) > 0.5)
 
 
 func _s4_dilation() -> void:
@@ -362,7 +356,7 @@ func _s6_produced() -> void:
 		and shipyard.RECIPES.transport_ship.scene.resource_path == "res://game/ships/transporter_unit.tscn")
 	var deployed := []
 	shipyard.ship_deployed.connect(func(ship: Node3D) -> void: deployed.append(ship))
-	var raider: Node3D = load("res://game/ships/gunship_unit.tscn").instantiate()
+	var raider: Node3D = load("res://game/ships/ff01_unit.tscn").instantiate()
 	raider.name = "Raider"
 	raider.get_node("Combat").faction = 1
 	raider.get_node("Combat").stance = CombatShip.Stance.HOLD_FIRE

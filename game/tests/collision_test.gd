@@ -18,7 +18,7 @@ extends SceneTree
 
 const LAB := preload("res://game/scenes/movement_test.tscn")
 const DT := 1.0 / 60.0
-const SHIPS := ["Frigate", "Gunship", "Destroyer"]
+const SHIPS := ["Miner", "Transporter", "FF01"]
 const PARKING := [Vector2(-135, 135), Vector2(-135, -135), Vector2(-135, 0)]
 const TOLERANCE := 1.0e-4 # u; positions are 32-bit floats (about 1e-5 u resolution near 100 u).
 const SLACK := 1.0e-4
@@ -72,8 +72,8 @@ func _initialize() -> void:
 # avoidance on: identical with and without collision.
 func _case_free_flight() -> void:
 	var label := "0 free flight past obstacles (collision on vs off)"
-	var starts := {"Frigate": Vector2(-50, 62), "Gunship": Vector2(90, -20), "Destroyer": Vector2(-100, -40)}
-	var targets := {"Frigate": Vector2(50, 62), "Gunship": Vector2(40, -80), "Destroyer": Vector2(-60, -100)}
+	var starts := {"Miner": Vector2(-50, 62), "Transporter": Vector2(90, -20), "FF01": Vector2(-100, -40)}
+	var targets := {"Miner": Vector2(50, 62), "Transporter": Vector2(40, -80), "FF01": Vector2(-60, -100)}
 	var paths := []
 	for enforced in [true, false]:
 		_setup(starts, targets)
@@ -98,64 +98,64 @@ func _case_free_flight() -> void:
 	_check(label, "trajectories identical with and without collision (%d samples)" % paths[0].size(), paths[0] == paths[1])
 
 
-# 1: the Frigate flies through an idle Gunship's position.
+# 1: the Miner flies through an idle Transporter's position.
 func _case_idle() -> void:
 	var label := "1 moving ship against an idle ship"
 	var setup := func() -> void:
-		_setup({"Frigate": Vector2(115, 30), "Gunship": Vector2(115, 0)}, {"Frigate": Vector2(115, -30)})
-		_loco("Frigate").move_to(Vector2(115, -30))
+		_setup({"Miner": Vector2(115, 30), "Transporter": Vector2(115, 0)}, {"Miner": Vector2(115, -30)})
+		_loco("Miner").move_to(Vector2(115, -30))
 	setup.call()
-	var idle: Vector2 = _loco("Gunship").planar_position
-	var run := _fly(label, ["Frigate"], 12.0, SHIPS)
-	var gap := _gap("Frigate", "Gunship")
+	var idle: Vector2 = _loco("Transporter").planar_position
+	var run := _fly(label, ["Miner"], 12.0, SHIPS)
+	var gap := _gap("Miner", "Transporter")
 	_report(label, run)
 	_check(label, "stops touching: gap %.4f u in [0, skin]" % gap, gap >= -TOLERANCE and gap <= _collision.contact_skin + 0.001)
-	_check(label, "stored velocity zero (%.6f u/s)" % _loco("Frigate").velocity.length(), _loco("Frigate").velocity.length() < 0.001)
-	_check(label, "contact normal from the Gunship toward the Frigate", _normal_toward("Frigate", Vector2(0, 1)))
-	_check(label, "idle Gunship untouched", _loco("Gunship").planar_position == idle and _loco("Gunship").velocity == Vector2.ZERO)
-	_replay(label, setup, ["Frigate"], 12.0, run)
+	_check(label, "stored velocity zero (%.6f u/s)" % _loco("Miner").velocity.length(), _loco("Miner").velocity.length() < 0.001)
+	_check(label, "contact normal from the Transporter toward the Miner", _normal_toward("Miner", Vector2(0, 1)))
+	_check(label, "idle Transporter untouched", _loco("Transporter").planar_position == idle and _loco("Transporter").velocity == Vector2.ZERO)
+	_replay(label, setup, ["Miner"], 12.0, run)
 
 
-# 2: Frigate and Gunship head-on on the same line.
+# 2: Miner and Transporter head-on on the same line.
 func _case_head_on() -> void:
 	var label := "2 two ships head-on"
 	var setup := func() -> void:
-		_setup({"Frigate": Vector2(115, 30), "Gunship": Vector2(115, -30)}, {"Frigate": Vector2(115, -30), "Gunship": Vector2(115, 30)})
-		_loco("Frigate").move_to(Vector2(115, -30))
-		_loco("Gunship").move_to(Vector2(115, 30))
+		_setup({"Miner": Vector2(115, 30), "Transporter": Vector2(115, -30)}, {"Miner": Vector2(115, -30), "Transporter": Vector2(115, 30)})
+		_loco("Miner").move_to(Vector2(115, -30))
+		_loco("Transporter").move_to(Vector2(115, 30))
 	setup.call()
-	var run := _fly(label, ["Frigate", "Gunship"], 14.0, SHIPS)
+	var run := _fly(label, ["Miner", "Transporter"], 14.0, SHIPS)
 	_report(label, run)
-	var gap := _gap("Frigate", "Gunship")
+	var gap := _gap("Miner", "Transporter")
 	_check(label, "both stop touching: gap %.4f u in [0, skin]" % gap, gap >= -TOLERANCE and gap <= _collision.contact_skin + 0.001)
-	_check(label, "both stored velocities zero", _loco("Frigate").velocity.length() < 0.001 and _loco("Gunship").velocity.length() < 0.001)
-	_replay(label, setup, ["Frigate", "Gunship"], 14.0, run)
+	_check(label, "both stored velocities zero", _loco("Miner").velocity.length() < 0.001 and _loco("Transporter").velocity.length() < 0.001)
+	_replay(label, setup, ["Miner", "Transporter"], 14.0, run)
 
 
-# 3: Frigate eastbound, Gunship southbound, timed to meet near (115, 0).
+# 3: Miner eastbound, Transporter southbound, timed to meet near (115, 0).
 func _case_crossing() -> void:
 	var label := "3 two ships crossing"
 	var setup := func() -> void:
-		_setup({"Frigate": Vector2(80, 0), "Gunship": Vector2(115, 35)}, {"Frigate": Vector2(150, 0), "Gunship": Vector2(115, -35)})
-		_loco("Frigate").move_to(Vector2(150, 0))
-		_loco("Gunship").move_to(Vector2(115, -35))
+		_setup({"Miner": Vector2(80, 0), "Transporter": Vector2(115, 35)}, {"Miner": Vector2(150, 0), "Transporter": Vector2(115, -35)})
+		_loco("Miner").move_to(Vector2(150, 0))
+		_loco("Transporter").move_to(Vector2(115, -35))
 	setup.call()
-	var run := _fly(label, ["Frigate", "Gunship"], 30.0, SHIPS)
+	var run := _fly(label, ["Miner", "Transporter"], 30.0, SHIPS)
 	_report(label, run)
-	_replay(label, setup, ["Frigate", "Gunship"], 30.0, run)
+	_replay(label, setup, ["Miner", "Transporter"], 30.0, run)
 
 
-# 4: the Frigate flies straight into the Wall's north face (z = -77).
+# 4: the Miner flies straight into the Wall's north face (z = -77).
 func _case_wall() -> void:
 	var label := "4 ship straight into a static obstacle"
-	_setup({"Frigate": Vector2(-10, -60)}, {"Frigate": Vector2(-10, -100)})
-	_loco("Frigate").move_to(Vector2(-10, -100))
-	var run := _fly(label, ["Frigate"], 12.0, SHIPS)
+	_setup({"Miner": Vector2(-10, -60)}, {"Miner": Vector2(-10, -100)})
+	_loco("Miner").move_to(Vector2(-10, -100))
+	var run := _fly(label, ["Miner"], 12.0, SHIPS)
 	_report(label, run)
-	var gap := _obstacle_gap("Frigate")
+	var gap := _obstacle_gap("Miner")
 	_check(label, "stops at the wall: gap %.4f u in [0, skin]" % gap, gap >= -TOLERANCE and gap <= _collision.contact_skin + 0.001)
-	_check(label, "stored velocity zero (%.6f u/s)" % _loco("Frigate").velocity.length(), _loco("Frigate").velocity.length() < 0.001)
-	_check(label, "contact normal out of the wall face (0, 1)", _normal_toward("Frigate", Vector2(0, 1)))
+	_check(label, "stored velocity zero (%.6f u/s)" % _loco("Miner").velocity.length(), _loco("Miner").velocity.length() < 0.001)
+	_check(label, "contact normal out of the wall face (0, 1)", _normal_toward("Miner", Vector2(0, 1)))
 
 
 # 5: diagonal into the Wall (glides along it), then the RotatedBlock's corner (30°
@@ -163,21 +163,21 @@ func _case_wall() -> void:
 # clear (no contact) and clipping it by 0.3 u (glides around the corner).
 func _case_diagonal() -> void:
 	var label := "5 ship diagonally along an obstacle"
-	_setup({"Frigate": Vector2(-30, -60)}, {"Frigate": Vector2(-5, -100)})
-	_loco("Frigate").move_to(Vector2(-5, -100))
+	_setup({"Miner": Vector2(-30, -60)}, {"Miner": Vector2(-5, -100)})
+	_loco("Miner").move_to(Vector2(-5, -100))
 	var glide := {"ticks": 0, "into": 0.0, "speed": 0.0}
 	var watch := func() -> void:
-		var frigate := _loco("Frigate")
-		for contact: Dictionary in frigate.contacts:
+		var miner := _loco("Miner")
+		for contact: Dictionary in miner.contacts:
 			glide.ticks += 1
-			glide.into = minf(glide.into, frigate.velocity.dot(contact.normal))
-			glide.speed = maxf(glide.speed, frigate.velocity.length())
-	var run := _fly(label, ["Frigate"], 20.0, SHIPS, watch)
+			glide.into = minf(glide.into, miner.velocity.dot(contact.normal))
+			glide.speed = maxf(glide.speed, miner.velocity.length())
+	var run := _fly(label, ["Miner"], 20.0, SHIPS, watch)
 	_report(label, run)
 	_check(label, "glides in contact (%d ticks, fastest %.2f u/s), never into the face (min %.6f u/s)" % [glide.ticks, glide.speed, glide.into],
 		glide.ticks > 0 and glide.speed > 0.5 and glide.into >= -TOLERANCE)
-	_check(label, "ends pressed near x = -5, below the destination (x %.3f, still %.3f u/s along the face)" % [_loco("Frigate").planar_position.x, _loco("Frigate").velocity.length()],
-		absf(_loco("Frigate").planar_position.x + 5.0) < 0.5)
+	_check(label, "ends pressed near x = -5, below the destination (x %.3f, still %.3f u/s along the face)" % [_loco("Miner").planar_position.x, _loco("Miner").velocity.length()],
+		absf(_loco("Miner").planar_position.x + 5.0) < 0.5)
 
 	var block := _lab.get_node("Obstacles/RotatedBlock") as MeshInstance3D
 	var x_axis := Vector2(block.global_basis.x.x, block.global_basis.x.z).normalized()
@@ -195,17 +195,17 @@ func _case_diagonal() -> void:
 		["across it clipping 0.3 u", corner + outward * (radius - 0.3) - side * 25.0, corner + outward * (radius - 0.3) + side * 25.0]]
 	for variant: Array in variants:
 		var sub: String = "5 rotated corner, " + variant[0]
-		_setup({"Frigate": variant[1]}, {"Frigate": variant[2]})
-		_loco("Frigate").move_to(variant[2])
-		var corner_run := _fly(sub, ["Frigate"], 20.0, SHIPS)
+		_setup({"Miner": variant[1]}, {"Miner": variant[2]})
+		_loco("Miner").move_to(variant[2])
+		var corner_run := _fly(sub, ["Miner"], 20.0, SHIPS)
 		_report(sub, corner_run)
-		var loco := _loco("Frigate")
+		var loco := _loco("Miner")
 		if variant[0].begins_with("head-on"):
-			_check(sub, "stops at the corner, normal along the diagonal", loco.velocity.length() < 0.001 and _normal_toward("Frigate", outward))
+			_check(sub, "stops at the corner, normal along the diagonal", loco.velocity.length() < 0.001 and _normal_toward("Miner", outward))
 		elif variant[0].ends_with("clear"):
-			_check(sub, "no contact, arrives", corner_run.contacts["Frigate"] == 0 and loco.arrived)
+			_check(sub, "no contact, arrives", corner_run.contacts["Miner"] == 0 and loco.arrived)
 		else:
-			_check(sub, "contact, slides around the corner and arrives", corner_run.contacts["Frigate"] > 0 and loco.arrived)
+			_check(sub, "contact, slides around the corner and arrives", corner_run.contacts["Miner"] > 0 and loco.arrived)
 
 
 # 6: three ships converging on one point.
@@ -213,7 +213,7 @@ func _case_converging() -> void:
 	var label := "6 three ships converging"
 	var setup := func() -> void:
 		var point := Vector2(115, 0)
-		_setup({"Frigate": Vector2(115, 35), "Gunship": Vector2(85, -20), "Destroyer": Vector2(145, -20)}, {"Frigate": point, "Gunship": point, "Destroyer": point})
+		_setup({"Miner": Vector2(115, 35), "Transporter": Vector2(85, -20), "FF01": Vector2(145, -20)}, {"Miner": point, "Transporter": point, "FF01": point})
 		for ship_name in SHIPS:
 			_loco(ship_name).move_to(point)
 	setup.call()
@@ -223,55 +223,55 @@ func _case_converging() -> void:
 	_replay(label, setup, SHIPS, 40.0, run)
 
 
-# 7: from case 1's end (Frigate pressed on the idle Gunship): away, along the contact,
+# 7: from case 1's end (Miner pressed on the idle Transporter): away, along the contact,
 # then back into it.
 func _case_redirect() -> void:
 	var label := "7 redirect while touching"
-	var loco := _loco("Frigate")
-	for variant: Array in [["away", Vector2(115, 40)], ["along the contact", Vector2(140, 5.0)], ["back into the Gunship", Vector2(115, -40)]]:
+	var loco := _loco("Miner")
+	for variant: Array in [["away", Vector2(115, 40)], ["along the contact", Vector2(140, 5.0)], ["back into the Transporter", Vector2(115, -40)]]:
 		var sub: String = "%s %s" % [label, variant[0]]
-		_setup({"Frigate": Vector2(115, 30), "Gunship": Vector2(115, 0)}, {"Frigate": Vector2(115, -30)})
+		_setup({"Miner": Vector2(115, 30), "Transporter": Vector2(115, 0)}, {"Miner": Vector2(115, -30)})
 		loco.move_to(Vector2(115, -30))
-		_fly(sub + " (approach)", ["Frigate"], 12.0, SHIPS)
+		_fly(sub + " (approach)", ["Miner"], 12.0, SHIPS)
 		var velocity_before: Vector2 = loco.velocity
 		var turn_before: float = loco.angular_velocity
 		loco.move_to(variant[1])
 		_check(sub, "MOVE keeps velocity and turn rate", loco.velocity == velocity_before and loco.angular_velocity == turn_before)
-		var run := _fly(sub, ["Frigate"], 6.0, SHIPS)
+		var run := _fly(sub, ["Miner"], 6.0, SHIPS)
 		_report(sub, run)
-		if variant[0] == "back into the Gunship":
-			var gap := _gap("Frigate", "Gunship")
+		if variant[0] == "back into the Transporter":
+			var gap := _gap("Miner", "Transporter")
 			_check(sub, "blocked again touching (gap %.4f u)" % gap, gap >= -TOLERANCE and gap <= _collision.contact_skin + 0.001)
 		else:
-			_check(sub, "leaves the contact (gap %.2f u)" % _gap("Frigate", "Gunship"), _gap("Frigate", "Gunship") > 1.0)
+			_check(sub, "leaves the contact (gap %.2f u)" % _gap("Miner", "Transporter"), _gap("Miner", "Transporter") > 1.0)
 
 
 # 8: ships placed overlapping by 2 u: never deeper, no snapping, apart only by moving away.
 func _case_overlap() -> void:
-	var starts := {"Frigate": Vector2(115, 3), "Gunship": Vector2(115, 0)}
-	for variant: Array in [["Frigate into the Gunship", {"Frigate": Vector2(115, -30)}], ["Frigate away", {"Frigate": Vector2(115, 30)}],
-			["both into each other", {"Frigate": Vector2(115, -30), "Gunship": Vector2(115, 30)}]]:
+	var starts := {"Miner": Vector2(115, 3), "Transporter": Vector2(115, 0)}
+	for variant: Array in [["Miner into the Transporter", {"Miner": Vector2(115, -30)}], ["Miner away", {"Miner": Vector2(115, 30)}],
+			["both into each other", {"Miner": Vector2(115, -30), "Transporter": Vector2(115, 30)}]]:
 		var label: String = "8 starting overlapped, " + variant[0]
 		var orders: Dictionary = variant[1]
 		_setup(starts, orders)
 		for ship_name in orders:
 			_loco(ship_name).move_to(orders[ship_name])
-		var start_gap := _gap("Frigate", "Gunship")
+		var start_gap := _gap("Miner", "Transporter")
 		var run := _fly(label, orders.keys(), 10.0, SHIPS)
 		_report(label, run)
-		var gap := _gap("Frigate", "Gunship")
-		if variant[0] == "Frigate away":
+		var gap := _gap("Miner", "Transporter")
+		if variant[0] == "Miner away":
 			_check(label, "separates by moving away (gap %.2f -> %.2f u)" % [start_gap, gap], gap > 0.0)
 		else:
 			_check(label, "overlap kept, not snapped apart (gap %.4f -> %.4f u)" % [start_gap, gap], absf(gap - start_gap) < 0.001)
 
 
 # Observation (reported, not judged): routed orders with avoidance on where the
-# Gunship's destination lies on the Frigate's route; avoidance does not keep them apart.
+# Transporter's destination lies on the Miner's route; avoidance does not keep them apart.
 func _observe_occupied_destination() -> void:
 	var label := "observation: destination on another's route"
-	var starts := {"Frigate": Vector2(-50, 62), "Gunship": Vector2(-30, 105), "Destroyer": Vector2(60, 100)}
-	var targets := {"Frigate": Vector2(50, 62), "Gunship": Vector2(30, 60), "Destroyer": Vector2(-45, 105)}
+	var starts := {"Miner": Vector2(-50, 62), "Transporter": Vector2(-30, 105), "FF01": Vector2(60, 100)}
+	var targets := {"Miner": Vector2(50, 62), "Transporter": Vector2(30, 60), "FF01": Vector2(-45, 105)}
 	_setup(starts, targets)
 	for ship_name in SHIPS:
 		_node(ship_name, "RouteFollower").order(targets[ship_name])
@@ -279,16 +279,16 @@ func _observe_occupied_destination() -> void:
 	var first := -1.0
 	for i in 60 * 60:
 		_tick(SHIPS, true)
-		gap = minf(gap, _gap("Frigate", "Gunship"))
-		if first < 0.0 and not _loco("Frigate").contacts.is_empty():
+		gap = minf(gap, _gap("Miner", "Transporter"))
+		if first < 0.0 and not _loco("Miner").contacts.is_empty():
 			first = (i + 1) * DT
 	var states := []
-	for ship_name in ["Frigate", "Gunship"]:
+	for ship_name in ["Miner", "Transporter"]:
 		var loco := _loco(ship_name)
 		var avoidance := _node(ship_name, "Avoidance")
 		states.append("%s %s at (%.2f, %.2f) %.2f u/s, avoidance %s, blocked %.1f s" % [ship_name, "arrived" if loco.arrived else "NOT arrived",
 			loco.planar_position.x, loco.planar_position.y, loco.velocity.length(), avoidance.State.keys()[avoidance.state], loco.blocked_time])
-	print("  %s: first contact %.2f s, min Frigate-Gunship gap %.4f u after 60 s; %s" % [label, first, gap, "; ".join(states)])
+	print("  %s: first contact %.2f s, min Miner-Transporter gap %.4f u after 60 s; %s" % [label, first, gap, "; ".join(states)])
 
 
 # Places named ships at rest (others parked far away), heading toward their targets.

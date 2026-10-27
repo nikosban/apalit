@@ -13,8 +13,8 @@ extends SceneTree
 const MAIN := preload("res://main.tscn")
 const MiningOperation := preload("res://game/mining/mining_operation.gd")
 const ShipLocomotion := preload("res://game/locomotion/ship_locomotion.gd")
-const SHIPS := ["Frigate", "Gunship", "Destroyer", "Miner1", "Miner2", "Transporter"]
-const PARK := {"Frigate": Vector2(40, 30), "Gunship": Vector2(40, 15), "Destroyer": Vector2(40, -5), "Miner1": Vector2(40, -20),
+const SHIPS := ["Miner1", "Miner2", "Transporter"]
+const PARK := {"Miner1": Vector2(40, -20),
 	"Miner2": Vector2(40, -32), "Transporter": Vector2(60, 50)}
 const SEED := 20261014
 const MISALIGNED := 2 # From the spawn this asteroid's working point is reached 43 deg off its bearing (T06 probe).
