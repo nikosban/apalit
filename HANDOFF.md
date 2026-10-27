@@ -1015,13 +1015,12 @@ distribution, logistics balance, models and UI polish.
   physically empty.
 - Placeholders: Target cursor (OS four-arrow), hostile marker outer outline, weapon
   meshes, hull tint (player blue, hostile red).
-- Sensor defect (open, separate production task, not fixed): `sensors.gd:70`
-  `last_known()` assigns each lost contact to a typed `Node3D` loop variable before
-  its `is_instance_valid()` check, so a destroyed contact raises "Trying to assign
-  invalid previously freed instance" (via `tactical_markers._draw_markers` →
-  `movement_lab.draw_contact_memory`). Seen as 9 script errors in `combat_scene_test`
-  during the legacy cleanup; none in the 2026-10-27 test-cleanup run, but the defect is
-  unchanged.
+- Sensor defect O21 (resolved 2026-10-27): `last_known()` loops with a `Variant`
+  variable, so its `is_instance_valid()` guard skips freed contacts instead of raising
+  "Trying to assign invalid previously freed instance" before the next `evaluate()`.
+  Verified only by a temporary headless reproduction (detection, loss, destruction,
+  removal, lookup): error before, none after, the other lost contact still listed;
+  no suites were run.
 - Legacy-cleanup test limits: `combat_positioning_test`'s "authored asteroids produce
   a real navigation detour" check fails with the FF-01 opponent (routes reach 2 points,
   3 required). Before the cleanup it passed with a single 3-point route, at its
@@ -1195,9 +1194,7 @@ distribution, logistics balance, models and UI polish.
 
 Next task: a read-only architecture inventory (brief from the owner; nothing is
 changed in it). Stage 6B, the two-FF-01 Combat Test and the legacy ship cleanup are
-accepted on `combat_adjustments`; the branch remains separate from `main`. Open
-separate production task: the `sensors.gd` `last_known()` defect (section 7). New
-work follows `AGENTS.md`.
+accepted on `combat_adjustments`; the branch remains separate from `main`. New work follows `AGENTS.md`.
 
 Open owner decisions:
 

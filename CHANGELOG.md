@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-27 — Sensor contact lifetime fix (O21)
+
+`Sensors.last_known()` no longer raises a freed-instance error for a ship removed before the next sensor evaluation, and keeps listing the faction's other lost contacts; verified by a focused temporary reproduction only.
+
 ## 2026-10-27 — Combat Test isolation
 
 `armor_test` places its own FF-01s instead of relying on the authored spawns and passes 52/52; `rocket_test` and `guided_missile_test` drop one unrelated Combat Test roster/asteroid/sector assertion each (parse-checked, not run).

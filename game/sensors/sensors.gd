@@ -67,7 +67,7 @@ func detected(faction: int, ship: Node3D) -> bool:
 func last_known(faction: int) -> Array:
 	var now := SimClock.now()
 	var list := []
-	for ship: Node3D in _lost.get(faction, {}):
+	for ship: Variant in _lost.get(faction, {}):
 		if is_instance_valid(ship):
 			var entry: Dictionary = _lost[faction][ship]
 			list.append({"ship": ship, "position": entry.position, "age": now - entry.time})
