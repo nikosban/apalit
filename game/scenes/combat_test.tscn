@@ -291,10 +291,10 @@ script = ExtResource("18_survey")
 [node name="Ships" type="Node3D" parent="."]
 
 [node name="FF01" parent="Ships" instance=ExtResource("100_ff01")]
-transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -45, 1.5, 0)
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -150, 1.5, 0)
 
 [node name="HostileFF01" parent="Ships" instance=ExtResource("100_ff01")]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 45, 1.5, 0)
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 150, 1.5, 0)
 
 [node name="Combat" parent="Ships/HostileFF01" index="7"]
 faction = 1
