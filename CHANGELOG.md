@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-27 — Move command results (O22)
+
+A single-ship `issue_move()` / `CombatOrders.move()` now reports `_order()`'s actual result (refused replacements false, docking-held orders true), and `_move_single()` no longer reports an accepted moved-aside order as refused; movement behavior unchanged, verified by a focused temporary reproduction only.
+
 ## 2026-10-27 — Sensor contact lifetime fix (O21)
 
 `Sensors.last_known()` no longer raises a freed-instance error for a ship removed before the next sensor evaluation, and keeps listing the faction's other lost contacts; verified by a focused temporary reproduction only.

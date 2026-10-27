@@ -580,12 +580,6 @@ func _move_single(ship: Node3D, point: Vector2) -> bool:
 		return false
 	if not follower.order(occupied.point, PackedVector2Array(), true):
 		return false
-	var locomotion := ship.get_node("Locomotion") as ShipLocomotion
-	var taken := (follower.status == RouteFollower.RouteStatus.ROUTE or follower.status == RouteFollower.RouteStatus.DIRECT) \
-		and locomotion.has_destination and locomotion.destination.distance_to(occupied.point) <= GroupOrders.RESOLVE_TOLERANCE
-	if not (taken or follower.status == RouteFollower.RouteStatus.WAITING):
-		_show_notice("Order not accepted")
-		return false
 	_show_notice("Destination occupied by %s - moved beside it" % DisplayName.of(blocker))
 	return true
 
@@ -805,13 +799,11 @@ func draw_contact_memory(canvas: Control, camera: Camera3D, width: float) -> voi
 ## the scene's command path: one ship as a right-click MOVE (_order: held during station
 ## control, occupied-destination resolution, refusal checks), several as a group MOVE
 ## (GroupOrders: the ships that get a destination). Announced with command_given for the
-## ships ordered. Returns whether any ship was given the move.
+## ships ordered. Returns whether any ship was given the move (one ship: _order()'s
+## result, so executed, queued or held for station control).
 func issue_move(ships: Array, point: Vector2) -> bool:
 	if ships.size() == 1:
-		var single: Node3D = ships[0]
-		_order(single, {"kind": CommandKind.MOVE, "point": point})
-		var follower := single.get_node("RouteFollower") as RouteFollower
-		return (single.get_node("Locomotion") as ShipLocomotion).has_destination or follower.status == RouteFollower.RouteStatus.WAITING
+		return _order(ships[0], {"kind": CommandKind.MOVE, "point": point})
 	var given := _group_orders.command(ships, point)
 	if given.is_empty():
 		_show_notice(GROUP_NOTICE)

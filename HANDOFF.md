@@ -1021,6 +1021,15 @@ distribution, logistics balance, models and UI polish.
   Verified only by a temporary headless reproduction (detection, loss, destruction,
   removal, lookup): error before, none after, the other lost contact still listed;
   no suites were run.
+- Move command results O22 (resolved 2026-10-27): single-ship `issue_move()` (so
+  `CombatOrders.move()`) returns `_order()`'s result (executed, queued or held for
+  station control: true; refused: false) instead of inferring it from an older active
+  destination; `_move_single()` no longer reports a moved-aside order RouteFollower took
+  as "Order not accepted". Verified only by a temporary reproduction (refused and valid
+  replacement, moved aside, held during docking); no suites were run. Out of scope: the
+  legacy `ship_behavior.gd` `_request_move()` fallback (non-`combat_positioning` ships,
+  test-only) still infers acceptance; `hostile_fleet`'s candidate loop now sees real
+  refusals, unverified.
 - Legacy-cleanup test limits: `combat_positioning_test`'s "authored asteroids produce
   a real navigation detour" check fails with the FF-01 opponent (routes reach 2 points,
   3 required). Before the cleanup it passed with a single 3-point route, at its
