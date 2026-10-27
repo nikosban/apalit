@@ -12,6 +12,7 @@ const ShipLocomotion := preload("res://game/locomotion/ship_locomotion.gd")
 const StaticNavigation := preload("res://game/navigation/static_navigation.gd")
 const SEARCH_STEPS := 8 # Bisection steps for the farthest clear point on a blocked segment.
 const START_TOLERANCE := 0.01 # u; a route starting farther from the ship was snapped onto the map.
+const AIM_CATCH_UP := 2.0 # Stage 6B.2: the aim anchor gains at most this x speed (+ 1 u/s) on the progress per second.
 
 signal notice(text: String)
 
@@ -30,6 +31,7 @@ var aim_point := Vector2.ZERO
 var lookahead := 0.0
 var remaining := 0.0 # Route length still to fly (ship -> aim -> rest of route).
 var progress := 0.0 # Route distance of the ship's progress point.
+var aim_progress := 0.0 # Stage 6B.2: route distance the lookahead is measured from (progress without its jumps).
 var speed_cap := INF # Route speed cap of the last step (u/s).
 # Speed restrictions planned with the route, in route order: x = route distance where
 # the maneuvering window starts, y = where it ends, z = speed for that window. The
@@ -39,10 +41,16 @@ var plans := 0 # Route calculations made (one per executed command).
 var replans := 0 # Re-plans of the current order after a pass (replan(); not counted in plans).
 var last_step_usec := 0 # Cost of the last route-following step (diagnostics).
 var guided_refusals := 0 # Orders refused during guided movement (Phase 2.5; should stay 0).
+# Stage 6B.2: route index of each fly-through point joined into this route (queued
+# Waypoints before the last), in order. Empty for an ordinary single-destination order.
+var waypoint_marks := PackedInt32Array()
 
 var _pending := false
+var _pending_through := PackedVector2Array()
+var _turn_next := false # Stage 6B.2: the next planned order may turn its course (see _start()).
 var _before_queue := [RouteStatus.NONE, Vector2.ZERO] # [status, requested] before the first queued order.
 var _aim_segment := 0
+var _aim_fresh := true # Stage 6B.2: the next step starts the aim anchor at the progress.
 var _next_restriction := 0
 var _length_after := PackedFloat32Array() # Route length from route[i] to the end.
 
@@ -64,7 +72,12 @@ func planning_radius() -> float:
 ## while the navigation map is not ready yet. Without a route it is refused with a
 ## notice and nothing changes: the current order, if any, goes on as before (a
 ## queued order that finds no route restores the state from before it was queued).
-func order(point: Vector2) -> bool:
+## Stage 6B.2: `through` (queued Waypoints after `point`) joins further legs, each
+## planned from the end of the one before, while they have a route; `point` and every
+## joined point but the last are flown through as route corners (waypoint_marks), and
+## the last joined point is the destination. Only the first leg decides acceptance.
+func order(point: Vector2, through := PackedVector2Array(), turn_course := false) -> bool:
+	_turn_next = turn_course
 	if _locomotion.guided:
 		# Phase 2.5: the station is moving the ship; commands are held until control
 		# ends, so nothing legitimate arrives here. Refused, nothing changes.
@@ -76,10 +89,11 @@ func order(point: Vector2) -> bool:
 			_before_queue = [status, requested]
 		requested = point
 		_pending = true
+		_pending_through = through
 		status = RouteStatus.WAITING
 		notice.emit("Navigation map not ready - order queued")
 		return true
-	return _plan(point)
+	return _plan(point, through)
 
 
 ## Phase 2.5: drops the route, any queued order and the status when the station
@@ -90,11 +104,21 @@ func clear() -> void:
 	_pending = false
 	speed_cap = INF
 	restrictions.clear()
+	waypoint_marks.clear()
 
 
-func _physics_process(_delta: float) -> void:
+## Stage 6B.2: fly-through points of this route not passed yet (the route has advanced
+## beyond a point once its segment starts at or after it).
+func waypoints_left() -> int:
+	var left := 0
+	for mark in waypoint_marks:
+		left += int(segment < mark)
+	return left
+
+
+func _physics_process(delta: float) -> void:
 	if _pending and _navigation.is_ready(planning_radius()):
-		_plan(requested)
+		_plan(requested, _pending_through)
 	if status == RouteStatus.DIRECT and _locomotion.has_destination:
 		_update_direct_aim()
 		return
@@ -106,7 +130,14 @@ func _physics_process(_delta: float) -> void:
 	var from := Geometry2D.get_closest_point_to_segment(position, route[segment], route[segment + 1])
 	progress = _length_after[0] - _length_after[segment] + route[segment].distance_to(from)
 	lookahead = lookahead_length()
-	aim_point = _find_aim(position, from)
+	# Stage 6B.2: the closest point jumps forward when the segment advances (across the
+	# corner's bisector, from one leg to the next), which moved the aim abruptly. The
+	# aim's anchor follows progress but gains at most AIM_CATCH_UP x speed (+ 1 u/s)
+	# per second, so the lookahead slides around the corner instead.
+	var gain := (AIM_CATCH_UP * _locomotion.velocity.length() + 1.0) * delta
+	aim_progress = progress if _aim_fresh else minf(progress, aim_progress + gain)
+	_aim_fresh = false
+	aim_point = _find_aim(position, aim_progress)
 	remaining = position.distance_to(aim_point) + aim_point.distance_to(route[_aim_segment + 1]) + _length_after[_aim_segment + 1]
 	speed_cap = _route_speed_cap()
 	_locomotion.steer(aim_point, remaining, speed_cap)
@@ -139,6 +170,12 @@ func footprint_clearance() -> float:
 	return _navigation.surface_distance(_locomotion.planar_position) - ship_radius
 
 
+## Ship footprint (bounding circle) clearance from the nearest sector edge.
+func edge_clearance() -> float:
+	var position := _locomotion.planar_position
+	return _navigation.map_half_size - ship_radius - maxf(absf(position.x), absf(position.y))
+
+
 func distance_off_route() -> float:
 	if status != RouteStatus.ROUTE:
 		return 0.0
@@ -147,7 +184,7 @@ func distance_off_route() -> float:
 
 
 # Plans the order; the route and status change only once a route exists.
-func _plan(point: Vector2) -> bool:
+func _plan(point: Vector2, through := PackedVector2Array()) -> bool:
 	var queued := _pending
 	_pending = false
 	plans += 1
@@ -157,11 +194,28 @@ func _plan(point: Vector2) -> bool:
 		if queued:
 			status = _before_queue[0]
 			requested = _before_queue[1]
+		_turn_next = false
 		notice.emit("No route found")
 		return false
 	requested = point
-	_start(planned, position)
+	var marks := PackedInt32Array()
+	_start(_chain(planned, through, marks), position, marks)
 	return true
+
+
+# Stage 6B.2: appends a leg to each point of `through` in turn, planned from the end of
+# the route so far, until one has no route; every point joined before another becomes
+# a fly-through mark (its route index).
+func _chain(planned: PackedVector2Array, through: PackedVector2Array, marks: PackedInt32Array) -> PackedVector2Array:
+	for point in through:
+		var end := planned[planned.size() - 1]
+		var leg := _navigation.plan(planning_radius(), end, point)
+		if leg.size() < 2:
+			break
+		marks.append(planned.size() - 1)
+		if leg[leg.size() - 1].distance_to(end) > START_TOLERANCE:
+			planned.append_array(leg.slice(1))
+	return planned
 
 
 ## Group MOVE collision fix step 2: the current order planned again from the ship's
@@ -174,20 +228,33 @@ func replan() -> bool:
 			or not (status == RouteStatus.ROUTE or status == RouteStatus.DIRECT):
 		return false
 	var position := _locomotion.planar_position
-	var planned := _navigation.plan(planning_radius(), position, route[route.size() - 1])
+	# Stage 6B.2: fly-through points not passed yet stay on the re-planned route.
+	var targets := PackedVector2Array()
+	for mark in waypoint_marks:
+		if segment < mark:
+			targets.append(route[mark])
+	targets.append(route[route.size() - 1])
+	var planned := _navigation.plan(planning_radius(), position, targets[0])
 	if planned.size() < 2:
 		return false
+	var marks := PackedInt32Array()
+	planned = _chain(planned, targets.slice(1), marks)
+	if marks.size() < targets.size() - 1:
+		return false # A fly-through leg lost its route: the current order goes on.
 	replans += 1
-	_start(planned, position)
+	_turn_next = false # A re-plan never turns its course.
+	_start(planned, position, marks)
 	return true
 
 
 # Takes a planned route from `position`: route state, speed profile, status and the
 # Locomotion move.
-func _start(planned: PackedVector2Array, position: Vector2) -> void:
+func _start(planned: PackedVector2Array, position: Vector2, marks := PackedInt32Array()) -> void:
 	route = planned
+	waypoint_marks = marks
 	segment = 0
 	_aim_segment = 0
+	_aim_fresh = true
 	_next_restriction = 0
 	speed_cap = INF
 	_length_after.resize(route.size())
@@ -198,7 +265,11 @@ func _start(planned: PackedVector2Array, position: Vector2) -> void:
 	# A single straight leg from the ship is a direct Stage 2 move (no steering).
 	var direct := route.size() == 2 and route[0].distance_to(position) <= START_TOLERANCE
 	status = RouteStatus.DIRECT if direct else RouteStatus.ROUTE
-	_locomotion.move_to(route[route.size() - 1], direct)
+	# Stage 6B.2: a ship under way on a player Move turns onto a corner-free route only
+	# with room for the turn (_course_room()); every other order is redirected at once.
+	var turn := _turn_next and route.size() == 2 and _course_room()
+	_turn_next = false
+	_locomotion.move_to(route[route.size() - 1], direct, turn)
 
 
 # Route speed profile, once per order. Each corner is flown as an arc spread over a
@@ -283,11 +354,15 @@ func _advance(position: Vector2) -> void:
 
 
 # Farthest route point within the lookahead whose straight line from the ship keeps
-# line_clearance() from obstacles. Walks forward from the ship's progress point and
-# stops at the first blocked point.
-func _find_aim(position: Vector2, from: Vector2) -> Vector2:
-	var budget := lookahead
+# line_clearance() from obstacles. Walks forward from the route distance `start` (the
+# aim anchor) and stops at the first blocked point.
+func _find_aim(position: Vector2, start: float) -> Vector2:
+	var total := _length_after[0]
 	var i := segment
+	while i > 0 and total - _length_after[i] > start:
+		i -= 1
+	var from := route[i].move_toward(route[i + 1], start - (total - _length_after[i]))
+	var budget := lookahead
 	while true:
 		var corner := route[i + 1]
 		var length := from.distance_to(corner)
@@ -315,3 +390,11 @@ func _farthest_clear(position: Vector2, from: Vector2, to: Vector2) -> Vector2:
 		else:
 			high = middle
 	return from.lerp(to, low)
+
+
+# Stage 6B.2: room for a course turn: the footprint's clearance from obstacles and from
+# the sector edge at least three times the ship's stopping distance (its lookahead; the
+# turn's outward excursion stays under it), the route ahead at least twice it.
+func _course_room() -> bool:
+	var lookahead := lookahead_length()
+	return minf(footprint_clearance(), edge_clearance()) >= 3.0 * lookahead and _length_after[0] >= 2.0 * lookahead

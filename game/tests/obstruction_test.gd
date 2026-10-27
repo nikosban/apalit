@@ -200,6 +200,7 @@ func _test_moving_encounters() -> void:
 			Scenarios.crossing("Miner", "Gunship", true, profiles), Scenarios.head_on("Frigate", "Gunship", 0.0), Scenarios.head_on("Miner", "Transporter", 0.0),
 			Scenarios.overtake("Frigate", "Gunship")]:
 		_reset()
+		_start_inside(scenario)
 		for entry: Dictionary in scenario.movers:
 			var travel: Vector2 = entry.target - entry.start
 			_place(entry.ship, entry.start, atan2(-travel.x, -travel.y))
@@ -209,6 +210,22 @@ func _test_moving_encounters() -> void:
 		for r: Dictionary in results:
 			ok = ok and r.arrived and r.contacts == 0 and r.clear and r.limits == 0
 	_check("4. moving-ship encounters (crossing both sides, head-on, overtaking): every ship arrives, no contact or limit violation", ok)
+
+
+# Translates a scenario (geometry unchanged) by the least whole units that put every
+# start footprint inside the sector (crossing from the right starts the Gunship at x 152).
+func _start_inside(scenario: Dictionary) -> void:
+	var half: float = _navigation.map_half_size
+	var shift := Vector2.ZERO
+	for entry: Dictionary in scenario.movers:
+		var radius: float = _follower(entry.ship).ship_radius
+		for axis in 2:
+			var over: float = absf(entry.start[axis]) + radius - half
+			if over > 0.0:
+				shift[axis] = -signf(entry.start[axis]) * ceilf(over)
+	for entry: Dictionary in scenario.movers:
+		entry.start += shift
+		entry.target += shift
 
 
 # 5. Two stationary ships (an idle Miner and an idle Frigate). Passable (open space):

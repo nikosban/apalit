@@ -78,9 +78,18 @@ func _authored() -> void:
 		var same: bool = a.get_script() == b.get_script()
 		for prop in b.get_property_list():
 			# Combat.durability is FF-01's own configuration (checked below).
-			if prop.usage & PROPERTY_USAGE_STORAGE and not (name == "Combat" and prop.name == "durability"):
+			if prop.usage & PROPERTY_USAGE_STORAGE and not (name == "Combat" and prop.name == "durability") \
+					and not (name == "Behavior" and String(prop.name).begins_with("combat_")):
 				same = same and a.get(prop.name) == b.get(prop.name)
 		_check("%s uses the existing script and Destroyer baseline settings" % name, same)
+	var behavior := unit.get_node("Behavior")
+	_check("FF-01 alone opts into cannon positioning with the approved editable prototype parameters",
+		behavior.combat_positioning and not reference.get_node("Behavior").combat_positioning and behavior.combat_weapon_family == &"cannon"
+		and behavior.combat_min_distance == 27.0 and behavior.combat_max_distance == 45.0 and behavior.combat_nominal_distance == 38.25
+		and behavior.combat_tangential_speed == 1.5 and behavior.combat_decision_interval == 0.5 and behavior.combat_order_interval == 1.0)
+	_check("FF-01 exposes a continuous transition region and limits cannon-facing adjustment to its flight course",
+		behavior.combat_transition_width > 0.0 and behavior.combat_course_slack_deg <= 10.0
+		and behavior.combat_course_response_time > 0.0 and behavior.combat_course_replan_deg > 0.0)
 	_check("Combat durability is ff01_durability.tres (160 / 100 / 30); the Destroyer has none",
 		unit.get_node("Combat").durability == preload("res://game/ships/ff01_durability.tres") and reference.get_node("Combat").durability == null
 		and unit.get_node("Combat").durability.max_hull == 160.0 and unit.get_node("Combat").durability.max_armor == 100.0

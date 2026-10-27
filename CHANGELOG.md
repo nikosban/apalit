@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-27 — Stage 6B: FF-01 combat positioning and continuous movement
+
+FF-01 gains opt-in autonomous cannon-band positioning with one-step combat heading/speed inputs, and movement becomes continuous: braking-aware course turns for single-ship MOVEs under way, a rate-limited route aim anchor, Waypoint Moves flown through as one route, and a non-flickering cruise plume. PlanarCollision now contains every ship within ±`map_half_size` through four sector-edge rectangles (course turns need 3 × lookahead of edge and obstacle clearance); `combat_positioning_test` covers it and the regression retains only the three known failures.
+
 ## 2026-10-26 — FF-01 Barrage and Wayfarer launch profiles
 
 Owner-approved broadside launch profiles add inherited world velocity and finite post-clearance turns: Barrage clears 4 u, commits one dispersed salvo solution and ramps at 30 u/s² to 30 u/s within 70 u total travel / 4 s while retaining 60 u acquisition; Wayfarer clears 8 u and retains active guidance, avoidance and sensor rules. Focused suites pass, including 148 trajectory checks, and the final 25-suite combat regression retains only the known fleet-focus failure, with Combat Test smoke and rendered validation accepted.

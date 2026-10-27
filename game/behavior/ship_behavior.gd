@@ -31,6 +31,9 @@ extends Node
 ## moved by more than a tolerance, and not more often than MIN_ORDER_INTERVAL.
 ## Information: only targets in the faction's contact (Combat.target_status() VALID); a
 ## lost Attack target leaves only its last position seen while in contact.
+## FF-01 opts into cannon-derived radial/tangential objectives and one-step combat
+## heading/speed inputs. Its interrupted Attack transfers a live designation to the
+## manual-target channel, revokes Attack authorization, and inhibits idle resumption.
 
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const RouteFollower := preload("res://game/navigation/route_follower.gd")
@@ -75,6 +78,47 @@ const GUARD_BLOCKED := 1.0 # s a position must stay unusable before another is c
 const GUARD_CHOICE_MARGIN := 4.0 # u of extra asteroid clearance a newly chosen position needs
 const GUARD_NEAR := 6.0 # u beyond the guard distance that still counts as useful proximity
 const INVESTIGATE_ARRIVAL := 6.0 # u
+const COMBAT_ALIGNED_DEG := 25.0 # Stage 6B.2: combat throttle stays full within this angle of the bow.
+const COMBAT_CAP_EASE := 0.5 # Stage 6B.2: share of reverse acceleration the tactical combat cap may fall by per second.
+
+@export_group("Autonomous combat positioning")
+@export var combat_positioning := false # Opt-in on FF-01 only; shared across factions.
+@export var combat_weapon_family := &"cannon"
+@export var combat_min_distance := 27.0
+@export var combat_max_distance := 45.0
+@export var combat_nominal_distance := 38.25
+@export var combat_tangential_speed := 1.5
+@export var combat_decision_interval := 0.5
+@export var combat_order_interval := 1.0
+@export var combat_objective_shift := 8.0 # u: meaningful destination replacement.
+@export var combat_lookahead_time := 12.0 # s: objectives beyond terminal braking.
+@export var combat_band_hysteresis := 2.0 # u inside the band before radial correction ends.
+@export var combat_side_commitment := 8.0 # s before trying the opposite unusable side.
+@export var combat_arc_margin_deg := 8.0 # Retain headings with useful traverse reserve.
+@export var combat_heading_response_deg := 20.0 # Maximum requested flight-course slew (degrees/s); physical turn limits are unchanged.
+@export var combat_transition_width := 20.0 # u beyond the outer band: forward approach blends into the nominal-distance course.
+@export var combat_course_slack_deg := 8.0 # Maximum weapon-facing adjustment from the actual flight course, near engagement only.
+@export var combat_course_replan_deg := 15.0 # Meaningful course change before replacing a still-distant direct objective.
+@export var combat_course_response_time := 0.5 # s: ease requested course changes without abrupt target turn-rate steps.
+
+var combat_side := 0 # +1 starboard target, -1 port target; committed per engagement.
+var combat_side_changes := 0
+var combat_reason := "inactive"
+var combat_objectives: Array[Dictionary] = [] # Bounded, accepted objective events only.
+var _combat_leg := false
+var _combat_request := Vector2.INF
+var _combat_radial := 0 # +1 closing, -1 opening, 0 tangential.
+var _combat_side_since := -INF
+var _combat_speed := INF
+var _combat_cap := INF # Stage 6B.2: eased tactical speed cap sent to Locomotion.
+var _combat_heading := 0.0 # Smoothed world flight-course heading, independent of target bearing.
+var _combat_approach := 0.0 # Continuous blend: 1 forward approach, 0 engagement.
+var _combat_fresh_route := false
+var _combat_replans_seen := 0
+var _combat_heading_ready := false
+var _combat_target: Node3D = null
+var _combat_inhibited := false # An interrupted Attack never resumes through idle stance.
+var _combat_visible_route := false # Candidate-query diagnostic; existing navigation paths only.
 
 var command := Command.NONE
 var requested_profile := Profiles.Profile.SIEGE
@@ -94,6 +138,7 @@ var _resolved := Vector2.ZERO # Where that request was resolved to (an occupied 
 var destination := Vector2.ZERO # Attack-Move: the objective.
 var waypoints: Array[Vector2] = [] # Waypoint Move: the legs still to fly (the first is under way).
 var waypoint_offset := Vector2.ZERO # Waypoint Move in a group: this ship's spot minus the clicked point.
+var _waypoints_joined := 1 # Stage 6B.2: waypoints (from the first) the current route flies through or to; -1 unknown.
 var encounter: Node3D = null # Attack-Move: the enemy it is engaging on the way.
 var _route_start := Vector2.ZERO
 var _route_resolved := Vector2.ZERO
@@ -183,6 +228,10 @@ func order_attack(target: Node3D) -> bool:
 	if not combat.alive or not combat.is_hostile_to(target) or combat.target_status(target) in [TS.INVALID, TS.DESTROYED]:
 		return false
 	_replace("Attack")
+	_combat_inhibited = false
+	combat_side = 0
+	_combat_radial = 0
+	_combat_heading_ready = false
 	command = Command.ATTACK
 	attack_target = target
 	combat.attack_target = target
@@ -201,6 +250,7 @@ func order_guard(target: Node3D) -> bool:
 	if not combat.alive or target == ship or other == null or not other.alive or other.faction != combat.faction:
 		return false
 	_replace("Guard")
+	_combat_inhibited = false
 	command = Command.GUARD
 	guard_target = target
 	if not other.destroyed.is_connected(_on_protected_destroyed):
@@ -221,6 +271,7 @@ func order_attack_move(point: Vector2) -> bool:
 	if not combat.alive:
 		return false
 	_replace("Attack-Move")
+	_combat_inhibited = false
 	_route_start = _here()
 	destination = point
 	if not _request_move(point, "attack-move destination"):
@@ -232,20 +283,33 @@ func order_attack_move(point: Vector2) -> bool:
 
 
 ## Waypoint Move: `append` adds to a sequence under way, otherwise a new sequence replaces
-## the current command. Each leg is an ordinary move; the next is requested on arrival.
+## the current command. Stage 6B.2: the legs still to fly are one route through every
+## waypoint (_request_waypoints()): intermediate waypoints are flown through, only the
+## last is a stop; a leg without a route ends the route early and is requested again
+## on arrival there (skipped if still unreachable).
 func order_waypoint(point: Vector2, append: bool) -> bool:
 	if not combat.alive:
 		return false
 	if append and command == Command.WAYPOINTS:
 		waypoints.append(point)
 		_note("waypoint %d (%.0f, %.0f) added" % [waypoints.size(), point.x, point.y])
+		_request_waypoints("waypoint %d added: fly through" % waypoints.size())
 		return true
 	_replace("Waypoint Move")
 	waypoints = [point]
 	command = Command.WAYPOINTS
-	if not _request_move(point, "waypoint 1"):
+	if not _request_waypoints("waypoint 1"):
 		_end_command("waypoint unreachable")
 		return false
+	return true
+
+
+# Stage 6B.2: one request for every waypoint still to fly; remembers how many of them
+# the planned route joined (unknown, -1, while the order waits for the map).
+func _request_waypoints(why: String) -> bool:
+	if not _request_move(waypoints[0], why, PackedVector2Array(waypoints.slice(1))):
+		return false
+	_waypoints_joined = -1 if follower.status == RouteFollower.RouteStatus.WAITING else follower.waypoint_marks.size() + 1
 	return true
 
 
@@ -267,11 +331,14 @@ func order_cancel() -> bool:
 	if not combat.alive:
 		return false
 	_replace("Cancel")
+	if combat_positioning:
+		_combat_inhibited = true
 	_stop()
 	return true
 
 
 func set_profile(profile: int) -> bool:
+	# Stage 6B UI debt: FF-01 still exposes this legacy selector; its positioning ignores it.
 	if not Profiles.available(combat).has(profile):
 		return false
 	requested_profile = profile
@@ -311,10 +378,14 @@ func _physics_process(delta: float) -> void:
 	_measure(delta)
 	_clock -= delta
 	if _clock > 0.000001:
+		_update_combat_facing(delta)
 		return
-	_clock += DECISION_INTERVAL
+	_clock += maxf(combat_decision_interval, 0.05) if combat_positioning else DECISION_INTERVAL
 	match command:
 		Command.NONE:
+			if combat_positioning and _combat_inhibited:
+				_update_combat_facing(delta)
+				return
 			if combat.stance == CombatShip.Stance.AGGRESSIVE:
 				var target := _pursuit_target()
 				if target == null and _moving() and is_instance_valid(_pursued) and combat.target_status(_pursued) == TS.CONTACT_LOST:
@@ -330,6 +401,7 @@ func _physics_process(delta: float) -> void:
 			_guard()
 		Command.ATTACK_MOVE:
 			_attack_move()
+	_update_combat_facing(delta)
 
 
 ## Picks up a RouteFollower order given outside this layer and not announced as a
@@ -378,9 +450,12 @@ func _replace(by: String) -> void:
 	if command == Command.GUARD:
 		_end_guard("canceled by %s" % by)
 	elif command == Command.ATTACK:
-		_end_attack("replaced by %s" % by)
+		var retain := combat_positioning and by in ["Move", "Waypoint Move"]
+		_end_attack("replaced by %s" % by, retain, by not in ["Move", "Waypoint Move"])
 	elif command != Command.NONE:
 		_note("%s replaced by %s" % [COMMAND_NAMES[command], by])
+	if combat_positioning:
+		_release_combat(false)
 	command = Command.NONE
 	waypoints.clear()
 	encounter = null
@@ -410,13 +485,17 @@ func _end_guard(why: String) -> void:
 	_set_anchor()
 
 
-# The Attack's authorization and the manual target it set end with it.
-func _end_attack(why: String) -> void:
+# Attack authorization ends here. FF-01 Move/Waypoint replacements transfer a live
+# designation to independent manual targeting; every other owned designation ends.
+func _end_attack(why: String, retain_target := false, stop_owned := true) -> void:
 	_note("attack ended: %s" % why)
+	if combat_positioning:
+		_release_combat(stop_owned)
+		_combat_inhibited = true
 	if is_instance_valid(attack_target):
 		if combat.attack_target == attack_target:
 			combat.attack_target = null
-		if _owns_target and combat.manual_target == attack_target:
+		if _owns_target and combat.manual_target == attack_target and not (retain_target and combat.target_status(attack_target) in [TS.VALID, TS.CONTACT_LOST]):
 			combat.clear_target()
 	attack_target = null
 	_owns_target = false
@@ -450,18 +529,21 @@ func _stop() -> void:
 # --- Movement requests -----------------------------------------------------------------
 
 ## The one way this layer moves the ship: the scene's autonomous_move() (not a command).
-func _request_move(point: Vector2, why: String) -> bool:
+## `through`: Waypoint Move's further waypoints to fly through (Stage 6B.2).
+func _request_move(point: Vector2, why: String, through := PackedVector2Array()) -> bool:
 	if not arena.has_method("autonomous_move"):
 		return false # A scene without the production command layer: the layer stays passive.
 	_own_request = point
-	arena.autonomous_move(ship, point)
-	# As the accepted prototype read it: the ship is under way (this order, or the one it
-	# had when this one was refused).
-	var given: bool = locomotion.has_destination or follower.status == RouteFollower.RouteStatus.WAITING
+	var accepted: bool = arena.autonomous_move(ship, point, through) if not through.is_empty() else arena.autonomous_move(ship, point)
+	# Keep legacy callers' behavior; FF-01 uses the actual acceptance result, never
+	# mistakes an older active leg for an accepted replacement, and logs only success.
+	var given: bool = accepted if combat_positioning else (locomotion.has_destination or follower.status == RouteFollower.RouteStatus.WAITING)
 	_plans_seen = follower.plans
 	_own_request = follower.requested
 	if not given:
 		return false
+	if combat_positioning:
+		_combat_leg = false # The caller explicitly marks accepted combat objectives.
 	station = point
 	_resolved = locomotion.destination if locomotion.has_destination else point
 	has_station = true
@@ -487,6 +569,325 @@ func _request_heading(heading: float) -> void:
 
 # --- Engagement (Aggressive pursuit, Attack) ---------------------------------------------
 
+## Installed primary weapons, independent of profiles and temporary firing timers.
+func combat_weapons() -> Array:
+	return combat.weapons.filter(func(w: Node) -> bool: return w.config.family == combat_weapon_family and w.enabled and w.offensive_reach() > 0.0)
+
+
+func combat_band() -> Dictionary:
+	var weapons := combat_weapons()
+	if weapons.is_empty():
+		return {}
+	var far := combat_max_distance
+	for weapon in weapons:
+		far = minf(far, minf(weapon.config.effective(), weapon.config.weapon_range))
+	var near := minf(combat_min_distance, far)
+	return {"near": near, "far": far, "station": clampf(combat_nominal_distance, near, far)}
+
+
+func _combat_owns_leg() -> bool:
+	return _combat_leg and locomotion.has_destination and follower.requested.distance_to(_combat_request) < 0.001 \
+		and command not in [Command.MOVE, Command.WAYPOINTS, Command.DOCK, Command.GUARD] and not locomotion.guided
+
+
+func _release_combat(stop_owned: bool) -> void:
+	var owned := _combat_owns_leg()
+	_combat_leg = false
+	locomotion.release_combat_motion()
+	if stop_owned and owned:
+		follower.clear()
+		locomotion.cancel_move() # Bounded braking; never touches a newer explicit route.
+		has_station = false
+
+
+func _combat_note(why: String) -> void:
+	if why != combat_reason:
+		combat_reason = why
+		_note("combat: " + why)
+
+
+func _combat_engage(target: Node3D, on_route: bool) -> bool:
+	if target == null or combat.target_status(target) != TS.VALID:
+		return false
+	var weapons := combat_weapons()
+	if weapons.is_empty():
+		_release_combat(true)
+		_combat_note("primary cannons unavailable; maneuver stopped")
+		return false
+	var band := combat_band()
+	var here := _here()
+	var there := _planar(target) # Contact checked before any live position/velocity read.
+	var other_velocity: Vector3 = CombatShip.of(target).velocity()
+	var target_velocity := Vector2(other_velocity.x, other_velocity.z)
+	var radial := here - there
+	var distance := radial.length()
+	var outward := radial.normalized() if distance > 0.01 else Vector2.RIGHT
+	if target != _combat_target:
+		_combat_target = target
+		combat_side = 0
+		_combat_heading_ready = false
+	if combat_side == 0:
+		var right := Vector2(cos(locomotion.heading), -sin(locomotion.heading))
+		combat_side = 1 if (-outward).dot(right) >= 0.0 else -1
+		_combat_side_since = now()
+	if _combat_radial == 1 and distance <= band.far - combat_band_hysteresis:
+		_combat_radial = 0
+	elif _combat_radial == -1 and distance >= band.near + combat_band_hysteresis:
+		_combat_radial = 0
+	if distance > band.far:
+		_combat_radial = 1
+	elif distance < band.near:
+		_combat_radial = -1
+	var radius: float = band.station
+	var tangent := outward.orthogonal() * -combat_side
+	var desired_travel := _combat_travel(target)
+	var urgent: bool = _combat_owns_leg() and (not _position_ok(locomotion.destination) \
+		or not line_clear(locomotion.destination, there) or not locomotion.contacts.is_empty())
+	if _combat_owns_leg() and not urgent:
+		var remaining: float = here.distance_to(locomotion.destination)
+		# Preserve routed detours. A direct leg can be refreshed before its endpoint
+		# when the gradual approach-to-tangent blend has materially changed its course.
+		var course_changed: bool = _combat_straight_leg() and absf((locomotion.destination - here).angle_to(desired_travel)) > deg_to_rad(combat_course_replan_deg)
+		if remaining > _combat_reserve() and (locomotion.destination - here).dot(desired_travel) > 0.0 and not course_changed:
+			_combat_note("retain useful objective; " + _combat_phase())
+			return true
+	if not urgent and now() - _last_order < combat_order_interval - 0.000001:
+		_combat_note("retain objective during commitment; " + _combat_phase())
+		return true
+	var candidates := _combat_candidates(there, target_velocity, outward, radius, tangent)
+	# Keep the existing committed alternative-side escape for obstructed approaches.
+	# Facing follows the resulting flight course, allowing a bounded braking turn
+	# rather than translating sideways to retain the previous cannon posture.
+	if not _combat_visible_route and now() - _combat_side_since >= combat_side_commitment and not on_route:
+		var alternatives := _combat_candidates(there, target_velocity, outward, radius, -tangent)
+		if _combat_visible_route:
+			candidates = alternatives
+			combat_side *= -1
+			combat_side_changes += 1
+			_combat_side_since = now()
+			_combat_note("current approach loses sight; committed opposite approach has a clear route")
+	if on_route:
+		candidates = candidates.filter(func(p: Vector2) -> bool: return _route_offset(p) <= ATTACK_MOVE_LEASH)
+	for point: Vector2 in candidates:
+		if not urgent and _combat_owns_leg() and point.distance_to(station) < combat_objective_shift:
+			_combat_note("retain objective below displacement threshold; " + _combat_phase())
+			return true
+		if _request_move(point, "cannon " + _combat_phase()):
+			_combat_leg = true
+			_combat_request = follower.requested
+			_combat_fresh_route = true
+			combat_objectives.append({"time": now(), "point": point, "side": combat_side, "why": _combat_phase()})
+			if combat_objectives.size() > 200:
+				combat_objectives.remove_at(0)
+			_combat_note("replace objective; " + _combat_phase())
+			return true
+	# Reuse the existing station-candidate/route checks; no local avoidance is added.
+	# Only an unusable side, after commitment, can choose the other broadside.
+	if candidates.is_empty() and now() - _combat_side_since >= combat_side_commitment:
+		var other_side := _combat_candidates(there, target_velocity, outward, radius, -tangent)
+		if not other_side.is_empty() and not on_route:
+			combat_side *= -1
+			combat_side_changes += 1
+			_combat_side_since = now()
+			_combat_note("committed side unusable; try opposite broadside")
+			return true
+	_release_combat(true)
+	_combat_note("no reachable combat objective; yield movement")
+	return false
+
+
+func _combat_phase() -> String:
+	if _combat_approach >= 0.95:
+		return "forward approach"
+	if _combat_approach > 0.05:
+		return "broadside course transition"
+	return "open range" if _combat_radial < 0 else "forward tangential engagement"
+
+
+func _combat_course(outward: Vector2, tangent: Vector2, distance: float, radius: float) -> Vector2:
+	var correction := clampf((radius - distance) / maxf(combat_lookahead_time, 1.0), -combat_tangential_speed, combat_tangential_speed)
+	var radial := lerpf(correction, -locomotion.max_speed, _combat_approach)
+	return outward * radial + tangent * combat_tangential_speed * (1.0 - _combat_approach)
+
+
+## Stage 6B.2: the desired world travel (target velocity + relative course) from the
+## current geometry and committed side. Evaluated every tick, so the flown course and
+## preferred speed change continuously between objective decisions.
+func _combat_travel(target: Node3D) -> Vector2:
+	var band := combat_band()
+	var there := _planar(target)
+	var other_velocity: Vector3 = CombatShip.of(target).velocity()
+	var radial := _here() - there
+	var distance := radial.length()
+	var outward := radial.normalized() if distance > 0.01 else Vector2.RIGHT
+	_combat_approach = smoothstep(band.station, band.far + maxf(combat_transition_width, 1.0), distance)
+	var travel := Vector2(other_velocity.x, other_velocity.z) + _combat_course(outward, outward.orthogonal() * -combat_side, distance, band.station)
+	_combat_speed = minf(locomotion.max_speed, maxf(0.5, travel.length()))
+	return travel
+
+
+# Stage 6B.2: the current leg has no route corner: a direct move, or a two-point route
+# (its start snapped onto the navigation map, a fraction of a unit from the ship).
+func _combat_straight_leg() -> bool:
+	return follower.status == RouteFollower.RouteStatus.DIRECT \
+		or (follower.status == RouteFollower.RouteStatus.ROUTE and follower.route.size() == 2)
+
+
+# Distance left on a direct leg below which its objective is renewed: terminal braking
+# plus one commitment interval of tangential travel.
+func _combat_reserve() -> float:
+	var braking: float = locomotion.velocity.length_squared() / (2.0 * maxf(locomotion.reverse_accel, 0.05))
+	return maxf(follower.ship_radius * 2.0, braking + combat_tangential_speed * combat_order_interval)
+
+
+func _combat_candidates(there: Vector2, target_velocity: Vector2, outward: Vector2, radius: float, tangent: Vector2) -> Array[Vector2]:
+	var horizon := maxf(combat_lookahead_time, 2.0 * combat_order_interval)
+	var relative_course := _combat_course(outward, tangent, _here().distance_to(there), radius)
+	var travel := target_velocity + relative_course
+	# A course extension, not a point fixed on a circle around a future enemy.
+	# Low world speeds still need enough room to renew the objective before braking.
+	var length := maxf(travel.length() * horizon, follower.ship_radius * 2.0 + combat_objective_shift)
+	var lead := travel.normalized() * length
+	var predicted := there + target_velocity * (length / maxf(travel.length(), 0.5))
+	var found: Array[Vector2] = []
+	var obscured: Array[Vector2] = []
+	_combat_visible_route = false
+	# Reuse the rotated candidate search along the desired flight course. Existing
+	# navigation chooses every actual path; alternative directions are for constraints.
+	for angle: float in [0.0, 15.0, -15.0, 30.0, -30.0, 60.0, -60.0, 90.0, -90.0, 120.0, -120.0]:
+		var point := _here() + lead.rotated(deg_to_rad(angle))
+		if (point - _here()).dot(travel.normalized()) < 1.0 or not _position_ok(point) \
+				or not line_clear(point, there) or not line_clear(point, predicted):
+			continue
+		if not _navigation.is_ready(follower.planning_radius()):
+			continue
+		var route := _navigation.plan(follower.planning_radius(), _here(), point)
+		if route.size() >= 2 and route[route.size() - 1].distance_to(point) <= 0.25:
+			var visible := true
+			for i in range(1, route.size()):
+				visible = visible and line_clear(route[i], there) and line_clear((route[i - 1] + route[i]) * 0.5, there)
+			if visible:
+				found.append(point)
+			else:
+				obscured.append(point)
+	_combat_visible_route = not found.is_empty()
+	found.append_array(obscured)
+	return found
+
+
+## Travel owns the heading. Near engagement, actual turret geometry can select only
+## a small adjustment around that course; it cannot force the hull abeam of its motion.
+func _combat_choose_heading(target: Node3D, weapons: Array, travel: Vector2) -> float:
+	var base: float = locomotion.bearing_heading(travel)
+	var best := base
+	var best_score := -INF
+	var slack := deg_to_rad(combat_course_slack_deg * (1.0 - _combat_approach))
+	var headings: Array[float] = [base, base - slack, base + slack]
+	var to_hull := ship.global_transform.affine_inverse()
+	for heading: float in headings:
+		var basis := Basis(Vector3.UP, heading)
+		var count := 0
+		var reserve := INF
+		for weapon in weapons:
+			var solution: Array = weapon._solution(target)
+			var aim: Vector3 = solution[1] if solution[0] else target.global_position
+			var local_pivot: Vector3 = to_hull * weapon.pitch_pivot.global_position
+			var pivot := ship.global_position + basis * local_pivot
+			var mount_basis: Basis = basis * (ship.global_basis.inverse() * weapon.global_basis)
+			var direction: Vector3 = mount_basis.inverse() * (aim - pivot)
+			var yaw := rad_to_deg(atan2(-direction.x, -direction.z))
+			var pitch := rad_to_deg(atan2(direction.y, Vector2(direction.x, direction.z).length()))
+			var margin: float = weapon.yaw_limit_deg() - absf(yaw)
+			if margin >= 0.0 and pitch >= weapon.pitch_min_deg() and pitch <= weapon.pitch_max_deg():
+				count += 1
+				reserve = minf(reserve, margin)
+		var turn := absf(rad_to_deg(wrapf(heading - locomotion.heading, -PI, PI)))
+		var slip := absf(rad_to_deg(wrapf(heading - base, -PI, PI)))
+		var score := count * 2.0 + minf(reserve, combat_arc_margin_deg) * 0.05 - slip * 0.1 - turn * 0.01
+		if score > best_score:
+			best_score = score
+			best = heading
+	return best
+
+
+func _update_combat_facing(delta: float) -> void:
+	if not combat_positioning:
+		return
+	if not _combat_owns_leg() or investigating or not is_instance_valid(_combat_target) \
+			or combat.target_status(_combat_target) != TS.VALID or combat_weapons().is_empty():
+		locomotion.release_combat_motion()
+		return
+	var here := _here()
+	var live_travel := _combat_travel(_combat_target)
+	var point: Vector2 = locomotion.destination
+	var steer_point := Vector2.INF
+	if follower.status == RouteFollower.RouteStatus.ROUTE and not _combat_straight_leg():
+		point = follower.aim_point
+		if _combat_fresh_route or follower.replans != _combat_replans_seen:
+			point = follower.route[mini(follower.segment + 1, follower.route.size() - 1)]
+	elif _combat_straight_leg() and live_travel.length() > 0.01:
+		# Stage 6B.2: a leg without route corners (direct, or a route whose start was only
+		# snapped by the map) flies the live course instead of a chord to its fixed endpoint, at
+		# the endpoint's distance (so braking and avoidance offsets keep their scale), easing
+		# back onto the endpoint below the renewal reserve. The accepted objective stays the
+		# validated leg; a blocked line keeps it.
+		var left := here.distance_to(locomotion.destination)
+		var reserve := _combat_reserve()
+		var along := here + live_travel.normalized() * left
+		var point_on_course: Vector2 = locomotion.destination.lerp(along, clampf(2.0 * left / reserve - 1.0, 0.0, 1.0))
+		if _navigation.segment_clear(here, point_on_course, follower.line_clearance()):
+			steer_point = point_on_course
+			point = point_on_course
+	_combat_fresh_route = false
+	_combat_replans_seen = follower.replans
+	# These are the existing steering inputs (the previous tick's avoidance, before
+	# its priority -1 update), not an independent target-facing vector.
+	var direction: Vector2 = (point + locomotion._avoid_offset - here).normalized()
+	var travel: Vector2 = locomotion.velocity + direction * _combat_speed
+	if travel.length() < 0.01:
+		return
+	var desired := _combat_choose_heading(_combat_target, combat_weapons(), travel)
+	if not _combat_heading_ready:
+		_combat_heading = locomotion.heading
+		_combat_heading_ready = true
+	var difference := wrapf(desired - _combat_heading, -PI, PI)
+	var response := difference * (1.0 - exp(-delta / maxf(combat_course_response_time, delta)))
+	_combat_heading += clampf(response, -deg_to_rad(combat_heading_response_deg) * delta, deg_to_rad(combat_heading_response_deg) * delta)
+	var forward := Vector2(-sin(locomotion.heading), -cos(locomotion.heading))
+	# Ease the throttle through large course changes, preserving momentum and a
+	# small ongoing move rather than demanding a lateral cruise or a stop-and-turn.
+	# Stage 6B.2: full preferred speed within COMBAT_ALIGNED_DEG of the bow, and the
+	# tactical cap falls at no more than COMBAT_CAP_EASE x reverse acceleration;
+	# Locomotion's stopping, turning, route and avoidance limits still apply unchanged.
+	var alignment := clampf(forward.dot(direction) / cos(deg_to_rad(COMBAT_ALIGNED_DEG)), 0.0, 1.0)
+	var wanted := maxf(0.35, _combat_speed * alignment)
+	var eased: float = _combat_cap - COMBAT_CAP_EASE * locomotion.reverse_accel * delta if locomotion.combat_control else locomotion.velocity.length()
+	_combat_cap = maxf(wanted, eased)
+	locomotion.combat_motion(_combat_heading, _combat_cap, steer_point)
+
+
+## Test/debug-only readout; no live target coordinates or velocity when contact is lost.
+func combat_snapshot() -> Dictionary:
+	var result := {"authority": COMMAND_NAMES[command], "reason": combat_reason, "band": combat_band(),
+		"side": combat_side, "objective": station if _combat_leg else null, "actual_heading": locomotion.heading,
+		"desired_heading": locomotion.combat_heading if locomotion.combat_control else null, "approach_blend": _combat_approach}
+	if _combat_inhibited and command == Command.NONE:
+		result.authority = "explicit movement ended; combat positioning inhibited"
+	elif _combat_owns_leg() and not investigating:
+		result.authority = "autonomous combat"
+	var target: Node3D = attack_target if command == Command.ATTACK else combat.target
+	result["target"] = String(target.name) if is_instance_valid(target) else ""
+	if not is_instance_valid(target) or combat.target_status(target) != TS.VALID:
+		return result
+	var radial := _here() - _planar(target)
+	var other_velocity: Vector3 = CombatShip.of(target).velocity()
+	var relative: Vector2 = locomotion.velocity - Vector2(other_velocity.x, other_velocity.z)
+	result["distance"] = radial.length()
+	result["radial_speed"] = relative.dot(radial.normalized())
+	result["tangential_speed"] = relative.dot(radial.normalized().orthogonal())
+	result["cannons"] = combat_weapons().map(func(w: Node) -> Dictionary: return {"mount": String(w.get_parent().name), "assessment": w.assess(target), "shots": w.shots})
+	return result
+
 # Aggressive without a command: its manual target, else its current target, else the
 # nearest hostile in the faction's contact (movement objective only; Combat acquires).
 func _pursuit_target() -> Node3D:
@@ -511,6 +912,8 @@ func _pursuit_target() -> Node3D:
 ## travel goes on when none is needed or allowed. Returns whether the ship is engaging
 ## (holding or moving for the target) rather than travelling.
 func _engage(target: Node3D, on_route := false) -> bool:
+	if combat_positioning:
+		return _combat_engage(target, on_route)
 	if target == null or combat.target_status(target) != TS.VALID:
 		return false
 	var profile := effective()
@@ -612,17 +1015,26 @@ func _route_offset(point: Vector2) -> float:
 	return best
 
 
-# Waypoint Move: on arrival at the current leg, the next one; the last ends the command.
+# Waypoint Move: a waypoint the route has advanced beyond is passed (Stage 6B.2); on
+# arrival at the end of the route, the waypoints left; the last ends the command.
 func _advance_waypoints() -> void:
+	if _waypoints_joined < 0 and follower.status != RouteFollower.RouteStatus.WAITING:
+		_waypoints_joined = follower.waypoint_marks.size() + 1
+	var joined_left: int = follower.waypoints_left() + 1
+	while _waypoints_joined > joined_left and waypoints.size() > 1:
+		waypoints.remove_at(0)
+		_waypoints_joined -= 1
+		_note("waypoint passed (%d left)" % waypoints.size())
 	if _moving() or _here().distance_to(_resolved) > ARRIVAL:
 		return
 	waypoints.remove_at(0)
 	if waypoints.is_empty():
 		_end_command("last waypoint reached")
 		return
-	if not _request_move(waypoints[0], "waypoint (%d left)" % waypoints.size()):
+	if not _request_waypoints("waypoint (%d left)" % waypoints.size()):
 		_note("waypoint (%.0f, %.0f) unreachable: skipped" % [waypoints[0].x, waypoints[0].y])
 		_resolved = _here() # Treated as reached: the next leg follows.
+		_waypoints_joined = 1
 
 
 # Docking (the ship's production Docking node, when it has one): from the dock request
@@ -675,9 +1087,14 @@ func _attack() -> void:
 		_end_attack("contact lost, no last known position")
 		return
 	if not investigating:
+		if combat_positioning:
+			_release_combat(true)
 		investigating = true
 		if not _request_move(last_known, "investigate last known position of %s" % target.name):
 			_end_attack("last known position unreachable")
+		elif combat_positioning:
+			_combat_leg = true
+			_combat_request = follower.requested
 		return
 	if _here().distance_to(last_known) <= INVESTIGATE_ARRIVAL or not _moving():
 		_end_attack("not reacquired at the last known position")

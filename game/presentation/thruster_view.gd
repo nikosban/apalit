@@ -9,8 +9,9 @@ extends Node3D
 ## share of its limit, smoothed over SMOOTH, zero without propulsion. Jets fire together
 ## when the motions combine (main engine and turning jets while accelerating through a
 ## turn). The main engine's state: BOOST while accelerating forward, THRUST while cruising
-## forward, IDLE otherwise with propulsion on (stopped, braking, turning, sideways), NONE
-## without. The effects are the reusable thruster scenes (game/presentation/thrusters/):
+## forward (Stage 6B.2: also through minor braking below CRUISE_BRAKE, its plume dimming
+## with the braking), IDLE otherwise with propulsion on (stopped, braking, turning,
+## sideways), NONE without. The effects are the reusable thruster scenes (game/presentation/thrusters/):
 ## one main_thruster_fx per main engine, driven by the state's thrust (MAIN_THRUST; BOOST
 ## 0.5 + 0.5 x the main intensity), and one directional_thruster_fx per jet, driven by the
 ## jet's intensity; both sized from the parts (the Miner's are the reference). Everything
@@ -25,6 +26,7 @@ const SMOOTH := 0.08 # s
 const THRESHOLD := 0.02 # Intensity above which a jet fires (and the main engine counts as firing).
 const CRUISE_SPEED := 0.2 # u/s forward speed above which a ship not braking is cruising
 const PLUME_BLEND := 0.15 # s to blend the main thrust between states
+const CRUISE_BRAKE := 0.35 # Stage 6B.2: retro intensity up to which a ship cruising forward keeps its plume (fading toward it)
 const REFERENCE_ENGINE := 0.2 # u: the Miner's engine radius (main_thruster_fx nozzle_scale 1)
 const REFERENCE_JET := 0.14 # u: the Miner's jet box (directional_thruster_fx nozzle_scale 1)
 # Main engine thrust per state (BOOST: 0.5 + 0.5 x the main intensity). IDLE keeps the
@@ -249,7 +251,7 @@ func _sample(record: Dictionary, delta: float) -> void:
 	if on:
 		if record.intensity.Main > THRESHOLD:
 			state = State.BOOST
-		elif velocity.dot(forward) > CRUISE_SPEED and record.intensity.get("Retro_L", 0.0) <= THRESHOLD:
+		elif velocity.dot(forward) > CRUISE_SPEED and record.intensity.get("Retro_L", 0.0) < CRUISE_BRAKE:
 			state = State.THRUST
 		else:
 			state = State.IDLE
@@ -260,6 +262,9 @@ func _sample(record: Dictionary, delta: float) -> void:
 # engine's nozzle (-Z along the exhaust, the ship's +Z).
 func _update_main(ship: Node3D, record: Dictionary, engine: Dictionary, delta: float) -> void:
 	var target: float = MAIN_THRUST.get(record.state, 0.5 + 0.5 * float(record.intensity.Main))
+	if record.state == State.THRUST:
+		# Stage 6B.2: minor braking while cruising dims the plume instead of putting it out.
+		target *= 1.0 - clampf(float(record.intensity.get("Retro_L", 0.0)) / CRUISE_BRAKE, 0.0, 1.0)
 	var thrust := lerpf(engine.thrust, target, clampf(delta / PLUME_BLEND, 0.0, 1.0))
 	engine.thrust = thrust if thrust > THRESHOLD or target > 0.0 else 0.0
 	var effect: Node3D = engine.effect

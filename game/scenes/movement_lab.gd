@@ -573,12 +573,12 @@ func _move_single(ship: Node3D, point: Vector2) -> bool:
 	var follower := ship.get_node("RouteFollower") as RouteFollower
 	var occupied := _group_orders.resolve_occupied(ship, point)
 	if occupied.is_empty():
-		return follower.order(point) # Refused (no route): its notice, nothing changed.
+		return follower.order(point, PackedVector2Array(), true) # Refused (no route): its notice, nothing changed.
 	var blocker: Node = occupied.blocker
 	if not occupied.has("point"):
 		_show_notice("No free position near %s - no order given" % DisplayName.of(blocker))
 		return false
-	if not follower.order(occupied.point):
+	if not follower.order(occupied.point, PackedVector2Array(), true):
 		return false
 	var locomotion := ship.get_node("Locomotion") as ShipLocomotion
 	var taken := (follower.status == RouteFollower.RouteStatus.ROUTE or follower.status == RouteFollower.RouteStatus.DIRECT) \
@@ -831,22 +831,33 @@ func issue_move(ships: Array, point: Vector2) -> bool:
 ## (docking in any state but Not docked / Unable to Dock), with no free point beside an
 ## occupying ship, or without a route. Before the navigation map is ready the order is
 ## queued by RouteFollower (as any order then), unchecked.
-func autonomous_move(ship: Node3D, point: Vector2) -> bool:
+## Stage 6B.2: `through` (queued Waypoints after `point`) is passed on to the
+## RouteFollower order to be flown through; its last point (the stop) is moved beside an
+## occupying stationary ship as `point` is, or left for a later leg request without a
+## free point there.
+func autonomous_move(ship: Node3D, point: Vector2, through := PackedVector2Array()) -> bool:
 	var docking := _docking_of(ship)
 	if docking != null and (docking.under_control() or not (docking.state in [Docking.State.NONE, Docking.State.UNABLE])):
 		return false
 	var follower := ship.get_node("RouteFollower") as RouteFollower
 	if not _map_ready(ship):
-		return follower.order(point) # Queued by RouteFollower until the map is ready (as a command).
+		return follower.order(point, through) # Queued by RouteFollower until the map is ready (as a command).
 	var occupied := _group_orders.resolve_occupied(ship, point)
 	if not occupied.is_empty():
 		if not occupied.has("point"):
 			return false
 		point = occupied.point
+	if not through.is_empty():
+		through = through.duplicate()
+		var last := _group_orders.resolve_occupied(ship, through[through.size() - 1])
+		if last.has("point"):
+			through[through.size() - 1] = last.point
+		elif not last.is_empty():
+			through.remove_at(through.size() - 1)
 	var position := (ship.get_node("Locomotion") as ShipLocomotion).planar_position
 	if ($StaticNavigation as StaticNavigation).plan(follower.planning_radius(), position, point).size() < 2:
 		return false
-	return follower.order(point)
+	return follower.order(point, through)
 
 
 ## One destination per ship around `point`: the point itself for one ship, GroupOrders'

@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-Last updated: 2026-10-26. Current state only. Development history is in `CHANGELOG.md` and Git; earlier versions of this file
+Last updated: 2026-10-27. Current state only. Development history is in `CHANGELOG.md` and Git; earlier versions of this file
 (per-task verification logs, measurements, prototype records) are in Git history.
 
 ## 1. Status
@@ -22,10 +22,13 @@ FF-01 frigate in an expanded Combat Test arena, then Stage 1 global armor and da
 resolution (`f152f8b`), Stage 2 Cannon family / NC-90 Bastion (`586ac21`), Stage 3 PDC
 family / PDC-20 Kestrel (`94a7a37`), Stage 4 Rocket family / RL-8 Barrage
 (`baa7484`), Stage 5 Guided Missile family / GCM-4 Wayfarer (`f1a5952`),
-and the approved broadside launch profiles for Barrage and Wayfarer (section 4.6).
+the approved broadside launch profiles for Barrage and Wayfarer (section 4.6), and
+Stage 6B: FF-01 autonomous combat positioning, continuous movement (course turns,
+route aim anchor, flown-through waypoints, plume continuity) and sector-edge
+containment (sections 4.1 and 4.6).
 
-All listed work, including the resolved I01 combat-positioning boundary mismatch and
-Stages 1–5 and the final launch-profile revision, is accepted by the owner. The next
+All listed work, including the resolved I01 combat-positioning boundary mismatch,
+Stages 1–5, the final launch-profile revision and Stage 6B, is accepted by the owner. The next
 task awaits the owner's brief (section 10).
 
 ## 2. Project layout and scenes
@@ -116,11 +119,11 @@ the lab era) and the layout contract in section 3.
 - Archetypes `game/ships/archetypes/` (component nodes with script defaults only, no
   hull, no per-type values):
   - `warship.tscn`: Locomotion, RouteFollower, Avoidance, Scanner, Docking, Fuel,
-    Weapons, Combat.
+	Weapons, Combat.
   - `mining_ship.tscn`: Locomotion, RouteFollower, Avoidance, Cargo, Extractor,
-    Mining, Scanner, Docking, Fuel, Weapons, Combat.
+	Mining, Scanner, Docking, Fuel, Weapons, Combat.
   - `transport_ship.tscn`: Locomotion, RouteFollower, Avoidance, Cargo, Transport,
-    Scanner, Docking, Fuel, Weapons, Combat.
+	Scanner, Docking, Fuel, Weapons, Combat.
 - Variants `game/ships/<type>_unit.tscn` are the authoritative ship type
   definitions: `frigate_unit`, `gunship_unit`, `destroyer_unit` (warship),
   `miner_unit` (mining ship), `transporter_unit` (transport ship). Each overrides the
@@ -236,14 +239,23 @@ horizon, plus the accepted same-course pass side and re-plan after a far pass.
   request: refused while guided or with a destination; cleared by movement, guidance
   or `place()`), `guide()`. `_apply_motion()` asks PlanarCollision before committing;
   `committed_motion` is what Fuel charges.
+  - Course turn (Stage 6B): `move_to(point, allow_hold, turn_course)` under way (above
+	0.5 u/s) keeps the current velocity direction as a course and turns it toward the
+	destination at the ship's own turn limits (rate-limited, braking-aware, at most 60°
+	ahead of the actual velocity) instead of re-aiming at once; it ends when aligned,
+	on avoidance, combat control, a speed cap, no propulsion, arrival, `cancel_move()`,
+	`place()` or `guide()`. Only RouteFollower requests it (below).
+  - `combat_motion(heading, speed_cap, steer_point)`: Behavior's one-step combat
+	heading / speed input (FF-01 only, section 4.6). `speed_limit` /
+	`speed_limit_reason` are debug readouts.
   - `propulsion` (set by Fuel): false = no translation or rotation, order kept,
 	`avoidance_cap` 0 so others treat the ship as waiting (stationary).
   - Guided mode (station docking): `guide(legs, limits)` flies turn-in-place or
 	straight legs from rest within station limits capped by the ship's own, each
-    ending at rest. While guided: no destination, `steer()` / `avoid()` ignored,
-    `move_to()` refused and counted (`guided_order_errors`, error logged), other ships
-    treat it as idle; target heading = actual heading at hand-back. `place()` cancels
-    guidance.
+	ending at rest. While guided: no destination, `steer()` / `avoid()` ignored,
+	`move_to()` refused and counted (`guided_order_errors`, error logged), other ships
+	treat it as idle; target heading = actual heading at hand-back. `place()` cancels
+	guidance.
 - `static_navigation.gd` (`StaticNavigation`): one NavigationServer2D map per planning
   radius (ship radius + clearance margin), baked once from the direct mesh children
   of `obstacles_path` plus every mesh in `static_obstacle` (cylinders and spheres as
@@ -261,34 +273,50 @@ horizon, plus the accepted same-course pass side and re-plan after a far pass.
   - End-of-route correction (owner-retained, `route_end_test`): the destination is
 	braked for at least the straight distance to it while that line is clear, so a
 	ship pushed off its route near the end is not capped short of it.
+  - Aim anchor (Stage 6B): the aim point walks the lookahead from `aim_progress`, which
+	follows route progress at most `AIM_CATCH_UP` (2) × speed + 1 u/s ahead, so route
+	corners no longer jump the aim.
+  - Waypoints (Stage 6B): `order(point, through, turn_course)`; one route is chained
+	through every waypoint (`waypoint_marks`, `waypoints_left()`); intermediate
+	waypoints are flown through, only the last is a stop.
+  - Course turn gate: only a single-ship player MOVE (`movement_lab._move_single`) asks
+	for it, and `_course_room()` grants it only on a corner-free (two-point) route with
+	the footprint's obstacle and sector-edge clearance (`footprint_clearance()`,
+	`edge_clearance()`) at least 3 × and the route at least 2 × `lookahead_length()`;
+	otherwise the order is an ordinary Move.
   - `replan()` (accepted 2026-10-23): called by Avoidance when a pass ends with the
 	ship more than that encounter's separation off its path; same resolved
-    destination, `requested` and `plans` unchanged (Behavior reads it as a player
-    Move), no notice, counted in `replans`; skipped without a route, guided or queued.
+	destination, `requested` and `plans` unchanged (Behavior reads it as a player
+	Move), no notice, counted in `replans`; skipped without a route, guided or queued.
 - `ship_avoidance.gd` (`Avoidance`): closed-form prediction per pair; give-way roles
   (idle and waiting ships stand on; overtaking ship gives way; else smaller
   `size_class`; equal: later in the scene); pass (starboard head-on, astern crossing,
   away when converging) or yield; only offsets steering and caps speed. Accepted
   rules on top:
   - Obstruction correction: passing a ship that `is_stationary()` (no order or out of
-    fuel, below 0.1 u/s; avoidance-held ships with an order do not count), the
-    steering point is pulled back to keep the reserve (`_keep_reserve`), and the pass
-    speed cap limits only travel toward the reserve.
+	fuel, below 0.1 u/s; avoidance-held ships with an order do not count), the
+	steering point is pulled back to keep the reserve (`_keep_reserve`), and the pass
+	speed cap limits only travel toward the reserve.
   - Cause C: a stationary ship's yield is decided after the one applied pass; if that
 	shift already clears it (`_shift_clears()`) the ship follows the pass's side
-    (`_follow_pass()`), otherwise it yields.
+	(`_follow_pass()`), otherwise it yields.
   - Direct-move prediction horizon: the own-ship prediction runs from the route
-    position and, on a direct move, stops at the end of the leg left (not after the
-    straight distance from the actual position). Routed moves keep the straight
-    distance horizon (`RouteFollower.remaining`).
+	position and, on a direct move, stops at the end of the leg left (not after the
+	straight distance from the actual position). Routed moves keep the straight
+	distance horizon (`RouteFollower.remaining`).
   - Same-course pass side: an encounter with a moving ship that is neither head-on
-    nor crossing records its `away` side at start; `_choose()` tries only that side
-    (converging keeps its one-separation bound), else yields.
+	nor crossing records its `away` side at start; `_choose()` tries only that side
+	(converging keeps its one-separation bound), else yields.
   - `forget(ship)`: called when a destroyed ship is removed.
 - `planar_collision.gd` (`PlanarCollision`): read-only service; bounding circles and
   obstacle shapes, continuous sweeps, removes only the velocity into a contact (no
   bounce, push or separation), at most 3 contacts per step, sequential in scene order.
-  A safety net, not traffic resolution.
+  A safety net, not traffic resolution. Sector edge (Stage 6B): four static rectangles
+  (`_edges`, blockers `SectorEdgeEast/West/South/North` children) with inner faces on
+  ±`StaticNavigation.map_half_size` (`navigation_path`), a sector width thick and
+  closing the corners, so every Locomotion-driven ship stops or slides with its centre
+  at `map_half_size − ship_radius`; a ship placed beyond the edge may only move back
+  in. `_obstacles` still holds only the mesh obstacles. Ordnance is not contained.
 
 Profiles (authoritative in `game/ships/<type>_unit.tscn`; the test arena and
 `obstruction_test` keep their own movement-only copies; Transporter uses the
@@ -354,8 +382,8 @@ Gunship's handling with radius 4.1, Miners the Frigate's):
   - `resolve_command()` / `command_available()`: read-only versions for the cursor
 	(same resolution and checks, notices muted).
   - `autonomous_move()`: Behavior's positioning (one RouteFollower order, moved beside
-    an occupying ship, route checked; no assignment cancelled, no notice, not a
-    command; refused while docking owns the ship).
+	an occupying ship, route checked; no assignment cancelled, no notice, not a
+	command; refused while docking owns the ship).
   - `player_sees()`: fog-of-war gate (section 4.6).
 
 ### 4.3 Stations and docking (`stations/`)
@@ -392,17 +420,17 @@ Gunship's handling with radius 4.1, Miners the Frigate's):
   - Undock: controlled exit (straight back, turn toward the exit side, forward to the
 	exit point); control returns when it ends. No clear side: notice, stays docked.
   - Docking owns the ship's movement from the dock request until control ends.
-    `under_control()`, `control_ended`; one held command (`hold_command()`,
-    `held_command()`). During control `cancel()` / `dock()` are refused and counted
-    (`refused_during_control`, push_error). Otherwise `cancel()` releases request,
-    queue entry, hold and transfer request and never moves the ship (owner decision);
-    departure is always `undock()`. `abandon()` releases records on destruction.
+	`under_control()`, `control_ended`; one held command (`hold_command()`,
+	`held_command()`). During control `cancel()` / `dock()` are refused and counted
+	(`refused_during_control`, push_error). Otherwise `cancel()` releases request,
+	queue entry, hold and transfer request and never moves the ship (owner decision);
+	departure is always `undock()`. `abandon()` releases records on destruction.
   - Transfers: Unload Cargo / Load (resource, amount), timed with fractions carried;
-    `stop_transfer()`. Blocked transfer (storage full, no stock): keeps its request,
-    leaves through the exit, waits at a hold (Waiting to Continue Transfer), docks
-    again. Automated Transport instead uses `load_cargo(…, wait)` / `unload(wait)`:
-    stays Docked with the reservation held in a `waiting` sub-state (section 4.4).
-    Ships without `Cargo` dock without cargo actions.
+	`stop_transfer()`. Blocked transfer (storage full, no stock): keeps its request,
+	leaves through the exit, waits at a hold (Waiting to Continue Transfer), docks
+	again. Automated Transport instead uses `load_cargo(…, wait)` / `unload(wait)`:
+	stays Docked with the reservation held in a `waiting` sub-state (section 4.4).
+	Ships without `Cargo` dock without cargo actions.
 - Guided limits: `guide_speed` 1.5 u/s, `guide_accel` 1.0 u/s², turn rate / accel
   30 °/s / 30 °/s² (capped by each ship's own).
 - Docking is bow-in only; docking heads are visual only (not obstacles).
@@ -456,19 +484,19 @@ Gunship's handling with radius 4.1, Miners the Frigate's):
   destination, unload everything aboard, refuel, return. Cargo not required is
   carried and delivered, never discarded.
   - Persistent docking (owner decision): loading waits docked until the whole quota is
-    aboard (switching to another missing resource in stock), unloading until
-    everything is delivered; one notice per wait; berth congestion is intended, no
-    eviction or auto-resolution. Fuel refuels during the wait.
+	aboard (switching to another missing resource in stock), unloading until
+	everything is delivered; one notice per wait; berth congestion is intended, no
+	eviction or auto-resolution. Fuel refuels during the wait.
   - Configuration edits: a setter given the same value does nothing; changing or
-    clearing a station, or every requirement reaching zero, pauses an active operation
-    once with a notice, never redirecting a trip (docked or in the entry: stays
-    docked, `stop_transfer()`; undocking: finishes; otherwise `Docking.cancel()`);
-    other requirement edits are live (a running load is resized; a lower requirement
-    never unloads). An invalid configuration written without setters pauses before any
-    dock request. `set_requirement()` and `apply_requirements(amounts, as_percent)`
-    reject (notice, nothing changed) when the total would exceed the hold.
+	clearing a station, or every requirement reaching zero, pauses an active operation
+	once with a notice, never redirecting a trip (docked or in the entry: stays
+	docked, `stop_transfer()`; undocking: finishes; otherwise `Docking.cancel()`);
+	other requirement edits are live (a running load is resized; a lower requirement
+	never unloads). An invalid configuration written without setters pauses before any
+	dock request. `set_requirement()` and `apply_requirements(amounts, as_percent)`
+	reject (notice, nothing changed) when the total would exceed the hold.
   - A valid manual departure (Undock, MOVE, Dock elsewhere) pauses; only Resume
-    restarts it, without repeating completed transfers. `activity()` builds the text.
+	restarts it, without repeating completed transfers. `activity()` builds the text.
 - Refinery (`refining/refinery.gd`, child of a `refinery_station`): two slots, each a
   mineral (none by default) and Enabled (off). An enabled slot accumulates rate ×
   delta while its mineral is in stock and completes a unit by removing one raw unit
@@ -526,6 +554,15 @@ Combat behaviour is frozen as accepted (section 6).
   propulsion off, route / avoidance / fuel / scanner / docking / mining / transport
   stopped, `Docking.abandon()`, deselected; a 2 s hulk, then removal
   (`Avoidance.forget()`, contacts and Selection unregistered) and free.
+- FF-01 autonomous combat positioning (Stage 6B, `ship_behavior.gd`, opt-in
+  `combat_positioning` on `ff01_unit.tscn` only; values editable in the Behavior's
+  "Autonomous combat positioning" group): cannon-derived band 27–45 u (nominal
+  38.25), tangential 1.5 u/s, decisions 0.5 s, orders 1.0 s, 20 u transition width;
+  travel owns the heading and weapon facing may adjust it by at most 8°
+  (`COMBAT_ALIGNED_DEG` 25 keeps full throttle near the bow, `COMBAT_CAP_EASE` 0.5
+  eases the speed cap). On straight legs it steers along the live course. An
+  interrupted Attack moves a live designation to the manual target. Waypoint Moves
+  fly one chained route through every waypoint.
 - `combat_orders.gd` (`CombatOrders`): the one combat command interface (move,
   target, tactic, Attack, Guard, Attack-Move, Waypoint, Cancel, profile) for player
   input, the commander and tests.
@@ -543,57 +580,57 @@ Combat behaviour is frozen as accepted (section 6).
   Weapon families on FF-01 (one script per family, values in the variant's `.tres`,
   instanced through the variant's `.tscn`):
   - Cannon (Stage 2, `turret.gd` + `nc90_bastion.tres/.tscn`): NC-90 Bastion, 12 hull /
-    penetration 20 / armor damage 6, 2.5 s, 75 u (effective 45), 40 u/s, 40 rounds,
-    shell dispersion 0.5° (`Weapon.disperse()`: uniform over the cone's solid angle,
-    per-mount seeded `rng`).
+	penetration 20 / armor damage 6, 2.5 s, 75 u (effective 45), 40 u/s, 40 rounds,
+	shell dispersion 0.5° (`Weapon.disperse()`: uniform over the cone's solid angle,
+	per-mount seeded `rng`).
   - PDC (Stage 3, `pdc.gd` extends `gatling.gd` + `pdc20_kestrel.tres/.tscn`):
-    PDC-20 Kestrel, 0.2 / penetration 1 / 0, 0.08 s, 25 u, 70 u/s tracers, magazine
-    40 of 400, reload 3 s, 2.5° dispersion. Defensive order: own ship, then allies;
-    torpedoes before missiles, except a missile (or rocket) arriving under 1.5 s and
-    earlier; then impact time, ordnance id. Mounts select independently.
+	PDC-20 Kestrel, 0.2 / penetration 1 / 0, 0.08 s, 25 u, 70 u/s tracers, magazine
+	40 of 400, reload 3 s, 2.5° dispersion. Defensive order: own ship, then allies;
+	torpedoes before missiles, except a missile (or rocket) arriving under 1.5 s and
+	earlier; then impact time, ordnance id. Mounts select independently.
   - Rocket (`rocket_launcher.gd` + `rl8_barrage.tres/.tscn`): RL-8 Barrage retains
-    its eight cell origins (4 × 2, ship-frame x ±0.15 / ±0.45, y ±0.15, z −6.28).
-    It ejects world +Y to 4 u above release, at 8 u/s nominal ejection/transition
-    speed with inherited ship velocity; after clearance, nose and actual velocity
-    turn toward one locked salvo intercept point at up to 100°/s for at most 1.5 s.
-    Alignment or timeout freezes the achieved world-space velocity ray; a continuous
-    30 u/s² ramp reaches 30 u/s, then straight unguided flight continues. No target
-    updates, reacquisition or obstacle avoidance follow commitment. The initial
-    first-order lead includes an approximate launch/acceleration delay.
-    A whole salvo needs eight rounds and a valid target/aim point within 60 u of the
-    fire-control muzzle; no bow alignment is required. Eight independently dispersed
-    rockets (3°) launch every 0.12 s from their current cell positions; only owner
-    destruction cancels pending launches. One round per release; 48 rounds, 5 s
-    cooldown after the eighth. Lifetime 4 s and 70 u maximum total path both include
-    clearance, turning and acceleration; acquisition remains 60 u. Damage unchanged:
-    4 hull / penetration 8 / armor damage 1; interception radius 0.3, model 0.6 × 0.06 u.
-    Salvo/layout exports live on `rl8_barrage.tscn`; flight, acceleration, timeout,
-    technical limits and model values are editable in the `.tres` ordnance resource.
+	its eight cell origins (4 × 2, ship-frame x ±0.15 / ±0.45, y ±0.15, z −6.28).
+	It ejects world +Y to 4 u above release, at 8 u/s nominal ejection/transition
+	speed with inherited ship velocity; after clearance, nose and actual velocity
+	turn toward one locked salvo intercept point at up to 100°/s for at most 1.5 s.
+	Alignment or timeout freezes the achieved world-space velocity ray; a continuous
+	30 u/s² ramp reaches 30 u/s, then straight unguided flight continues. No target
+	updates, reacquisition or obstacle avoidance follow commitment. The initial
+	first-order lead includes an approximate launch/acceleration delay.
+	A whole salvo needs eight rounds and a valid target/aim point within 60 u of the
+	fire-control muzzle; no bow alignment is required. Eight independently dispersed
+	rockets (3°) launch every 0.12 s from their current cell positions; only owner
+	destruction cancels pending launches. One round per release; 48 rounds, 5 s
+	cooldown after the eighth. Lifetime 4 s and 70 u maximum total path both include
+	clearance, turning and acceleration; acquisition remains 60 u. Damage unchanged:
+	4 hull / penetration 8 / armor damage 1; interception radius 0.3, model 0.6 × 0.06 u.
+	Salvo/layout exports live on `rl8_barrage.tscn`; flight, acceleration, timeout,
+	technical limits and model values are editable in the `.tres` ordnance resource.
   - Guided Missile (`guided_missile_launcher.gd` extends `launcher.gd`,
-    `guided_missile_config.gd` extends `weapon_config.gd`, `gcm4_wayfarer.tres/.tscn`):
-    GCM-4 Wayfarer has four cells / four missiles per committed salvo, 12 missiles,
-    launches at 0 / 0.2 / 0.4 / 0.6 s on the first eligible physics ticks; 6 s cooldown
-    after the final launch. Cell origins: (±0.25, 0.922, ±0.35) in the ship frame.
-    Ejection is world +Y at 5 u/s plus inherited ship velocity until 8 u above release;
-    the existing drifting orientation turns at 75°/s, for at most 1.5 s after clearance,
-    then existing powered guidance resumes on alignment (15° threshold) or timeout.
-    Active tracking, original-target identity, sensor loss, same-target reacquisition,
-    bounded obstacle avoidance and momentum-based overshoot recovery are preserved.
-    Salvos retain the original target and latest legitimately observed position;
-    without contact missiles use last-known position, never hidden target data.
-    Only owner destruction cancels pending releases; one round is used per release.
-    Max speed 32 u/s, acceleration 18 u/s², powered nose turn 40°/s, acquisition 90 u.
-    Lifetime is exactly 9 s from release: impacts before the deadline count, those
-    at/after it do not; 30 s / 400 u are secondary bounds. Impact: 35 hull /
-    penetration 45 / armor damage 2 (first fresh FF-01 hit: 139 hull, 98 armor).
-    One successful PDC hit destroys it. All layout and launch/flight/model values
-    are editable in its `.tres` (flight/model in `ordnance`). Both families render
-    their actual simulated positions, retain launching-ship collision exclusion and
-    physical interception; legacy missiles, torpedoes and other combat stats remain
-    unchanged (zero `transition_timeout` preserves legacy flight).
+	`guided_missile_config.gd` extends `weapon_config.gd`, `gcm4_wayfarer.tres/.tscn`):
+	GCM-4 Wayfarer has four cells / four missiles per committed salvo, 12 missiles,
+	launches at 0 / 0.2 / 0.4 / 0.6 s on the first eligible physics ticks; 6 s cooldown
+	after the final launch. Cell origins: (±0.25, 0.922, ±0.35) in the ship frame.
+	Ejection is world +Y at 5 u/s plus inherited ship velocity until 8 u above release;
+	the existing drifting orientation turns at 75°/s, for at most 1.5 s after clearance,
+	then existing powered guidance resumes on alignment (15° threshold) or timeout.
+	Active tracking, original-target identity, sensor loss, same-target reacquisition,
+	bounded obstacle avoidance and momentum-based overshoot recovery are preserved.
+	Salvos retain the original target and latest legitimately observed position;
+	without contact missiles use last-known position, never hidden target data.
+	Only owner destruction cancels pending releases; one round is used per release.
+	Max speed 32 u/s, acceleration 18 u/s², powered nose turn 40°/s, acquisition 90 u.
+	Lifetime is exactly 9 s from release: impacts before the deadline count, those
+	at/after it do not; 30 s / 400 u are secondary bounds. Impact: 35 hull /
+	penetration 45 / armor damage 2 (first fresh FF-01 hit: 139 hull, 98 armor).
+	One successful PDC hit destroys it. All layout and launch/flight/model values
+	are editable in its `.tres` (flight/model in `ordnance`). Both families render
+	their actual simulated positions, retain launching-ship collision exclusion and
+	physical interception; legacy missiles, torpedoes and other combat stats remain
+	unchanged (zero `transition_timeout` preserves legacy flight).
   - Interception: torpedoes and missiles are destroyed by any hostile round; rockets
-    only by rounds spawned with `intercepts_rockets` (Gatling family: Kestrels and
-    legacy Gatlings); cannon shells pass through rockets.
+	only by rounds spawned with `intercepts_rockets` (Gatling family: Kestrels and
+	legacy Gatlings); cannon shells pass through rockets.
 - Sensors: `sensors.gd` (`Sensors`): faction-shared detection within 100 u with a
   line clear of asteroids, every 0.2 s of simulation time, 8 s last-known memory;
   stations ignored. `contact_board.gd` (`Contacts`): contact = detection. Line of fire
@@ -690,7 +727,9 @@ Combat behaviour is frozen as accepted (section 6).
 	jet box of the hull's `Thrusters`, under itself (never under a ship), sized from
 	the parts. Jet intensity = ship-frame acceleration share of its limit (smoothed
 	0.08 s, zero without propulsion). Main states: BOOST 0.5 + 0.5 × intensity, THRUST
-	0.5, IDLE 0 with glow, NONE 0 without; blended 0.15 s. API: `state_of`,
+	0.5, IDLE 0 with glow, NONE 0 without; blended 0.15 s. A ship cruising forward
+	keeps THRUST through minor braking (retro below `CRUISE_BRAKE` 0.35), dimmed in
+	proportion, so the plume does not flicker (Stage 6B). API: `state_of`,
 	`intensity_of`, `plume_of`, `plumes_of`, `jet_of`, `emitters_of`.
   - Ordnance: `WeaponGeometry.build_ordnance()` adds effects to torpedo and missile
 	nozzles and missile attitude mounts; `ordnance.gd` drives them; sizes in
@@ -849,11 +888,15 @@ distribution, logistics balance, models and UI polish.
   passes possible (move across not swept against the passed ship); the pass speed cap
   keeps its following floor. Example (test arena): Miner (90, −5) → (115, −5) crossing
   15 u ahead of a Gunship (115, 40) → (115, −40): contacts and reversals, both arrive.
-- Collision: conservative bounding circles (Destroyer stopped up to ~5 u from its hull
-  sides); ships starting overlapped stay overlapped; slow creep in sustained contact;
+- Collision: conservative bounding circles (Destroyer and FF-01 stopped up to ~5 u
+  from their hull sides, also at the sector edge); ships starting overlapped stay overlapped; slow creep in sustained contact;
   the ship processed first may gain up to one tick of movement.
 - Sphere obstacles use the full radius whatever the plane height; uniform scale assumed
   (only X read); 32-gon outlines give small bends around large asteroids.
+- Sector edge: enforced only in scenes with a PlanarCollision (not `combat_lab`,
+  `station_docking_demo`, `tri_station`); ships pressing into it show the creep and
+  braking-plume effects of any sustained contact. Course turns are skipped within
+  3 × lookahead of an obstacle or the edge (FF-01 at cruise: 30 u).
 - Destroyer mid-route redirect aim line enters the reserve (`navigation_test` known
   failure; no footprint overlap).
 - Movement cost (lab): mean 0.21 ms per tick with 6 ships, 0.70 ms with 12, p99 up to
@@ -1035,8 +1078,8 @@ distribution, logistics balance, models and UI polish.
   `C:\Users\Nikos\Downloads\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe`
   (4.7.2.stable). Git 2.55.0 and GitHub CLI 2.102.0 installed; `gh` logged in as
   `nikosban`, pushes use SSH.
-- Suites: 39 in `game/tests/`, 25 in `game/tests/combat/`, `game/tests/docking/tri_dock_test.gd`
-  (65 total). Run: `<godot console> --headless --path . -s res://game/tests/<name>.gd`.
+- Suites: 39 in `game/tests/`, 26 in `game/tests/combat/`, `game/tests/docking/tri_dock_test.gd`
+  (66 total). Run: `<godot console> --headless --path . -s res://game/tests/<name>.gd`.
 - `--fixed-fps 60` is required for every combat suite and for `shipyard_runtime_test`,
   `reuse_test` (uninterrupted loop as fast as possible), `camera_test`,
   `tactical_view_test`, `strategic_view_test` (fails its boundary-fade check without
@@ -1053,7 +1096,7 @@ distribution, logistics balance, models and UI polish.
   10 guard, `station_docking_test` deliberate `cancel()`, tri-dock navigation edge
   warnings. Verification scope follows `AGENTS.md` steps C and D. No runner script is
   kept.
-- FF-01 weapon suites (`combat/`): `ff01_test` 55, `armor_test` 53, `cannon_test` 46,
+- FF-01 weapon suites (`combat/`): `ff01_test` 57, `armor_test` 53, `cannon_test` 46,
   `pdc_test` 65, `rocket_test` 73, `guided_missile_test` 71, `launch_profiles_test` 48
   and `barrage_trajectory_test` 148 checks, all passing. Final launch-profile regression:
   24/25 combat suites pass, with only the same pre-existing `fleet_test` hostile-focus
@@ -1071,6 +1114,12 @@ distribution, logistics balance, models and UI polish.
   25 suites and all smoke runs passed, with only the three known failing suites below;
   no new errors or warnings. P02 and integrated combat measurement changes are accepted,
   reproducible boundary effects. Logs: `archive/i01_verification_2026-10-25/` (local only).
+- `combat/combat_positioning_test.gd` (Stage 6B, fixtures `combat_positioning_harness.gd`,
+  `combat_positioning_demo.tscn`): 41/41 by default; `-- movement` 18/18 (route,
+  waypoint and combat continuity), `-- redirect` 23/23 (repeated MOVE commands, open
+  and routed; `trace` prints 60 Hz traces). Final Stage 6B regression: only the three
+  known failures below; `obstruction_test` check 4's crossing scenario is shifted
+  inward (`_start_inside()`) so every ship starts inside the sector.
 - Known open failures (baseline, not regressions; reproduced unchanged before and after I01 and Stages 4–5): `navigation_test`
   35/36 (Destroyer redirect aim line), `obstruction_test` 10/12 (the two cause B
   overshoot checks), `fleet_test` hostile focus (1 of 47 hostile shots off the
@@ -1103,9 +1152,9 @@ distribution, logistics balance, models and UI polish.
 
 ## 10. Next task and open items
 
-Next task: awaits the owner's brief. The revised Barrage and Wayfarer launch profiles
-are accepted on `combat_adjustments`, with no further tuning requested. Stage 6 has
-not begun; the branch remains separate from `main`. New work follows `AGENTS.md`.
+Next task: awaits the owner's brief. Stage 6B (FF-01 combat positioning, continuous
+movement, sector-edge containment) is accepted on `combat_adjustments`; the branch
+remains separate from `main`. New work follows `AGENTS.md`.
 
 Open owner decisions:
 

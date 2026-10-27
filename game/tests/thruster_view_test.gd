@@ -208,6 +208,7 @@ func _test_states() -> void:
 	var retro_max := 0.0
 	var boost_thrust := 0.0
 	var cruise_thrust := 0.0
+	var dimmed: Array[float] = []
 	for i in 900:
 		await physics_frame
 		var state := _view.state_of(ship)
@@ -222,14 +223,21 @@ func _test_states() -> void:
 		await process_frame # The effects follow in the frame after the tick.
 		if state == ThrusterView.State.BOOST:
 			boost_thrust = maxf(boost_thrust, plume.thrust)
-		if state == ThrusterView.State.THRUST:
-			cruise_thrust = plume.thrust
+		var retro: float = _view.intensity_of(ship, "Retro_L")
+		if state == ThrusterView.State.THRUST and retro <= ThrusterView.THRESHOLD:
+			cruise_thrust = plume.thrust # Cruising: no braking at all.
+		if state == ThrusterView.State.THRUST and retro > ThrusterView.THRESHOLD:
+			dimmed.append(plume.thrust) # Stage 6B.2: minor braking while cruising.
 		if i > 30 and not lo.has_destination and lo.velocity.length() < 0.01:
 			break
 	_check("move ahead 30 u: states %s; main engine up to %.2f while boosting; retro jets up to %.2f while braking" % [" > ".join(order), main_max, retro_max],
 		order == ["IDLE", "BOOST", "THRUST", "IDLE"] and main_max > 0.9 and retro_max > 0.9)
 	_check("main thrust: boost up to %.2f, cruise %.2f (expected 0.5)" % [boost_thrust, cruise_thrust],
 		boost_thrust > 0.9 and absf(cruise_thrust - 0.5) < 0.01)
+	# Stage 6B.2: as braking starts, the plume dims (above zero, below the cruise 0.5)
+	# instead of going out at the first retro impulse; full braking is IDLE (checked above).
+	_check("minor braking while cruising dims the main plume instead of putting it out (%d ticks, thrust %s)" % [dimmed.size(), str(dimmed.map(func(t: float) -> String: return "%.2f" % t))],
+		not dimmed.is_empty() and dimmed.all(func(t: float) -> bool: return t > 0.0 and t < 0.5))
 	lo.face(lo.heading + deg_to_rad(120.0))
 	var turn := {"Bow_R": 0.0, "Stern_L": 0.0, "Bow_L": 0.0, "Stern_R": 0.0, "Main": 0.0}
 	var turn_states := {}

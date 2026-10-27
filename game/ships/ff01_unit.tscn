@@ -119,5 +119,17 @@ durability = ExtResource("5_durability")
 
 [node name="Behavior" type="Node" parent="."]
 script = ExtResource("4_behavior")
+combat_positioning = true
+combat_weapon_family = &"cannon"
+combat_min_distance = 27.0
+combat_max_distance = 45.0
+combat_nominal_distance = 38.25
+combat_tangential_speed = 1.5
+combat_decision_interval = 0.5
+combat_order_interval = 1.0
+combat_transition_width = 20.0
+combat_course_slack_deg = 8.0
+combat_course_replan_deg = 15.0
+combat_course_response_time = 0.5
 
 [node name="Model" parent="." instance=ExtResource("2_model")]

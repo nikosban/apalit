@@ -27,6 +27,9 @@ const EPSILON := 0.000001
 const BRAKE_SHARE_STEPS := 12 # Bisection steps for the cross-approach share left after braking.
 const TURN_TAPER := 0.5 # Heading time constant = this × max turn rate / turn acceleration (provisional).
 const STOP_SHARE := 0.8 # Guided mode: share of the deceleration limit its stopping profile plans with.
+const COURSE_MIN_SPEED := 0.5 # u/s; Stage 6B.2: slower ships take a new course directly (turn in place).
+const COURSE_DONE := 0.017 # rad (~1 degree); Stage 6B.2: the course turn ends this close to the steering direction.
+const COURSE_LEAD := 60.0 # degrees; Stage 6B.2: how far a turning course may lead the actual travel.
 
 @export var max_speed := 10.0 # u/s, forward
 @export var max_reverse_speed := 4.0 # u/s
@@ -50,6 +53,19 @@ var has_destination := false
 var arrived := false
 var heading_mode := HeadingMode.NONE # FACE for normal moves, HOLD for short corrections; set per command.
 var desired_velocity := Vector2.ZERO # Last step's desired velocity (debug display).
+var speed_limit := 0.0 # Debug: last step's desired speed before the directional limits.
+var speed_limit_reason := &"" # Debug: the constraint that set it (max, stop, turn, arrive, combat, route, avoid).
+
+# Optional one-step input from Behavior. Ordinary movement remains unchanged without
+# a fresh request; move_to/guide/place revoke a pending request before it can execute.
+var combat_control := false # Debug: combat input applied in the last ordinary step.
+var combat_heading := 0.0
+var combat_speed_cap := INF
+var _combat_requested := false
+var _combat_previous := false
+var _combat_point := Vector2.INF # Stage 6B.2: one-step direct-leg steering point (INF: none).
+var _course := Vector2.ZERO # Stage 6B.2: travel direction being turned onto a new command's course (ZERO: none).
+var _course_rate := 0.0 # rad/s, Vector2 rotation sign.
 
 var _target_heading := 0.0
 var _heading_frozen := false # FACE: stop re-aiming once braking has begun.
@@ -101,22 +117,38 @@ func _physics_process(delta: float) -> void:
 
 ## New destination, accepted immediately; velocity and angular velocity carry over.
 ## allow_hold = false: never treat the move as a short correction (route orders).
-func move_to(point: Vector2, allow_hold := true) -> void:
+## turn_course (Stage 6B.2): a ship under way turns its travel onto the new course
+## (_turn_course()) instead of being redirected at once; given by RouteFollower only.
+func move_to(point: Vector2, allow_hold := true, turn_course := false) -> void:
 	if guided:
 		guided_order_errors += 1
 		push_error("%s: move_to() ignored during guided movement" % _ship.name)
 		return
+	_combat_requested = false
+	combat_control = false
+	combat_speed_cap = INF
 	destination = point
 	has_destination = true
 	arrived = false
 	_heading_frozen = false
 	_steering = false
-	_target_fresh = true
 	var offset := point - planar_position
 	if offset.length() > EPSILON and not (allow_hold and _is_short_correction(offset)):
 		heading_mode = HeadingMode.FACE
+		# Stage 6B.2: a ship under way turns its travel onto the new course (see _turn_course());
+		# its heading request stays continuous, so the turn-rate history is kept too.
+		# It starts from the last requested travel; a course turn already under way continues.
+		if turn_course and velocity.length() > COURSE_MIN_SPEED and propulsion:
+			if _course == Vector2.ZERO:
+				_course = desired_velocity.normalized() if desired_velocity.length() > EPSILON else velocity.normalized()
+				_course_rate = -angular_velocity # Vector2 rotation sign (yaw + = nose left).
+			return
+		_course = Vector2.ZERO
+		_target_fresh = true
 		_target_heading = _bearing_heading(offset)
 	else:
+		_course = Vector2.ZERO
+		_target_fresh = true
 		heading_mode = HeadingMode.HOLD
 		_target_heading = heading
 
@@ -132,6 +164,46 @@ func face(new_heading: float) -> bool:
 	_target_fresh = true
 	_heading_frozen = false
 	return true
+
+
+## A fresh autonomous-combat input, before this tick's ordinary step. Never changes
+## velocity, route, acceleration or turn limits. Refreshing a route preserves combat
+## heading-rate history when Behavior renews this input in the same tick.
+## Stage 6B.2: steer_point (optional, this step only) replaces the steering point (the
+## destination, or the route's aim point) for this step; braking still uses the
+## destination or route distance, and route and avoidance speed caps still apply. The
+## caller gives it only for a leg without route corners whose line from the ship is clear.
+func combat_motion(new_heading: float, speed_cap: float, steer_point := Vector2.INF) -> bool:
+	if guided or not has_destination:
+		return false
+	combat_heading = wrapf(new_heading, -PI, PI)
+	combat_speed_cap = maxf(0.0, speed_cap)
+	_combat_point = steer_point
+	_combat_requested = true
+	return true
+
+
+func release_combat_motion() -> void:
+	var was_combat := combat_control or _combat_requested
+	_combat_requested = false
+	_combat_previous = false
+	combat_control = false
+	combat_speed_cap = INF
+	if was_combat and not has_destination:
+		_hold_heading()
+
+
+## Cancel only an owned destination; ordinary bounded acceleration brakes the ship.
+## The caller clears its RouteFollower first. Collision still constrains every step.
+func cancel_move() -> void:
+	has_destination = false
+	_course = Vector2.ZERO
+	arrived = false
+	_steering = false
+	_avoid_offset = Vector2.ZERO
+	_avoid_speed_cap = INF
+	release_combat_motion()
+	_hold_heading()
 
 
 ## Route input for the current command (Stage 3): steer toward aim_point while
@@ -157,11 +229,13 @@ func avoid(offset: Vector2, speed_cap := INF) -> void:
 ## Debug and test placement only (scenario setup): puts the ship at rest at a point
 ## and heading, with no destination. Not used by movement.
 func place(point: Vector2, new_heading: float) -> void:
+	release_combat_motion()
 	guided = false
 	guided_leg = -1
 	_legs = []
 	_guided_speed = 0.0
 	has_destination = false
+	_course = Vector2.ZERO
 	arrived = false
 	heading_mode = HeadingMode.NONE
 	_steering = false
@@ -183,7 +257,9 @@ func place(point: Vector2, new_heading: float) -> void:
 ## bool}) within the given limits, each capped by this ship's own; any destination
 ## and steering or avoidance input are dropped.
 func guide(legs: Array, speed: float, accel: float, turn_rate_deg: float, turn_accel_deg_limit: float) -> void:
+	release_combat_motion()
 	has_destination = false
+	_course = Vector2.ZERO
 	arrived = false
 	heading_mode = HeadingMode.NONE
 	_steering = false
@@ -227,24 +303,38 @@ func get_status() -> String:
 
 func _step(delta: float) -> void:
 	if guided:
+		release_combat_motion()
 		_guided_step(delta)
 		return
+	combat_control = _combat_requested and has_destination
+	_combat_requested = false
 	desired_velocity = Vector2.ZERO
+	speed_limit = 0.0
+	speed_limit_reason = &""
 	# Without propulsion the ship's available speed is reported as 0 (waiting, i.e.
 	# stationary to the other ships' avoidance).
 	avoidance_cap = _avoid_speed_cap if propulsion else 0.0
 	var base := _steer_point if _steering else destination
+	if combat_control and _combat_point.is_finite():
+		base = _combat_point
 	if has_destination:
 		var offset := base + _avoid_offset - planar_position
 		var distance := offset.length()
 		if distance > EPSILON:
-			var direction := offset / distance
+			var steering := offset / distance
+			var direction := _turn_course(steering, delta)
 			var remaining := _steer_remaining if _steering else (base - planar_position).length()
 			var stop_speed := sqrt(2.0 * BRAKE_MARGIN * _braking_accel(direction) * remaining)
-			var speed := minf(minf(max_speed, stop_speed), minf(_turn_speed(direction, distance), distance / delta))
+			speed_limit_reason = &"max"
+			var speed := _limit(max_speed, stop_speed, &"stop")
+			speed = _limit(speed, _turn_speed(steering, distance), &"turn")
+			speed = _limit(speed, distance / delta, &"arrive")
+			if combat_control:
+				speed = _limit(speed, combat_speed_cap, &"combat")
 			if _steering:
-				speed = minf(speed, _steer_speed_cap)
-			speed = minf(speed, _avoid_speed_cap)
+				speed = _limit(speed, _steer_speed_cap, &"route")
+			speed = _limit(speed, _avoid_speed_cap, &"avoid")
+			speed_limit = speed
 			var intended := direction * speed
 			if heading_mode == HeadingMode.FACE and not _heading_frozen:
 				if stop_speed <= velocity.length():
@@ -257,6 +347,11 @@ func _step(delta: float) -> void:
 			# Directional speed limits (forward / reverse / lateral) apply to the desired
 			# velocity only; any actual velocity beyond them is removed by the acceleration below.
 			desired_velocity = _from_local(_limit_speed(_to_local(intended)))
+	if combat_control:
+		_target_heading = combat_heading
+		if _combat_previous:
+			_target_fresh = false
+	_combat_previous = combat_control
 
 	# Translation: bounded acceleration toward the desired velocity, limited in the ship frame.
 	var wanted := (desired_velocity - velocity) / delta
@@ -266,7 +361,7 @@ func _step(delta: float) -> void:
 	# and the cross-approach correction gets the remaining capacity.
 	var approach := Vector2.ZERO
 	if has_destination:
-		approach = (base + _avoid_offset - planar_position).normalized()
+		approach = _course if _course != Vector2.ZERO else (base + _avoid_offset - planar_position).normalized()
 	var along := wanted.dot(approach)
 	if along < 0.0:
 		var brake := _limit_accel(_to_local(approach * along))
@@ -296,6 +391,7 @@ func _step(delta: float) -> void:
 		new_velocity = Vector2.ZERO
 		has_destination = false
 		arrived = true
+		_course = Vector2.ZERO
 
 	# Rotation: bounded angular acceleration toward the target heading.
 	var error := wrapf(_target_heading - heading, -PI, PI)
@@ -471,6 +567,54 @@ func _turn_speed(direction: Vector2, distance: float) -> float:
 		return INF
 	var push := (direction - travel).normalized()
 	return sqrt(BRAKE_MARGIN * _accel_limit(_to_local(push)) * distance / angle)
+
+
+# Stage 6B.2: after a new command reaches a ship under way, its travel direction turns
+# from where it was onto the new steering direction with the hull's own turn rate and
+# turn acceleration (starting from the turn rate it had), instead of being redirected
+# at once; translation and the FACE heading request then follow one continuous course
+# and a reversal becomes a turn. Avoidance input, combat input, lost propulsion or a
+# slow ship end it at once (the plain steering direction applies, as before).
+func _turn_course(direction: Vector2, delta: float) -> Vector2:
+	if _course == Vector2.ZERO:
+		return direction
+	if combat_control or _avoid_offset != Vector2.ZERO or _avoid_speed_cap < INF or not propulsion \
+			or velocity.length() < COURSE_MIN_SPEED * 0.5:
+		_course = Vector2.ZERO
+		return direction
+	var max_rate := deg_to_rad(max_turn_rate_deg)
+	var turn_accel := deg_to_rad(turn_accel_deg)
+	var error := _course.angle_to(direction)
+	if absf(absf(error) - PI) < 0.001 and _course_rate != 0.0:
+		error = absf(error) * signf(_course_rate) # Straight behind: keep turning the way it turns.
+	if absf(error) < COURSE_DONE and absf(_course_rate) < turn_accel * delta * 2.0:
+		_course = Vector2.ZERO
+		return direction
+	var wanted := signf(error) * minf(max_rate, sqrt(2.0 * BRAKE_MARGIN * turn_accel * absf(error)))
+	_course_rate = move_toward(_course_rate, wanted, turn_accel * delta)
+	var step := _course_rate * delta
+	if signf(step) == signf(error) and absf(step) > absf(error):
+		step = error
+	var turned := _course.rotated(step)
+	# The course leads the actual travel by at most COURSE_LEAD: the bow (aimed between
+	# them) leads by about half, so forward thrust carries the turn rather than the hull
+	# swinging round ahead of a ship still sliding on its old line. Held there, the course
+	# turns as fast as the travel does (its rate follows, so it cannot wind up).
+	var travel := velocity.normalized()
+	var lead := travel.angle_to(turned)
+	if absf(lead) > deg_to_rad(COURSE_LEAD):
+		turned = travel.rotated(signf(lead) * deg_to_rad(COURSE_LEAD))
+		_course_rate = _course.angle_to(turned) / delta
+	_course = turned
+	return _course
+
+
+# The lower of a speed and a limit; a binding limit is recorded as the step's reason (debug).
+func _limit(speed: float, limit: float, reason: StringName) -> float:
+	if limit < speed:
+		speed_limit_reason = reason
+		return limit
+	return speed
 
 
 # Scales a ship-frame velocity into the speed-limit ellipse (forward / reverse / lateral).
