@@ -36,8 +36,7 @@ instance architecture and every shared system are unchanged (section 3).
 All listed work, including the resolved I01 combat-positioning boundary mismatch,
 Stages 1–5, the final launch-profile revision, Stage 6B, the two-FF-01 Combat Test and
 the legacy ship cleanup, is accepted by the owner. PDC raid sweep (2026-10-28, section
-4.6 PDC entry) is implemented on `main` and awaits the owner's Combat Test playtest and
-acceptance (section 10).
+4.6 PDC entry) is on `main` and accepted by the owner after a Combat Test playtest.
 
 ## 2. Project layout and scenes
 
@@ -602,7 +601,7 @@ Combat behaviour is frozen as accepted (section 6).
 	penetration 20 / armor damage 6, 2.5 s, 75 u (effective 45), 40 u/s, 40 rounds,
 	shell dispersion 0.5° (`Weapon.disperse()`: uniform over the cone's solid angle,
 	per-mount seeded `rng`).
-  - PDC (Stage 3, raid sweep 2026-10-28, not yet accepted; `pdc.gd` extends `gatling.gd`,
+  - PDC (Stage 3, raid sweep accepted 2026-10-28; `pdc.gd` extends `gatling.gd`,
 	`pdc_config.gd` extends `weapon_config.gd`, `pdc20_kestrel.tres/.tscn`): PDC-20
 	Kestrel, 0.2 / penetration 1 / 0, 75 u, cooldown 0.0333 s (30 rds/s), 70 u/s, lifetime
 	1.35 s, travel × 1.25, magazine 120 of 1200, reload 3 s, 0.75° per-round dispersion.
@@ -1234,14 +1233,13 @@ distribution, logistics balance, models and UI polish.
 
 ## 10. Next task and open items
 
-Next task: the owner's Combat Test playtest and acceptance of the PDC raid sweep
-(2026-10-28; committed on `main`, not pushed). Its focused verification passed (Combat
-Test load, all eight FF-01 Kestrel mounts wired, anti-ship offense on the per-tick
-solution, `saturation_eval.gd -- combined`: no script errors, misses expire, experimental
-variants unchanged). `pdc_test`, `rocket_test`, `guided_missile_test` and `ff01_test`
-assert the former 25 u Kestrel and first-engageable PDC selection and were not run; they
-need updating after acceptance. Then: a read-only architecture inventory (brief from the
-owner; nothing is changed in it). Stage 6B, the two-FF-01 Combat Test and the legacy ship cleanup are
+Next task: update `pdc_test`, `rocket_test`, `guided_missile_test` and `ff01_test`, which
+still assert the former 25 u Kestrel and first-engageable PDC selection (not run since the
+accepted PDC raid sweep, 2026-10-28; its focused verification: Combat Test load, all eight
+FF-01 Kestrel mounts wired, anti-ship offense on the per-tick solution,
+`saturation_eval.gd -- combined` with no script errors, expiring misses and unchanged
+experimental variants). Then: a read-only architecture inventory (brief from the owner;
+nothing is changed in it). Stage 6B, the two-FF-01 Combat Test and the legacy ship cleanup are
 accepted on `combat_adjustments`; the branch remains separate from `main`. New work follows `AGENTS.md`.
 
 Open owner decisions:

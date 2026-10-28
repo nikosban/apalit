@@ -9,7 +9,7 @@ after they are written.
 
 ## 2026-10-28 — PDC raid sweep
 
-FF-01's PDC-20 Kestrels now fire 4-round micro-bursts cycled across incoming ordnance with a committed, shared-error prediction taken when firing starts (75 u, 30 rds/s, 0.75° dispersion, 120 / 1200 rounds; tracer look in the shared `pdc20_kestrel_tracer.tres`), integrated from the `experiments/pdc_saturation/` prototype; focused checks passed, Kestrel test suites not yet updated, owner playtest pending.
+FF-01's PDC-20 Kestrels now fire 4-round micro-bursts cycled across incoming ordnance with a committed, shared-error prediction taken when firing starts (75 u, 30 rds/s, 0.75° dispersion, 120 / 1200 rounds; tracer look in the shared `pdc20_kestrel_tracer.tres`), integrated from the `experiments/pdc_saturation/` prototype; focused checks passed and the owner accepted it after a Combat Test playtest; the Kestrel test suites are not yet updated.
 
 ## 2026-10-28 — Ship panel damage feedback
 
