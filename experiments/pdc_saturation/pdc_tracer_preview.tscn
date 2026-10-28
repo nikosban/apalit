@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://cgkci8qjmfsjy"]
 
 [ext_resource type="Script" uid="uid://3hwnjcaxnl8r" path="res://experiments/pdc_saturation/pdc_tracer_preview.gd" id="1_preview"]
+[ext_resource type="Resource" uid="uid://drfq2wstbxjog" path="res://experiments/pdc_saturation/pdc20_kestrel_saturation.tres" id="2_irms3"]
 
 [sub_resource type="Environment" id="Environment_preview"]
 background_mode = 1
@@ -21,6 +22,7 @@ height = 0.6
 
 [node name="PDCTracerPreview" type="Node3D" unique_id=1312527882]
 script = ExtResource("1_preview")
+config = ExtResource("2_irms3")
 target_distance = 97.5
 target_sweep_speed = 1.0
 target_sweep_width = 27.0
@@ -38,5 +40,5 @@ fov = 50.0
 [node name="Mount" type="Node3D" parent="." unique_id=22292408]
 
 [node name="Target" type="MeshInstance3D" parent="." unique_id=181386626]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.6688769, 0, -97.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13.069281, 0, -97.5)
 mesh = SubResource("SphereMesh_target")

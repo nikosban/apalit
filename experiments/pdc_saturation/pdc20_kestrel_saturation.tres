@@ -1,7 +1,7 @@
 [gd_resource type="Resource" format=3 uid="uid://drfq2wstbxjog"]
 
 [ext_resource type="Script" uid="uid://dqxb4ovwgd276" path="res://experiments/pdc_saturation/pdc_saturation_config.gd" id="1_config"]
-[ext_resource type="BoxMesh" path="res://game/weapons/pdc20_kestrel_tracer.tres" id="2_tracer"]
+[ext_resource type="BoxMesh" uid="uid://h26dx33k5t0h" path="res://game/weapons/pdc20_kestrel_tracer.tres" id="2_tracer"]
 
 [resource]
 script = ExtResource("1_config")
@@ -14,7 +14,7 @@ has_penetration = true
 penetration = 1.0
 cooldown = 0.0333
 weapon_range = 75.0
-projectile_speed = 70.0
+projectile_speed = 55.0
 projectile_lifetime = 1.35
 projectile_style = &"tracer"
 dispersion_max_deg = 0.75
