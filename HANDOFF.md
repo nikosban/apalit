@@ -616,8 +616,8 @@ Combat behaviour is frozen as accepted (section 6).
 	position / velocity and one shared aim error (≤ 1.5°, re-committed every 0.5 s);
 	offense keeps the per-tick solution. Rounds stay zero-radius; missed rounds fly to
 	lifetime / travel. Tracer look: shared `pdc20_kestrel_tracer.tres` (BoxMesh
-	0.02 × 0.02 × 0.2 u, emission-only material, (1, 0.78, 0.4) × 3, alpha 0.85; owner's
-	values), passed to `Projectiles.spawn()` by `Weapon._round_mesh()` (null = style bar).
+	0.02 × 0.02 × 0.2 u, emission-only material, near-white (0.88, 0.97, 0.96) × 32,
+	alpha 0.85; owner's values), passed to `Projectiles.spawn()` by `Weapon._round_mesh()` (null = style bar).
 	Mounts select independently; all values editable in the `.tres` (Prediction, Raid
 	sweep, Visual groups).
   - Rocket (`rocket_launcher.gd` + `rl8_barrage.tres/.tscn`): RL-8 Barrage retains
