@@ -41,8 +41,12 @@ const DisplayName := preload("res://game/ui/display_name.gd")
 const ResourceTile := preload("res://game/ui/components/resource_tile.tscn")
 const CHOOSE_STATION := "Choose a station"
 const NEAREST_BASE := "Nearest station"
+const HULL_LOSS_COLOR := Color(1.0, 0.3, 0.25) # Red: hull damage.
+const ARMOR_LOSS_COLOR := Color(1.0, 0.72, 0.2) # Amber: armor condition lost.
 
 @export var selection_path := NodePath("../Selection")
+@export var loss_hold := 1.0 # s (real time): window collecting one damage burst, shown at full strength.
+@export var loss_fade := 0.5 # s (real time): the burst's label fades out, and each bar flash decays, over this.
 
 var ship: Node3D = null # The single selected ship, or null.
 
@@ -86,11 +90,15 @@ var _named: Node3D = null # The ship the name field was filled for.
 @onready var _progress: ProgressBar = $Panel/Layout/Scroll/Body/Actions/Docking/Transfer/Progress
 @onready var _progress_label: Label = $Panel/Layout/Scroll/Body/Actions/Docking/Transfer/ProgressLabel
 @onready var _hull: Control = $Panel/Layout/Scroll/Body/Status/Hull
-@onready var _hull_amount: Label = $Panel/Layout/Scroll/Body/Status/Hull/Amount
+@onready var _hull_amount: Label = $Panel/Layout/Scroll/Body/Status/Hull/Row/Amount
 @onready var _hull_bar: ProgressBar = $Panel/Layout/Scroll/Body/Status/Hull/Bar
 @onready var _armor: Control = $Panel/Layout/Scroll/Body/Status/Armor
-@onready var _armor_amount: Label = $Panel/Layout/Scroll/Body/Status/Armor/Amount
+@onready var _armor_amount: Label = $Panel/Layout/Scroll/Body/Status/Armor/Row/Amount
 @onready var _armor_bar: ProgressBar = $Panel/Layout/Scroll/Body/Status/Armor/Bar
+# Damage feedback per durability row: the last value seen, the current burst's total,
+# when its window started and when the bar last flashed (real seconds).
+@onready var _hull_loss := {"label": $Panel/Layout/Scroll/Body/Status/Hull/Row/Loss, "bar": _hull_bar, "color": HULL_LOSS_COLOR}
+@onready var _armor_loss := {"label": $Panel/Layout/Scroll/Body/Status/Armor/Row/Loss, "bar": _armor_bar, "color": ARMOR_LOSS_COLOR}
 @onready var _combat: Control = $Panel/Layout/Scroll/Body/Combat
 @onready var _tactic: OptionButton = $Panel/Layout/Scroll/Body/Combat/TacticRow/Tactic
 @onready var _command: Label = $Panel/Layout/Scroll/Body/Combat/Command
@@ -132,6 +140,9 @@ func _ready() -> void:
 	_tactic.item_selected.connect(func(index: int) -> void:
 		if _orders != null and ship != null:
 			_orders.set_stance([ship], _tactic.get_item_id(index)))
+	for state: Dictionary in [_hull_loss, _armor_loss]:
+		(state.label as Label).add_theme_color_override(&"font_color", state.color)
+		_reset_loss(state, 0.0)
 	_on_selection_changed()
 
 
@@ -170,9 +181,12 @@ func _update_combat() -> void:
 		return
 	_hull_amount.text = CombatHud.hull_text(combat).replace("Hull ", "Hull: ")
 	_hull_bar.value = combat.health / combat.max_health if combat.alive else 0.0
+	var now := Time.get_ticks_msec() / 1000.0
+	_track_loss(_hull_loss, combat.health, now)
 	if _armor.visible:
 		_armor_amount.text = "Armor condition: %d / %d" % [roundi(combat.armor), roundi(combat.max_armor)]
 		_armor_bar.value = combat.armor / combat.max_armor
+		_track_loss(_armor_loss, combat.armor, now)
 	var behavior := ship.get_node_or_null("Behavior")
 	if not _combat.visible or behavior == null:
 		return
@@ -181,6 +195,39 @@ func _update_combat() -> void:
 	_command.text = behavior.describe()
 	_combat_target.text = "Target: %s" % CombatHud.target_text(combat)
 	_weapons.text = "\n".join(CombatHud.weapon_lines(combat))
+
+# Damage feedback from the value seen last frame (real time, so also while paused): a
+# drop flashes the bar and adds to the current burst, a fixed window of `loss_hold`
+# from its first loss, then shown "−N" fading over `loss_fade`; a loss after the window
+# starts a fresh burst. The final hull loss of a destroyed ship is shown the same way.
+func _track_loss(state: Dictionary, current: float, now: float) -> void:
+	var lost: float = state.last - current
+	state.last = current
+	if lost > 0.0:
+		if now - state.start >= loss_hold:
+			state.start = now
+			state.total = 0.0
+		state.total += lost
+		state.flash = now
+	var label: Label = state.label
+	var age: float = now - state.start
+	label.visible = age < loss_hold + loss_fade
+	if label.visible:
+		label.text = "−%d" % maxi(1, roundi(state.total))
+		label.modulate.a = 1.0 if age < loss_hold else 1.0 - (age - loss_hold) / loss_fade
+	var flash := clampf(1.0 - (now - state.flash) / loss_fade, 0.0, 1.0)
+	(state.bar as Control).modulate = Color.WHITE.lerp(state.color, flash)
+
+
+# A newly selected ship starts from its current values with no feedback shown.
+func _reset_loss(state: Dictionary, current: float) -> void:
+	state.last = current
+	state.total = 0.0
+	state.start = -INF
+	state.flash = -INF
+	(state.label as Label).visible = false
+	(state.bar as Control).modulate = Color.WHITE
+
 
 # Cargo section: "Cargo: n / capacity" and one tile per resource aboard (icon above
 # units), in Inventory's order, from the ship's actual inventory.
@@ -325,6 +372,9 @@ func _on_selection_changed() -> void:
 	if transport != null:
 		_fill_stations()
 	_docking.visible = _docking_of(ship) != null
+	var combat = CombatShip.of(ship)
+	_reset_loss(_hull_loss, combat.health if combat != null else 0.0)
+	_reset_loss(_armor_loss, combat.armor if combat != null else 0.0)
 	_process(0.0)
 
 

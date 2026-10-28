@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-28 — Ship panel damage feedback
+
+The ship panel's Hull and Armor condition rows flash (red / amber) and show each damage burst's "−N" (fixed 1 s window, 0.5 s fade, real time, reset on selection), from frame-to-frame Combat values only; checked by a 30-frame headless Combat Test run, visual check by the owner.
+
 ## 2026-10-28 — Ship panel durability bars
 
 The selected-ship panel's Status shows Hull and Armor condition as labeled values with Fuel-style progress bars from the Combat component (armor hidden for unarmored ships); presentation only, checked by a 30-frame headless Combat Test run, visual check by the owner.

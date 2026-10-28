@@ -57,8 +57,18 @@ autowrap_mode = 3
 layout_mode = 2
 mouse_filter = 2
 
-[node name="Amount" type="Label" parent="Panel/Layout/Scroll/Body/Status/Hull"]
+[node name="Row" type="HBoxContainer" parent="Panel/Layout/Scroll/Body/Status/Hull"]
 layout_mode = 2
+mouse_filter = 2
+
+[node name="Amount" type="Label" parent="Panel/Layout/Scroll/Body/Status/Hull/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Loss" type="Label" parent="Panel/Layout/Scroll/Body/Status/Hull/Row"]
+visible = false
+layout_mode = 2
+horizontal_alignment = 2
 
 [node name="Bar" type="ProgressBar" parent="Panel/Layout/Scroll/Body/Status/Hull"]
 custom_minimum_size = Vector2(0, 8)
@@ -71,8 +81,18 @@ show_percentage = false
 layout_mode = 2
 mouse_filter = 2
 
-[node name="Amount" type="Label" parent="Panel/Layout/Scroll/Body/Status/Armor"]
+[node name="Row" type="HBoxContainer" parent="Panel/Layout/Scroll/Body/Status/Armor"]
 layout_mode = 2
+mouse_filter = 2
+
+[node name="Amount" type="Label" parent="Panel/Layout/Scroll/Body/Status/Armor/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Loss" type="Label" parent="Panel/Layout/Scroll/Body/Status/Armor/Row"]
+visible = false
+layout_mode = 2
+horizontal_alignment = 2
 
 [node name="Bar" type="ProgressBar" parent="Panel/Layout/Scroll/Body/Status/Armor"]
 custom_minimum_size = Vector2(0, 8)

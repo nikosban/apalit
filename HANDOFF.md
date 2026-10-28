@@ -765,7 +765,9 @@ Combat behaviour is frozen as accepted (section 6).
   scrolling body up to the screen height − 96 px. Ship panel (`ship_panel`, exactly
   one ship): Header (editable name, class), Status (activity, dock with queue
   position, fuel bar and warnings, hull bar with "DESTROYED" for a hulk, armor
-  condition bar hidden when `max_armor` is 0), Combat (armed ships: tactic selector,
+  condition bar hidden when `max_armor` is 0; a drop flashes the bar red / amber and
+  shows the burst "−N": 1 s window, 0.5 s fade, real time, `loss_hold` / `loss_fade`
+  exports, reset on selection), Combat (armed ships: tactic selector,
   command, target, weapons and ammunition), Cargo
   (tiles), Actions (Scan Area, mining base selector and Start / Resume, transport,
   Undock, Unload / Load). Start / Resume buttons are disabled only while the station
