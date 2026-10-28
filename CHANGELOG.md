@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-28 — Ship panel durability bars
+
+The selected-ship panel's Status shows Hull and Armor condition as labeled values with Fuel-style progress bars from the Combat component (armor hidden for unarmored ships); presentation only, checked by a 30-frame headless Combat Test run, visual check by the owner.
+
 ## 2026-10-27 — Weapon-profile test cleanup
 
 C11, E05 V1 / V8 and the boundary engagement case now check engagement state instead of log text from the deleted profile path, dropping only the parts that tested that path; each passed in a focused run.

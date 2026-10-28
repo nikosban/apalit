@@ -53,8 +53,33 @@ show_percentage = false
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="Health" type="Label" parent="Panel/Layout/Scroll/Body/Status"]
+[node name="Hull" type="VBoxContainer" parent="Panel/Layout/Scroll/Body/Status"]
 layout_mode = 2
+mouse_filter = 2
+
+[node name="Amount" type="Label" parent="Panel/Layout/Scroll/Body/Status/Hull"]
+layout_mode = 2
+
+[node name="Bar" type="ProgressBar" parent="Panel/Layout/Scroll/Body/Status/Hull"]
+custom_minimum_size = Vector2(0, 8)
+layout_mode = 2
+mouse_filter = 2
+max_value = 1.0
+show_percentage = false
+
+[node name="Armor" type="VBoxContainer" parent="Panel/Layout/Scroll/Body/Status"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Amount" type="Label" parent="Panel/Layout/Scroll/Body/Status/Armor"]
+layout_mode = 2
+
+[node name="Bar" type="ProgressBar" parent="Panel/Layout/Scroll/Body/Status/Armor"]
+custom_minimum_size = Vector2(0, 8)
+layout_mode = 2
+mouse_filter = 2
+max_value = 1.0
+show_percentage = false
 
 [node name="Combat" parent="Panel/Layout/Scroll/Body" instance=ExtResource("3_section")]
 layout_mode = 2

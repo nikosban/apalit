@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-Last updated: 2026-10-27. Current state only. Development history is in `CHANGELOG.md` and Git; earlier versions of this file
+Last updated: 2026-10-28. Current state only. Development history is in `CHANGELOG.md` and Git; earlier versions of this file
 (per-task verification logs, measurements, prototype records) are in Git history.
 
 ## 1. Status
@@ -764,7 +764,8 @@ Combat behaviour is frozen as accepted (section 6).
 - Inspector: `panel_shell` fixed 340 px, bottom right (16 px margin), fixed header,
   scrolling body up to the screen height − 96 px. Ship panel (`ship_panel`, exactly
   one ship): Header (editable name, class), Status (activity, dock with queue
-  position, fuel bar and warnings, hull), Combat (armed ships: tactic selector,
+  position, fuel bar and warnings, hull bar with "DESTROYED" for a hulk, armor
+  condition bar hidden when `max_armor` is 0), Combat (armed ships: tactic selector,
   command, target, weapons and ammunition), Cargo
   (tiles), Actions (Scan Area, mining base selector and Start / Resume, transport,
   Undock, Unload / Load). Start / Resume buttons are disabled only while the station

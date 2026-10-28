@@ -21,7 +21,8 @@ extends CanvasLayer
 ## requirements are no longer edited row by row here: Transport shows the route, the
 ## saved requirements and the unloading rule, and Configure Cargo opens the transport
 ## editor (TransportEditor) beside the panel.
-## Combat migration: Status shows the hull (every ship has one; "DESTROYED" for a hulk).
+## Combat migration: Status shows the hull (every ship has one; "DESTROYED" for a hulk)
+## and the armor condition (armored ships only), each as a value and a bar.
 ## Combat (armed ships only, those with a Behavior: no empty weapon panel on an unarmed
 ## ship): the tactic as a selector issuing CombatOrders, the current command, the target
 ## and its state, and every weapon's state and ammunition.
@@ -84,7 +85,12 @@ var _named: Node3D = null # The ship the name field was filled for.
 @onready var _load: Button = $Panel/Layout/Scroll/Body/Actions/Docking/Transfer/LoadRow/Load
 @onready var _progress: ProgressBar = $Panel/Layout/Scroll/Body/Actions/Docking/Transfer/Progress
 @onready var _progress_label: Label = $Panel/Layout/Scroll/Body/Actions/Docking/Transfer/ProgressLabel
-@onready var _hull: Label = $Panel/Layout/Scroll/Body/Status/Health
+@onready var _hull: Control = $Panel/Layout/Scroll/Body/Status/Hull
+@onready var _hull_amount: Label = $Panel/Layout/Scroll/Body/Status/Hull/Amount
+@onready var _hull_bar: ProgressBar = $Panel/Layout/Scroll/Body/Status/Hull/Bar
+@onready var _armor: Control = $Panel/Layout/Scroll/Body/Status/Armor
+@onready var _armor_amount: Label = $Panel/Layout/Scroll/Body/Status/Armor/Amount
+@onready var _armor_bar: ProgressBar = $Panel/Layout/Scroll/Body/Status/Armor/Bar
 @onready var _combat: Control = $Panel/Layout/Scroll/Body/Combat
 @onready var _tactic: OptionButton = $Panel/Layout/Scroll/Body/Combat/TacticRow/Tactic
 @onready var _command: Label = $Panel/Layout/Scroll/Body/Combat/Command
@@ -154,13 +160,19 @@ func _process(_delta: float) -> void:
 	_update_combat()
 
 
-# Hull (every ship) and, for an armed ship, its combat channels.
+# Hull (every ship) and armor condition (armored ships only) as bars and, for an armed
+# ship, its combat channels.
 func _update_combat() -> void:
 	var combat = CombatShip.of(ship)
 	_hull.visible = combat != null
+	_armor.visible = combat != null and combat.max_armor > 0.0
 	if combat == null:
 		return
-	_hull.text = CombatHud.hull_text(combat).replace("Hull ", "Hull: ")
+	_hull_amount.text = CombatHud.hull_text(combat).replace("Hull ", "Hull: ")
+	_hull_bar.value = combat.health / combat.max_health if combat.alive else 0.0
+	if _armor.visible:
+		_armor_amount.text = "Armor condition: %d / %d" % [roundi(combat.armor), roundi(combat.max_armor)]
+		_armor_bar.value = combat.armor / combat.max_armor
 	var behavior := ship.get_node_or_null("Behavior")
 	if not _combat.visible or behavior == null:
 		return
