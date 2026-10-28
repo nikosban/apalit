@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-28 — PDC raid sweep
+
+FF-01's PDC-20 Kestrels now fire 4-round micro-bursts cycled across incoming ordnance with a committed, shared-error prediction taken when firing starts (75 u, 30 rds/s, 0.75° dispersion, 120 / 1200 rounds; tracer look in the shared `pdc20_kestrel_tracer.tres`), integrated from the `experiments/pdc_saturation/` prototype; focused checks passed, Kestrel test suites not yet updated, owner playtest pending.
+
 ## 2026-10-28 — Ship panel damage feedback
 
 The ship panel's Hull and Armor condition rows flash (red / amber) and show each damage burst's "−N" (fixed 1 s window, 0.5 s fade, real time, reset on selection), from frame-to-frame Combat values only; checked by a 30-frame headless Combat Test run, visual check by the owner.

@@ -1,0 +1,25 @@
+[gd_resource type="Resource" format=3 uid="uid://drfq2wstbxjog"]
+
+[ext_resource type="Script" uid="uid://dqxb4ovwgd276" path="res://experiments/pdc_saturation/pdc_saturation_config.gd" id="1_config"]
+[ext_resource type="BoxMesh" path="res://game/weapons/pdc20_kestrel_tracer.tres" id="2_tracer"]
+
+[resource]
+script = ExtResource("1_config")
+tracer_mesh = ExtResource("2_tracer")
+display_name = "PDC-20 Kestrel (saturation experiment)"
+family = &"gatling"
+size = 0
+damage = 0.2
+has_penetration = true
+penetration = 1.0
+cooldown = 0.0333
+weapon_range = 75.0
+projectile_speed = 70.0
+projectile_lifetime = 1.35
+projectile_style = &"tracer"
+dispersion_max_deg = 0.75
+yaw_speed_deg = 140.0
+pitch_speed_deg = 120.0
+ammunition = 1200
+magazine_size = 120
+reload_time = 3.0

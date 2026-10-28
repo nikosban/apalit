@@ -35,8 +35,9 @@ instance architecture and every shared system are unchanged (section 3).
 
 All listed work, including the resolved I01 combat-positioning boundary mismatch,
 Stages 1–5, the final launch-profile revision, Stage 6B, the two-FF-01 Combat Test and
-the legacy ship cleanup, is accepted by the owner. Next task: a read-only architecture
-inventory (section 10).
+the legacy ship cleanup, is accepted by the owner. PDC raid sweep (2026-10-28, section
+4.6 PDC entry) is implemented on `main` and awaits the owner's Combat Test playtest and
+acceptance (section 10).
 
 ## 2. Project layout and scenes
 
@@ -53,7 +54,15 @@ inventory (section 10).
   (11 meshes, 3 materials, no textures; about 8.4 × 21 u; a bare mesh, not a ship
   type, unrelated to the retired Frigate). Owner-made assets are organised by type under
   `assets/`. Placed once in the Showcase as a bare mesh (`frigate_001`).
-- `experiments/planned_rejoin/ship_avoidance_rejoin.gd`: the only experiment. The
+- `experiments/pdc_saturation/`: the PDC saturation / raid-sweep experiment the production
+  PDC was integrated from, kept as isolated evaluation tools, not used by the game:
+  `saturation_eval.gd` (headless comparison of the production Kestrel against the
+  experimental control / saturation / raid_sweep variants; sets `static`, `moving`,
+  `incoming`, `combined`, plus `trace`, `diagnose`, `visual`), the experimental mounts
+  (`pdc_saturation.gd` extends `gatling.gd` with the pre-raid-sweep PDC order, so production
+  changes never alter them; `pdc_raid_sweep.gd`), their `.tres` / `.tscn`, and
+  `pdc_tracer_preview.tscn` (tracer authoring scene, defaults to the production Kestrel).
+- `experiments/planned_rejoin/ship_avoidance_rejoin.gd`: the planned-rejoin experiment. The
   paused, unaccepted cause B planned-rejoin prototype: a full replacement of
   `game/avoidance/ship_avoidance.gd` as it was on 2026-10-15 (SHA-256
   4A7E9EFA…592655A). Not used by the game. It predates the 2026-10-18 direct-move
@@ -593,11 +602,25 @@ Combat behaviour is frozen as accepted (section 6).
 	penetration 20 / armor damage 6, 2.5 s, 75 u (effective 45), 40 u/s, 40 rounds,
 	shell dispersion 0.5° (`Weapon.disperse()`: uniform over the cone's solid angle,
 	per-mount seeded `rng`).
-  - PDC (Stage 3, `pdc.gd` extends `gatling.gd` + `pdc20_kestrel.tres/.tscn`):
-	PDC-20 Kestrel, 0.2 / penetration 1 / 0, 0.08 s, 25 u, 70 u/s tracers, magazine
-	40 of 400, reload 3 s, 2.5° dispersion. Defensive order: own ship, then allies;
-	torpedoes before missiles, except a missile (or rocket) arriving under 1.5 s and
-	earlier; then impact time, ordnance id. Mounts select independently.
+  - PDC (Stage 3, raid sweep 2026-10-28, not yet accepted; `pdc.gd` extends `gatling.gd`,
+	`pdc_config.gd` extends `weapon_config.gd`, `pdc20_kestrel.tres/.tscn`): PDC-20
+	Kestrel, 0.2 / penetration 1 / 0, 75 u, cooldown 0.0333 s (30 rds/s), 70 u/s, lifetime
+	1.35 s, travel × 1.25, magazine 120 of 1200, reload 3 s, 0.75° per-round dispersion.
+	Defensive order: own ship, then allies; torpedoes before missiles, except a missile
+	(or rocket) arriving under 1.5 s and earlier; then impact time, ordnance id. Raid
+	sweep (point defense only): each mount fires 4-round micro-bursts
+	(`rounds_per_target`) and then takes the next engageable threat in its own list
+	(`gatling.gd` `_defense_candidates()`, re-read every 0.25 s `raid_refresh_interval`),
+	wrapping, never the same threat twice in a row while another is engageable; a single
+	threat keeps being fired at; `target_switch_delay` 0. Committed prediction: on a new
+	threat the turret follows the live solution until aligned, then commits the threat's
+	position / velocity and one shared aim error (≤ 1.5°, re-committed every 0.5 s);
+	offense keeps the per-tick solution. Rounds stay zero-radius; missed rounds fly to
+	lifetime / travel. Tracer look: shared `pdc20_kestrel_tracer.tres` (BoxMesh
+	0.02 × 0.02 × 0.2 u, emission-only material, (1, 0.78, 0.4) × 3, alpha 0.85; owner's
+	values), passed to `Projectiles.spawn()` by `Weapon._round_mesh()` (null = style bar).
+	Mounts select independently; all values editable in the `.tres` (Prediction, Raid
+	sweep, Visual groups).
   - Rocket (`rocket_launcher.gd` + `rl8_barrage.tres/.tscn`): RL-8 Barrage retains
 	its eight cell origins (4 × 2, ship-frame x ±0.15 / ±0.45, y ±0.15, z −6.28).
 	It ejects world +Y to 4 u above release, at 8 u/s nominal ejection/transition
@@ -1211,8 +1234,14 @@ distribution, logistics balance, models and UI polish.
 
 ## 10. Next task and open items
 
-Next task: a read-only architecture inventory (brief from the owner; nothing is
-changed in it). Stage 6B, the two-FF-01 Combat Test and the legacy ship cleanup are
+Next task: the owner's Combat Test playtest and acceptance of the PDC raid sweep
+(2026-10-28; committed on `main`, not pushed). Its focused verification passed (Combat
+Test load, all eight FF-01 Kestrel mounts wired, anti-ship offense on the per-tick
+solution, `saturation_eval.gd -- combined`: no script errors, misses expire, experimental
+variants unchanged). `pdc_test`, `rocket_test`, `guided_missile_test` and `ff01_test`
+assert the former 25 u Kestrel and first-engageable PDC selection and were not run; they
+need updating after acceptance. Then: a read-only architecture inventory (brief from the
+owner; nothing is changed in it). Stage 6B, the two-FF-01 Combat Test and the legacy ship cleanup are
 accepted on `combat_adjustments`; the branch remains separate from `main`. New work follows `AGENTS.md`.
 
 Open owner decisions:

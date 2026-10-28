@@ -1,0 +1,7 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://experiments/pdc_saturation/pdc20_kestrel_saturation.tscn" id="1_saturation"]
+
+[node name="PDC20KestrelControl" instance=ExtResource("1_saturation")]
+editor_description = "Experiment control (not used by the game): the saturation variant's configuration, range, ammunition, firing density and tracer with the production PDC's per-tick aiming (committed_prediction off)."
+committed_prediction = false

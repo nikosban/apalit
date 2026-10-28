@@ -1,0 +1,42 @@
+[gd_scene format=3 uid="uid://cgkci8qjmfsjy"]
+
+[ext_resource type="Script" uid="uid://3hwnjcaxnl8r" path="res://experiments/pdc_saturation/pdc_tracer_preview.gd" id="1_preview"]
+
+[sub_resource type="Environment" id="Environment_preview"]
+background_mode = 1
+background_color = Color(0.05, 0.055, 0.06, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.55, 0.58, 0.62, 1)
+ambient_light_energy = 0.5
+glow_enabled = true
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_target"]
+shading_mode = 0
+albedo_color = Color(0.9, 0.25, 0.2, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_target"]
+material = SubResource("StandardMaterial3D_target")
+radius = 0.3
+height = 0.6
+
+[node name="PDCTracerPreview" type="Node3D" unique_id=1312527882]
+script = ExtResource("1_preview")
+target_distance = 97.5
+target_sweep_speed = 1.0
+target_sweep_width = 27.0
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1029458457]
+environment = SubResource("Environment_preview")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=51142417]
+transform = Transform3D(1, 0, 0, 0, 0.5, 0.8660254, 0, -0.8660254, 0.5, 0, 6, 0)
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1794202415]
+transform = Transform3D(0, -0.7071068, 0.7071068, 0, 0.7071068, 0.7071068, -1, 0, 0, 35, 35, -37.5)
+fov = 50.0
+
+[node name="Mount" type="Node3D" parent="." unique_id=22292408]
+
+[node name="Target" type="MeshInstance3D" parent="." unique_id=181386626]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.6688769, 0, -97.5)
+mesh = SubResource("SphereMesh_target")

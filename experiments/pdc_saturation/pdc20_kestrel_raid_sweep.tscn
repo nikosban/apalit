@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://experiments/pdc_saturation/pdc_raid_sweep.gd" id="1_pdc"]
+[ext_resource type="Resource" path="res://experiments/pdc_saturation/pdc20_kestrel_saturation.tres" id="2_config"]
+
+[node name="PDC20KestrelRaidSweep" type="Node3D"]
+editor_description = "Experiment (not used by the game): PDC-20 Kestrel with raid_sweep targeting (pdc_raid_sweep.gd: micro-bursts cycled across incoming threats, committed prediction) and the saturation variant's configuration (pdc20_kestrel_saturation.tres). Same placeholder geometry as the production Kestrel."
+script = ExtResource("1_pdc")
+config = ExtResource("2_config")
+base_diameter = 0.36
+body_height = 0.16
+barrel_length = 0.5
+rounds_per_target = 4
+target_switch_delay = 0.0
+raid_refresh_interval = 0.25

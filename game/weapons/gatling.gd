@@ -93,7 +93,7 @@ func _fire(target: Node3D) -> void:
 		var round_direction := disperse(direction, config.dispersion_max_deg, rng)
 		id = combat.projectiles.spawn(ship, combat.faction, origin.origin, round_direction * config.projectile_speed,
 			config.damage, config.max_travel(), config.projectile_lifetime, target, config.projectile_style,
-			config.resolved_penetration(), config.armor_damage, config.family == &"gatling")
+			config.resolved_penetration(), config.armor_damage, config.family == &"gatling", _round_mesh())
 	_use_round()
 	cooldown_left = config.cooldown
 	shots += 1
@@ -109,9 +109,21 @@ func _flash_scale() -> float:
 # --- Point defense ----------------------------------------------------------------------
 
 func _choose_defense() -> void:
+	for entry: Array in _defense_candidates():
+		if engageable(entry[3]):
+			defense_target = entry[3]
+			defense_category = entry[0]
+			defense_time = entry[1]
+			return
+
+
+## Every current threat as [category, time to impact, ordnance id, ordnance], in defensive
+## order (_defense_before), engageable or not.
+func _defense_candidates() -> Array:
+	var candidates := []
 	var projectiles = combat.projectiles
 	if projectiles == null:
-		return
+		return candidates
 	var protected: Array = [[ship, 0]]
 	for other: Node in combat.ships_node.get_children():
 		if other == ship:
@@ -120,7 +132,6 @@ func _choose_defense() -> void:
 		if other_combat != null and other_combat.alive and not other_combat.removed_from_play and other_combat.faction == combat.faction \
 				and combat.distance_to(other) <= combat.rules.defensive_radius:
 			protected.append([other, 1])
-	var candidates := []
 	for node in projectiles.ordnance:
 		if not node.live or node.faction == combat.faction:
 			continue
@@ -134,12 +145,7 @@ func _choose_defense() -> void:
 		if best_category >= 0:
 			candidates.append([best_category, best_time, node.id, node])
 	candidates.sort_custom(_defense_before)
-	for entry: Array in candidates:
-		if engageable(entry[3]):
-			defense_target = entry[3]
-			defense_category = entry[0]
-			defense_time = entry[1]
-			return
+	return candidates
 
 
 ## Defensive order of two candidates [category, time to impact, ordnance id, ordnance]:

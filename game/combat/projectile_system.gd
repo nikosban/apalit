@@ -67,14 +67,15 @@ func _ready() -> void:
 
 
 ## `penetration` null = unconfigured (bypasses armor); both armor values only reach ship hulls.
-## `intercepts_rockets`: the round can also destroy hostile rockets.
+## `intercepts_rockets`: the round can also destroy hostile rockets. `mesh`: drawn instead of
+## the style's bar (visual only; hits stay the zero-radius segment sweep).
 func spawn(owner_ship: Node3D, faction: int, origin: Vector3, velocity: Vector3, damage: float, max_travel: float, lifetime: float, target: Node3D, style: StringName = &"shell",
-		penetration: Variant = null, armor_damage := 0.0, intercepts_rockets := false) -> int:
+		penetration: Variant = null, armor_damage := 0.0, intercepts_rockets := false, mesh: Mesh = null) -> int:
 	var id := _next_id
 	_next_id += 1
 	var node := MeshInstance3D.new()
 	node.name = "Projectile%d" % id
-	node.mesh = _bar(faction, style)
+	node.mesh = mesh if mesh != null else _bar(faction, style)
 	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(node)
 	var direction := velocity.normalized()

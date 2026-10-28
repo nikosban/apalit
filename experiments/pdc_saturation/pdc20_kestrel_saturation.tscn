@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://experiments/pdc_saturation/pdc_saturation.gd" id="1_pdc"]
+[ext_resource type="Resource" path="res://experiments/pdc_saturation/pdc20_kestrel_saturation.tres" id="2_config"]
+
+[node name="PDC20KestrelSaturation" type="Node3D"]
+editor_description = "Experiment (not used by the game): PDC-20 Kestrel with committed-prediction saturation fire (pdc_saturation.gd) configured by pdc20_kestrel_saturation.tres. Same placeholder geometry as the production Kestrel."
+script = ExtResource("1_pdc")
+config = ExtResource("2_config")
+base_diameter = 0.36
+body_height = 0.16
+barrel_length = 0.5

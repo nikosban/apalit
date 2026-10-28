@@ -430,7 +430,7 @@ func _fire(target: Node3D) -> void:
 		var shell_direction := disperse(direction, config.dispersion_max_deg, rng)
 		id = combat.projectiles.spawn(ship, combat.faction, origin.origin, shell_direction * config.projectile_speed,
 			config.damage, config.max_travel(), config.projectile_lifetime, target, config.projectile_style,
-			config.resolved_penetration(), config.armor_damage, config.family == &"gatling")
+			config.resolved_penetration(), config.armor_damage, config.family == &"gatling", _round_mesh())
 	_use_round()
 	cooldown_left = config.cooldown
 	shots += 1
@@ -442,3 +442,8 @@ func _fire(target: Node3D) -> void:
 
 func _flash_scale() -> float:
 	return 1.0
+
+
+## Mesh drawn for this weapon's rounds, or null for the projectile style's bar (subclasses).
+func _round_mesh() -> Mesh:
+	return null
