@@ -22,7 +22,7 @@ extends Node3D
 ##   Sky (one scene-wide setting, every view; the scene's `environment_experiment`, F8 in
 ##   development): `sky_mode` A (0) the profile's flat background, colour ambient and
 ##   background reflections (the Test Arena); B (1) the multi_nebulae_2 panorama as
-##   the visible sky (the Sector Showcase); C (2) the same sky with ambient and reflections
+##   the visible sky (Combat Test); C (2) the same sky with ambient and reflections
 ##   sampled from it (kept for comparison only). The panorama loads on first use only.
 ##   Environment lighting (with B; the scene's `lighting_experiment_d`, F7 to disable while
 ##   troubleshooting): the same panorama drawn by a sky shader whose lighting pass

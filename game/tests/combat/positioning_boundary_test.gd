@@ -4,7 +4,6 @@ extends SceneTree
 ## Run: <godot console> --headless --path . --fixed-fps 60 -s res://game/tests/combat/positioning_boundary_test.gd
 
 const MAIN := preload("res://main.tscn")
-const SHOWCASE := preload("res://game/scenes/sector_showcase.tscn")
 const REUSE := preload("res://game/tests/reuse_arena.tscn")
 const ENCOUNTER := preload("res://game/tests/combat/fixtures/encounter_arena.tscn")
 const COMBAT_TEST := preload("res://game/scenes/combat_test.tscn")
@@ -172,7 +171,7 @@ func _route_ends_at(ship: Node3D, point: Vector2) -> bool:
 
 
 func _case_dimensions() -> void:
-	for entry: Array in [[MAIN, 150.0], [SHOWCASE, 380.0], [REUSE, 150.0], [ENCOUNTER, 150.0], [COMBAT_TEST, 380.0]]:
+	for entry: Array in [[MAIN, 150.0], [REUSE, 150.0], [ENCOUNTER, 150.0], [COMBAT_TEST, 380.0]]:
 		await _load(entry[0])
 		var half: float = scene.get_node("StaticNavigation").map_half_size
 		_check("%s keeps its configured half-size %.0f" % [scene.name, entry[1]], is_equal_approx(half, entry[1]))
@@ -221,7 +220,7 @@ func _case_exact_edges() -> void:
 
 
 func _case_clearance() -> void:
-	await _load(SHOWCASE, Vector2(200, 0), true)
+	await _load(COMBAT_TEST, Vector2(200, 0), true)
 	for name: String in ["Subject", "Partner"]:
 		var b = _b(name)
 		for margin: float in [0.0, Behavior.GUARD_CHOICE_MARGIN]:
@@ -252,7 +251,7 @@ func _case_clearance() -> void:
 
 
 func _case_guard() -> void:
-	await _load(SHOWCASE)
+	await _load(COMBAT_TEST)
 	_put("Partner", Vector2(200, 0))
 	_put("Subject", Vector2(200, 28))
 	var g := _ship("Subject")
@@ -284,7 +283,7 @@ func _case_guard() -> void:
 
 
 func _case_engagement(mode: String) -> void:
-	await _load(SHOWCASE)
+	await _load(COMBAT_TEST)
 	_put("Subject", Vector2(200, 0))
 	_put("Enemy", Vector2(200, -90))
 	var g := _ship("Subject")
@@ -316,7 +315,7 @@ func _case_engagement(mode: String) -> void:
 
 
 func _case_attack_move_leash() -> void:
-	await _load(SHOWCASE)
+	await _load(COMBAT_TEST)
 	_put("Subject", Vector2(200, 0))
 	_put("Enemy", Vector2(310, -40))
 	var b = _b()
@@ -331,7 +330,7 @@ func _case_attack_move_leash() -> void:
 
 
 func _case_defensive() -> void:
-	await _load(SHOWCASE, Vector2(200, -20))
+	await _load(COMBAT_TEST, Vector2(200, -20))
 	_put("Subject", Vector2(200, 0))
 	_put("Enemy", Vector2(200, -60))
 	var g := _ship("Subject")
@@ -362,7 +361,7 @@ func _case_defensive() -> void:
 
 
 func _case_waypoints() -> void:
-	await _load(SHOWCASE)
+	await _load(COMBAT_TEST)
 	_put("Subject", Vector2(200, 0))
 	_put("Partner", Vector2(200, 20))
 	var group := [_ship("Subject"), _ship("Partner")]

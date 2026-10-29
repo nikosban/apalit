@@ -108,16 +108,16 @@ signal target_selection_changed
 @export var scenario_keys := true # Keys 4-9, 0, - set up the avoidance scenarios (test arena only).
 ## Prototype (Sector Showcase round, not a balance decision): share of each ship's fuel
 ## consumption charged for movement inside this sector (Fuel). 1 keeps the Test Arena's
-## behaviour; the Showcase sets 0.1, so fuel mainly limits future inter-sector travel.
+## behaviour; a scene can set e.g. 0.1, so fuel mainly limits future inter-sector travel.
 @export var local_fuel_scale := 1.0
 ## The tactical grid is withdrawn from play (no grid node, no G toggle, no rendering
 ## cost); TacticalGrid is kept for a later return. True restores it in a scene.
 @export var tactical_grid_available := false
 ## Environment rendering (SectorEnvironment, StrategicView): the sky, 0 A flat background
-## (Test Arena), 1 B the panorama (Sector Showcase), 2 C for comparison (F8 cycles);
+## (Test Arena), 1 B the panorama (Combat Test), 2 C for comparison (F8 cycles);
 ## development switches, each independent, for troubleshooting: designed environment
 ## lighting with B (F7), Strategic formation depth and sky-safe Strategic fog (F6), god
-## rays (F9). The Test Arena keeps every one off; the Sector Showcase turns them on.
+## rays (F9). Every scene keeps them off; Combat Test uses B only.
 @export var environment_experiment := 0
 @export var lighting_experiment_d := false
 @export var strategic_experiment_e := false

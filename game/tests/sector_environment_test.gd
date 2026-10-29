@@ -1,14 +1,14 @@
 extends SceneTree
 ## Environmental lighting prototype: the sector profile, the asteroid environment and the
 ## fog presentation on the Test Arena (main.tscn; presentation only; gameplay data and the
-## fog-of-war rule are compared before and after). Sector Showcase round: the Showcase
-## scene's sector, fuel scale, missing ground and backdrop, the Test Arena's unchanged
+## fog-of-war rule are compared before and after). Combat Test: its sector, the local fuel
+## scale, the sky and the environment development switches; the Test Arena's unchanged
 ## defaults, formation-level dust and the fog's occluder-cap report.
 ## Run with a fixed step:
 ##   <godot console> --headless --path . --fixed-fps 60 -s res://game/tests/sector_environment_test.gd
 
 const MAIN := preload("res://main.tscn")
-const SHOWCASE := preload("res://game/scenes/sector_showcase.tscn")
+const COMBAT_TEST := preload("res://game/scenes/combat_test.tscn")
 const FogView := preload("res://game/presentation/fog_view.gd")
 
 var scene: Node3D
@@ -104,7 +104,7 @@ func _initialize() -> void:
 	_check("Dust: by formation (%d formations, %d clouds for %d asteroids), not one cloud set per rock" % [formations.size(), env.dust_count, field.ids().size()],
 		formations.size() < field.ids().size() and env.dust_count < field.ids().size())
 
-	await _case_showcase()
+	await _case_combat_sector()
 	await _case_sky()
 	await _case_experiments()
 	await _case_overflow()
@@ -113,37 +113,36 @@ func _initialize() -> void:
 	quit(1 if _failures > 0 else 0)
 
 
-## The Sector Showcase: its own sector everywhere, cheap local fuel, no ground, a backdrop
-## that is no gameplay object, every asteroid drawn as a fog occluder.
-func _case_showcase() -> void:
+## Combat Test: its own sector everywhere, a local fuel scale (set on this instance)
+## reaching every ship, every asteroid drawn as a fog occluder.
+func _case_combat_sector() -> void:
 	_unload()
-	scene = SHOWCASE.instantiate()
+	scene = COMBAT_TEST.instantiate()
+	scene.local_fuel_scale = 0.1
+	var tanks := {}
+	for ship in scene.get_node("Ships").get_children():
+		tanks[ship.name] = ship.get_node("Fuel").capacity
 	root.add_child(scene)
 	for i in 3:
 		await process_frame
 	var half: float = scene.sector_half_size()
 	var field := scene.get_node("Asteroids")
-	_check("Showcase: sector half-size %.0f shared by navigation, camera bounds and Strategic framing; no tactical grid" % half,
+	_check("Combat Test: sector half-size %.0f shared by navigation, camera bounds and Strategic framing; no tactical grid" % half,
 		half > 150.0 and is_equal_approx(scene.get_node("StaticNavigation").map_half_size, half)
 		and scene.get_node("CameraRig").bounds == Rect2(-half, -half, 2.0 * half, 2.0 * half)
 		and scene.grid == null and not scene.has_node("TacticalGrid") and scene.strategic.sector_rect() == scene.get_node("CameraRig").bounds)
-	var transporter: Node3D = scene.ship("Transporter")
+	var transporter: Node3D = scene.ship("FF01")
 	var inside: bool = scene._intent_valid(transporter, {"kind": scene.CommandKind.MOVE, "point": Vector2(half - 5.0, 0.0)})
 	var outside: bool = scene._intent_valid(transporter, {"kind": scene.CommandKind.MOVE, "point": Vector2(half + 5.0, 0.0)})
 	var radius: float = transporter.get_node("RouteFollower").planning_radius()
 	var navigation := scene.get_node("StaticNavigation")
-	_check("Showcase: MOVE valid inside the sector, refused outside it; navigation's map ends at the same bound",
+	_check("Combat Test: MOVE valid inside the sector, refused outside it; navigation's map ends at the same bound",
 		inside and not outside and navigation.segment_clear(Vector2(half - radius - 2.0, -300), Vector2(half - radius - 2.0, -290), radius)
 		and not navigation.segment_clear(Vector2(half - 1.0, -300), Vector2(half - 1.0, -290), radius))
-	_check("Showcase: local fuel scale 0.1 applied to every ship's Fuel (tanks unchanged)",
+	_check("Combat Test: local fuel scale 0.1 applied to every ship's Fuel (tanks unchanged)",
 		is_equal_approx(scene.local_fuel_scale, 0.1) and scene.get_node("Ships").get_children().all(func(s: Node) -> bool:
-			return is_equal_approx(s.get_node("Fuel").local_scale, 0.1)) and is_equal_approx(scene.get_node("Ships/Miner1/Fuel").capacity, 100.0))
-	var backdrop := scene.get_node("Backdrop") as MultiMeshInstance3D
-	var below: bool = backdrop.placement().all(func(t: Transform3D) -> bool: return t.origin.y < -50.0)
-	_check("Showcase: no ground; backdrop (%d rocks) far below the plane, in no obstacle group, not under the asteroid field, not on the Strategic layer" % backdrop.multimesh.instance_count,
-		not scene.has_node("Ground") and below and not backdrop.is_in_group(&"static_obstacle") and backdrop.get_parent() != field
-		and (backdrop.layers & scene.strategic.LAYER) == 0 and backdrop.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
-	_check("Showcase: %d asteroids, all drawn as fog occluders (no overflow)" % field.ids().size(),
+			return is_equal_approx(s.get_node("Fuel").local_scale, 0.1) and is_equal_approx(s.get_node("Fuel").capacity, tanks[s.name])))
+	_check("Combat Test: %d asteroids, all drawn as fog occluders (no overflow)" % field.ids().size(),
 		field.ids().size() <= FogView.MAX_ASTEROIDS and scene.fog_view.overflow == "")
 
 
@@ -151,7 +150,7 @@ func _case_showcase() -> void:
 ## baseline value; the sun is never touched; F8 cycles A -> B -> C -> A.
 func _case_sky() -> void:
 	_unload()
-	scene = SHOWCASE.instantiate()
+	scene = COMBAT_TEST.instantiate()
 	root.add_child(scene)
 	for i in 3:
 		await process_frame
@@ -159,7 +158,7 @@ func _case_sky() -> void:
 	var world: Environment = (scene.get_node("WorldEnvironment") as WorldEnvironment).environment
 	var light: DirectionalLight3D = scene.get_node("DirectionalLight3D")
 	var sun := [light.global_transform, light.light_color, light.light_energy]
-	env.set_environment_lighting(false) # The Showcase starts in B with environment lighting: compare from A.
+	env.set_environment_lighting(false) # Compare from A without environment lighting.
 	env.set_sky_mode(0)
 	var baseline := [world.background_mode, world.background_color, world.ambient_light_source, world.ambient_light_color, world.ambient_light_energy, world.reflected_light_source, world.sky]
 	_check("Sky: A is the flat background, colour ambient, background reflections, no sky",
@@ -186,25 +185,23 @@ func _case_sky() -> void:
 	_check("Sky: the sun is unchanged throughout (transform, colour, energy) and still the only DirectionalLight3D",
 		[light.global_transform, light.light_color, light.light_energy] == sun
 		and scene.find_children("*", "DirectionalLight3D", true, false).size() == 1)
-	var fresh := SHOWCASE.instantiate()
+	var fresh := COMBAT_TEST.instantiate()
 	var shared: Environment = (fresh.get_node("WorldEnvironment") as WorldEnvironment).environment
 	fresh.free()
 	_check("Sky: the running scene works on its own Environment copy; the scene file's resource is untouched (still A)",
 		world != shared and shared.background_mode == Environment.BG_COLOR and shared.sky == null)
 
 
-## The Showcase's environment (B + environment lighting + Strategic depth + god rays) and
-## its development switches: each off restores what it changed; none changes the sun,
-## the fog-of-war rule or what hidden ships show.
+## The full environment (B + environment lighting + Strategic depth + god rays, switched
+## on for this Combat Test instance) and its development switches: each off restores
+## what it changed; none changes the sun, the fog-of-war rule or what hidden ships show.
 func _case_experiments() -> void:
 	_unload()
-	scene = SHOWCASE.instantiate()
-	# A hostile FF-01 where the Showcase's hostile fleet used to start (beyond sensor range).
-	var added: Node3D = load("res://game/ships/ff01_unit.tscn").instantiate()
-	added.name = "HostileFF01"
-	added.transform = Transform3D(Basis(Vector3.UP, -PI / 2), Vector3(214, 1.5, -58))
-	added.get_node("Combat").faction = 1
-	scene.get_node("Ships").add_child(added)
+	scene = COMBAT_TEST.instantiate()
+	scene.environment_experiment = 1
+	scene.lighting_experiment_d = true
+	scene.strategic_experiment_e = true
+	scene.god_rays_enabled = true
 	root.add_child(scene)
 	for i in 3:
 		await process_frame
@@ -213,8 +210,8 @@ func _case_experiments() -> void:
 	var light: DirectionalLight3D = scene.get_node("DirectionalLight3D")
 	var view = scene.strategic
 	var travel := -light.global_basis.z
-	_check("Showcase defaults: B sky, environment lighting, Strategic depth, god rays; one sun at %.1f degrees elevation" % rad_to_deg(asin(-travel.y)),
-		env.sky_mode == 1 and env.lighting_d and view.e_enabled and env.god_rays != null and is_equal_approx(rad_to_deg(asin(-travel.y)), 30.0)
+	_check("Environment on: B sky, environment lighting, Strategic depth, god rays; one sun at %.1f degrees elevation" % rad_to_deg(asin(-travel.y)),
+		env.sky_mode == 1 and env.lighting_d and view.e_enabled and env.god_rays != null and is_equal_approx(rad_to_deg(asin(-travel.y)), 60.0)
 		and scene.find_children("*", "DirectionalLight3D", true, false).size() == 1)
 	var sun := [light.global_transform, light.light_color, light.light_energy, light.directional_shadow_max_distance]
 	var d_material := world.sky.sky_material as ShaderMaterial
@@ -273,6 +270,11 @@ func _case_experiments() -> void:
 	var sensors := scene.get_node("Sensors")
 	sensors.evaluate()
 	var hostile: Node3D = scene.ship("HostileFF01")
+	var player: Node3D = scene.ship("FF01")
+	var gap: float = Vector2(hostile.global_position.x - player.global_position.x, hostile.global_position.z - player.global_position.z).length()
+	_check("All on, precondition: HostileFF01 is hostile, the only other ship is the player's FF01, %.0f u away (sensor range %.0f): undetected" % [gap, sensors.sensor_range],
+		hostile.get_node("Combat").faction != player.get_node("Combat").faction and scene.get_node("Ships").get_child_count() == 2
+		and gap > sensors.sensor_range)
 	var camera := scene.get_viewport().get_camera_3d()
 	var screen := camera.unproject_position(hostile.global_position)
 	var agree := true

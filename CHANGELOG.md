@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-29 — Sector Showcase removed
+
+Removed `sector_showcase.tscn` and its only user, `sector_backdrop.gd`; `sector_environment_test` and `positioning_boundary_test` now run their sector, sky, environment-switch and positioning cases on Combat Test (environment 39/39; positioning keeps its pre-existing Attack-Move leash failure); accepted by the owner.
+
 ## 2026-10-29 — Sensor grid follows the ship's heading
 
 The sensor overlay's grid and intersection rectangles now turn with the selected ship's heading (the circle and line-of-sight cutouts stay in world space), and the owner set the outlines to 2 px inner, 1 px outer with a 2 u gap; checked on a rotated FF01 in Combat Test and accepted by the owner.

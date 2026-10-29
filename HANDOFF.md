@@ -12,8 +12,8 @@ transport assignments, a two-slot refinery, a Shipyard building Mining and Trans
 ships); production combat on every ship (hull, factions, weapon loadouts on the
 FF-01 warship, Commands / Tactics, faction-shared sensors
 and fog of war, a minimal hostile commander); global pause and time dilation;
-continuous camera zoom with Local / Tactical semantic zoom and a Strategic View; a
-Sector Showcase scene with environment rendering; a themed inspector UI and reusable
+continuous camera zoom with Local / Tactical semantic zoom and a Strategic View;
+environment rendering (sky, lighting, fog, god rays); a themed inspector UI and reusable
 thruster VFX. No component manufacturing, station construction, save system or
 strategic AI.
 
@@ -48,11 +48,11 @@ the legacy ship cleanup, is accepted by the owner. PDC raid sweep (2026-10-28, s
   owner decisions: Forward Plus, Jolt Physics (unused by movement), D3D12 on Windows.
 - `game/`: all production code, scenes and tests, one folder per system.
 - `assets/textures/skybox/multi_nebulae_2.png`: the owner's 10000 × 5000 panorama
-  (imported lossless, no mipmaps), the Showcase sky; tracked in Git (owner decision).
+  (imported lossless, no mipmaps), Combat Test's sky; tracked in Git (owner decision).
 - `assets/models/ships/whitebox/frigate_001.glb`: the owner's whitebox frigate mesh
   (11 meshes, 3 materials, no textures; about 8.4 × 21 u; a bare mesh, not a ship
   type, unrelated to the retired Frigate). Owner-made assets are organised by type under
-  `assets/`. Placed once in the Showcase as a bare mesh (`frigate_001`).
+  `assets/`. Not placed in any scene.
 - `experiments/pdc_saturation/`: the PDC saturation / raid-sweep experiment the production
   PDC was integrated from, kept as isolated evaluation tools, not used by the game:
   `saturation_eval.gd` (headless comparison of the production Kestrel against the
@@ -83,18 +83,6 @@ Terminology (owner-agreed): shared, self-contained pieces such as the camera rig
 All gameplay scenes use `game/scenes/movement_lab.gd` as root script (name kept from
 the lab era) and the layout contract in section 3.
 
-- `game/scenes/sector_showcase.tscn` (F6): visual and scale
-  evaluation. 760 × 760 sector (`StaticNavigation.map_half_size` 380),
-  `local_fuel_scale` 0.1, no ground, resource seed 2026; west station group
-  (Station, Station2, Shipyard), three player ships (Miner1, Miner2, Transporter),
-  authored asteroid formations (33 asteroids), no hostiles and no `HostileCommander`,
-  a `Backdrop`, and the bare whitebox mesh `frigate_001` (root child, no ship
-  components). Root
-  exports: `environment_experiment` 1, `lighting_experiment_d`,
-  `strategic_experiment_e`, `god_rays_enabled` true; own DirectionalLight3D 30° up.
-  Its WorldEnvironment glow and volumetric fog (albedo (0.9, 0.648, 0.54), anisotropy
-  0.9, length 12.69) are set by the owner in the scene; no script sets them.
-  A 720 u crossing at 1x takes a Miner 147 s, about 18% of its tank.
 - `main.tscn` (Test Arena; F6): development, regression and stress tests (32 suites
   load it). 300 × 300 sector with a plain ground, 36 sphere asteroids (seeded layout
   saved in the scene; stable `metadata/asteroid_id` 1–36), `Station`, `Station2`
@@ -701,8 +689,8 @@ Combat behaviour is frozen as accepted (section 6).
 
 - `camera_rig.gd` / `camera_rig.tscn`: pan W/A/S/D, rotate Q/E or middle drag; pan
   bounds = the sector square, set at start by `movement_lab.gd` (rig default
-  300 × 300). Zoom 5–40 by default, `max_zoom` 150 in `main.tscn`, the Showcase and
-  `encounter_arena`. The wheel sets `zoom_target` (× / ÷ 1.1 per notch,
+  300 × 300). Zoom 5–40 by default, `max_zoom` 150 in `main.tscn`, `combat_test.tscn`
+  and `encounter_arena`. The wheel sets `zoom_target` (× / ÷ 1.1 per notch,
   `InputEventMouseButton.factor` honoured, ≤ 10 notches per event); `zoom_distance`
   follows in log space (95 % in `zoom_smoothing_time` 0.25 s, real time); the ground
   point under the cursor stays under it (bounds win; pan, rotate or an outside move
@@ -774,9 +762,10 @@ Combat behaviour is frozen as accepted (section 6).
   flat, B the panorama (rotation X 90°, energy 1), C sky-sampled (comparison only).
   `lighting_experiment_d` (with B): designed radiance for ambient and reflections.
   `god_rays.gd` (`god_rays_enabled`): up to 8 shafts and 4 shadow bands from the
-  largest formations, fainter at Tactical, not in Strategic. `sector_backdrop.gd`:
-  distant silhouettes, never gameplay objects. The Test Arena keeps A with none of
-  these.
+  largest formations, fainter at Tactical, not in Strategic. The Test Arena keeps A
+  with none of these; Combat Test uses B only; no scene turns on D, E or god rays
+  (in-game switches and root exports; `sector_environment_test` turns them on in
+  Combat Test).
 - Sensor grid overlay (`presentation/sensor_grid/`; accepted 2026-10-29):
   `sensor_grid_overlay.tscn` (`SensorGridOverlay`, one `MeshInstance3D` quad), added by
   the arena's combat layer next to `FogView` in scenes with `Sensors` (in `ALWAYS_NODES`).
@@ -1113,15 +1102,12 @@ distribution, logistics balance, models and UI polish.
   below about 1.8 u spacing; the hull-bar and ObjectMarkers icon fades have no
   automated check. Recorded marker-size note "nominal × 0.75 of a 648-line canvas" is
   unverified since the 1080-line base canvas (section 10).
-- Showcase: god rays are a restrained stylized stand-in (usually one or two shafts in
-  view; shadow bands faint, shade `opacity` 0.4); Local / Tactical fog still tints the
+- Environment switches (observed in the removed Sector Showcase): god rays are a
+  restrained stylized stand-in (usually one or two shafts in view; shadow bands faint, shade `opacity` 0.4); Local / Tactical fog still tints the
   starfield (only Strategic fog skips sky pixels); the Strategic sun-layer fix also
   lights the Test Arena's Strategic spheres; Strategic framing fits the sector rotated
   by the rig's 45° yaw; environment lighting is subtle (+4–6 %), energies exposed on
   SectorEnvironment.
-- Rendering frame spikes (cause unknown, not GroupOrders): once about 2.0–2.5 s after
-  Showcase start (34 ms, 39–295 ms with four ships selected) and occasional 40–160 ms
-  frames near the sector edge. Not investigated.
 - Sensor grid overlay: in shadows narrower than twice the 2 u outline gap the outer
   outline starts only where the wedge has widened (a thin line inside the cutout); a
   visible sliver between two nearly touching shadows keeps its own outlines (it is in
@@ -1149,11 +1135,11 @@ distribution, logistics balance, models and UI polish.
   node inside an instanced scene (the hostiles' `Ships/Hostile…/Combat`) only if that
   instance has Editable Children (`[editable path="…"]` in the `.tscn`); otherwise
   any save drops it, though loading applies it. The hostile overrides were
-  hand-written without it, so editor saves of the Showcase stripped them (2026-10-22
-  and 2026-10-25). Reproduced headless (load, pack, save to `user://`, reload: all
+  hand-written without it, so editor saves of the former Sector Showcase stripped them
+  (2026-10-22 and 2026-10-25). Reproduced headless (load, pack, save to `user://`, reload: all
   three lost; with `[editable]` all three kept, nodes and properties otherwise
-  identical). Fixed by `[editable]` entries; the Showcase hostiles are gone since the
-  legacy cleanup, and `HostileFF01` in `combat_test.tscn` keeps one. Any new override on a nested
+  identical). Fixed by `[editable]` entries; `HostileFF01` in `combat_test.tscn`
+  keeps one. Any new override on a nested
   instance's child needs the same. `sector_environment_test` and `combat_scene_test`
   catch lost overrides at run time, not at save time. Not yet verified through an
   actual editor save.
@@ -1178,7 +1164,7 @@ distribution, logistics balance, models and UI polish.
   it) and `sector_environment_test`. The 2026-10-23 full run used it for every suite.
 - Scene runs: `--headless --path . --fixed-fps 60 --quit-after N [scene]` (600 frames)
   for `main.tscn`, `game/tests/docking/station_docking_demo.tscn`,
-  `game/tests/docking/tri_dock_demo.tscn`, `game/scenes/combat_test.tscn`, `game/scenes/sector_showcase.tscn`.
+  `game/tests/docking/tri_dock_demo.tscn`, `game/scenes/combat_test.tscn`.
 - Regression protocol: run the suites and scene runs twice before a change, then
   compare logs line by line, treating as variance only lines that also differ between
   the two baseline runs. Known variance: asteroid seed lines (unseeded fields, e.g.
@@ -1290,7 +1276,7 @@ not decided):
 - Headless visible rect (1152 × 648) and the Phase B marker-size note (× 0.75 of a
   648-line canvas): possibly obsolete since the 1920 × 1080 base canvas; not verified.
 - Design triggers: the combat prototype (facing-control trigger) has happened and
-  the heading lock was not migrated by decision; the Showcase (760 u) partly meets the
+  the heading lock was not migrated by decision; Combat Test (760 u) partly meets the
   larger-maps trigger. Their status is undecided.
 - Scanner configuration: Miners' Mining Scanner was recorded as a "temporary testing
   configuration" and the Transporter's Generic Scanner as "owner to confirm".
