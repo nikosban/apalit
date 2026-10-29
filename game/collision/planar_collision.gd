@@ -76,6 +76,11 @@ func _add_edges(h: float) -> void:
 			"bounds": Rect2(center - half, half * 2.0)})
 
 
+## The static obstacle footprints as read at start (read only; presentation uses them).
+func obstacles() -> Array[Dictionary]:
+	return _obstacles
+
+
 ## Collision radius of a ship (its bounding circle).
 static func radius_of(ship: Node) -> float:
 	return ship.get_node("RouteFollower").ship_radius

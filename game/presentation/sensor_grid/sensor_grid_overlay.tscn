@@ -1,0 +1,13 @@
+[gd_scene format=3 uid="uid://p3ta5kbgecau"]
+
+[ext_resource type="Script" uid="uid://cqfwamw3b30df" path="res://game/presentation/sensor_grid/sensor_grid_overlay.gd" id="1_overlay"]
+[ext_resource type="Material" uid="uid://dc5mj3gm7tvm8" path="res://game/presentation/sensor_grid/sensor_grid_material.tres" id="2_material"]
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_unit"]
+
+[node name="SensorGridOverlay" type="MeshInstance3D" unique_id=447589654]
+visible = false
+material_override = ExtResource("2_material")
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_unit")
+script = ExtResource("1_overlay")

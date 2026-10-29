@@ -7,6 +7,14 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-29 — Sensor overlay line-of-sight cutouts
+
+The sensor grid overlay's obstacle cutouts are now line-of-sight shadows cast from the selected ship (each clearance-grown footprint plus the cone between its two tangent rays, unioned and subtracted from the circle), replacing the obstacle-centred sweeps and their threshold, fade and soft-union settings; verified visually in Combat Test and accepted by the owner.
+
+## 2026-10-29 — Sensor grid overlay
+
+The first selected ship shows its `Sensors.sensor_range` as a shader grid with two outlines (one shared, Inspector-tuned `sensor_grid_material.tres`), cut around static obstacles from PlanarCollision's footprints with position-dependent cutouts that stretch from the obstacle to the edge and merge softly; verified visually in Combat Test and accepted by the owner, with no automated tests at the owner's request.
+
 ## 2026-10-28 — PDC raid sweep
 
 FF-01's PDC-20 Kestrels now fire 4-round micro-bursts cycled across incoming ordnance with a committed, shared-error prediction taken when firing starts (75 u, 30 rds/s, 0.75° dispersion, 120 / 1200 rounds; tracer look in the shared `pdc20_kestrel_tracer.tres`), integrated from the `experiments/pdc_saturation/` prototype; focused checks passed and the owner accepted it after a Combat Test playtest; the Kestrel test suites are not yet updated.

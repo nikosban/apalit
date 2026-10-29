@@ -81,13 +81,15 @@ const TacticalGrid := preload("res://game/presentation/tactical_grid.gd")
 const StrategicView := preload("res://game/presentation/strategic_view.gd")
 const SectorEnvironment := preload("res://game/presentation/sector_environment.gd")
 const BehaviorView := preload("res://game/presentation/behavior_view.gd")
+const SensorGridOverlay := preload("res://game/presentation/sensor_grid/sensor_grid_overlay.tscn")
 const PLAYER_FACTION := 0
 ## Children that keep processing while paused (input, camera, UI, presentation); every
 ## other child is simulation and pauses.
 const ALWAYS_NODES := ["CameraRig", "Selection", "NoticeUI", "DebugUI", "NavigationDebug", "AvoidanceDebug",
 	"DestinationLines", "DestinationMarker", "RequestLine", "TimeControl", "WeaponEnvelopes", "TacticalMarkers",
 	"TacticalGrid", "FogView", "CombatOverlay", "BehaviorView", "CombatHUD", "ShipPanel", "StationPanel",
-	"AsteroidHover", "WorldHighlight", "ObjectMarkers", "CommandCursor", "StrategicView", "SectorEnvironment"]
+	"AsteroidHover", "WorldHighlight", "ObjectMarkers", "CommandCursor", "StrategicView", "SectorEnvironment",
+	"SensorGridOverlay"]
 const SCENARIO_KEYS := [KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS]
 const SCENARIO_ZOOM := 40.0
 const GROUND_HALF_SIZE := 150.0 # Sector half-size without a StaticNavigation (sector_half_size()).
@@ -136,6 +138,7 @@ var environment: Node3D = null # Sector lighting, dust and debris (environmental
 var grid: MeshInstance3D = null # Tactical grid (G); null while it is withdrawn.
 var sensors: Node = null # The scene's Sensors, else null (no fog: every ship seen).
 var fog_view: MeshInstance3D = null
+var sensor_grid: MeshInstance3D = null # Sensor grid overlay of the first selected ship (with Sensors).
 var fog_reveal := false # DEBUG override: show every ship despite the fog (tests only).
 var pointer := Vector2(-1, -1) # Last mouse-motion position (hover readouts).
 
@@ -203,7 +206,7 @@ func ensure_behavior_view() -> void:
 
 # Combat layer: process modes (simulation pauses, input / camera / UI do not), the time
 # authority, envelopes, sector environment, tactical markers, grid and (with Sensors) the
-# fog of war.
+# fog of war and the sensor grid overlay.
 func _setup_combat_layer() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	for child in get_children():
@@ -232,6 +235,9 @@ func _setup_combat_layer() -> void:
 		fog_view = FogView.new()
 		fog_view.name = "FogView"
 		add_child(fog_view)
+		sensor_grid = SensorGridOverlay.instantiate()
+		sensor_grid.name = "SensorGridOverlay"
+		add_child(sensor_grid)
 
 
 ## Connects a ship's notices and gives it a destination marker and request line (the

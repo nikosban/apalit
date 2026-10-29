@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-Last updated: 2026-10-28. Current state only. Development history is in `CHANGELOG.md` and Git; earlier versions of this file
+Last updated: 2026-10-29. Current state only. Development history is in `CHANGELOG.md` and Git; earlier versions of this file
 (per-task verification logs, measurements, prototype records) are in Git history.
 
 ## 1. Status
@@ -42,7 +42,7 @@ the legacy ship cleanup, is accepted by the owner. PDC raid sweep (2026-10-28, s
 
 ### Repository
 
-- `project.godot`: Godot 4.7, main scene `res://game/scenes/sector_showcase.tscn`.
+- `project.godot`: Godot 4.7, main scene `res://game/scenes/combat_test.tscn` (owner change, 2026-10-29).
   Base canvas 1920 × 1080, stretch `canvas_items` / `expand` (2D sizes are px at
   1080p and scale with the window height); window maximized. Template defaults, not
   owner decisions: Forward Plus, Jolt Physics (unused by movement), D3D12 on Windows.
@@ -83,7 +83,7 @@ Terminology (owner-agreed): shared, self-contained pieces such as the camera rig
 All gameplay scenes use `game/scenes/movement_lab.gd` as root script (name kept from
 the lab era) and the layout contract in section 3.
 
-- `game/scenes/sector_showcase.tscn` (startup scene, F5): visual and scale
+- `game/scenes/sector_showcase.tscn` (F6): visual and scale
   evaluation. 760 × 760 sector (`StaticNavigation.map_half_size` 380),
   `local_fuel_scale` 0.1, no ground, resource seed 2026; west station group
   (Station, Station2, Shipyard), three player ships (Miner1, Miner2, Transporter),
@@ -105,10 +105,12 @@ the lab era) and the layout contract in section 3.
   Every ship and station instance overrides only its transform (`shipyard_test`
   checks it). Station placement rule used so far: every docking, approach, holding,
   exit and deployment point ≥ 15 u from asteroid surfaces.
-- `game/scenes/combat_test.tscn` (F6; standalone since the FF-01 arena expansion, no
+- `game/scenes/combat_test.tscn` (startup scene, F5; standalone since the FF-01 arena expansion, no
   longer inherits `main.tscn`): integrated combat on a 760 × 760 sector
   (`map_half_size` 380, camera and Strategic View follow ±380), the 36 Test Arena
-  asteroids unchanged, no stations; two `ff01_unit` instances only: player `FF01` at
+  asteroids unchanged, no stations; `Ground` hidden (`visible = false`) and the
+  `multi_nebulae_2` panorama as sky (`environment_experiment` 1, no designed lighting or
+  god rays); two `ff01_unit` instances only: player `FF01` at
   (−150, 1.5, 0) facing +X and `HostileFF01` at (150, 1.5, 0) facing −X (300 u apart,
   outside the 100 u sensor range), symmetric about the sector centre. `HostileFF01`
   overrides `Combat` faction 1 / stance Aggressive (Editable Children); no
@@ -775,6 +777,24 @@ Combat behaviour is frozen as accepted (section 6).
   largest formations, fainter at Tactical, not in Strategic. `sector_backdrop.gd`:
   distant silhouettes, never gameplay objects. The Test Arena keeps A with none of
   these.
+- Sensor grid overlay (`presentation/sensor_grid/`; accepted 2026-10-29):
+  `sensor_grid_overlay.tscn` (`SensorGridOverlay`, one `MeshInstance3D` quad), added by
+  the arena's combat layer next to `FogView` in scenes with `Sensors` (in `ALWAYS_NODES`).
+  Shown under `selection().selected[0]` at y 0.04, world-axis aligned, radius
+  `Sensors.sensor_range`. `sensor_grid.gdshader` draws, from one signed distance field,
+  the fill, grid, intersection rectangles and two outlines (inner at the boundary, outer
+  `outer_offset` 3 u beyond). Every visual value is a uniform in the shared
+  `sensor_grid_material.tres` (Inspector; owner-tuned: overall opacity 0.32, grid 4.625 u,
+  rectangles 0.8 u capped at 2 px); line widths are px at 1080 lines, spacing, offsets and
+  rectangles world units. Cutouts are line-of-sight shadows from the ship (accepted
+  2026-10-29): every static obstacle footprint from `PlanarCollision.obstacles()`
+  (circles, rotated boxes) reaching the overlay, grown by `cutout_clearance` 1 u, casts
+  its footprint plus the cone between its two tangent rays from the ship, out past the
+  quad. Circles are exact in the shader (rounded pinch); boxes are convex polygons built
+  by the script (corners sampled, 8 points). The shadows are unioned (plain minimum) and
+  subtracted from the circle, meeting it with `cutout_blend` 1.5 u. The overlay draws
+  with a runtime copy of the material (shadow arrays written per frame; the shared file
+  is never written). Presentation only.
 
 ### 4.9 UI (`ui/`)
 
@@ -1101,6 +1121,14 @@ distribution, logistics balance, models and UI polish.
 - Rendering frame spikes (cause unknown, not GroupOrders): once about 2.0–2.5 s after
   Showcase start (34 ms, 39–295 ms with four ships selected) and occasional 40–160 ms
   frames near the sector edge. Not investigated.
+- Sensor grid overlay: in shadows narrower than twice the 3 u outline gap the outer
+  outline starts only where the wedge has widened (a thin line inside the cutout); a
+  visible sliver between two nearly touching shadows keeps its own outlines (it is in
+  line of sight); an obstacle whose grown footprint contains the ship casts no shadow;
+  off-centre asteroids look shifted from their shadows (perspective, meshes above the
+  plane); at most 64 circle and 8 box shadows (nearest the ship kept); box shadows not
+  seen (no stations in Combat Test); obstacles added after start are not cut
+  (PlanarCollision reads them once); no automated tests (owner decision).
 - Thrusters: a teleported ship (`place()`) can flash its jets for a tick; particles
   pause with the game but do not follow time dilation.
 - UI: at 1280 × 720 long names clip in editor rows and the Ingots list scrolls; a wide
