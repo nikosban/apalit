@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-29 — Sensor grid follows the ship's heading
+
+The sensor overlay's grid and intersection rectangles now turn with the selected ship's heading (the circle and line-of-sight cutouts stay in world space), and the owner set the outlines to 2 px inner, 1 px outer with a 2 u gap; checked on a rotated FF01 in Combat Test and accepted by the owner.
+
 ## 2026-10-29 — Sensor overlay line-of-sight cutouts
 
 The sensor grid overlay's obstacle cutouts are now line-of-sight shadows cast from the selected ship (each clearance-grown footprint plus the cone between its two tangent rays, unioned and subtracted from the circle), replacing the obstacle-centred sweeps and their threshold, fade and soft-union settings; verified visually in Combat Test and accepted by the owner.

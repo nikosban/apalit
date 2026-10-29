@@ -2,8 +2,9 @@ extends MeshInstance3D
 ## Ship sensor grid overlay (node `SensorGridOverlay`, added by the arena in scenes with
 ## Sensors; always processing, presentation only). One flat quad under the first selected
 ## ship (`selection().selected[0]`, as the weapon envelopes), hidden while nothing is
-## selected. It follows the ship's position on the plane but stays aligned to the world
-## axes. The radius is the scene's `Sensors.sensor_range`, read every frame; the quad's
+## selected. It follows the ship's position on the plane; the quad stays aligned to the world
+## axes and the shader turns the grid with the ship's heading (`grid_axis`, the ship's X axis,
+## set every frame). The radius is the scene's `Sensors.sensor_range`, read every frame; the quad's
 ## size and the shader's `sensor_radius` instance parameter change only when it does.
 ## Everything visual is in the shared `sensor_grid_material.tres` (sensor_grid.gdshader
 ## uniforms). The overlay draws with its own copy of it, made at start, because the
@@ -56,6 +57,8 @@ func _process(_delta: float) -> void:
 		scale = Vector3(half, 1.0, half) # The quad is 2 × 2 u.
 		set_instance_shader_parameter("sensor_radius", radius)
 	global_position = Vector3(ship.global_position.x, HEIGHT, ship.global_position.z)
+	var x_axis := Vector2(ship.global_basis.x.x, ship.global_basis.x.z)
+	set_instance_shader_parameter("grid_axis", x_axis.normalized() if x_axis.length() > 0.001 else Vector2.RIGHT)
 	_update_cutouts(Vector2(ship.global_position.x, ship.global_position.z))
 
 

@@ -1,7 +1,7 @@
 shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_never, shadows_disabled;
 // Ship sensor grid overlay (SensorGridOverlay): on one flat quad centred on the selected
-// ship, a world-aligned square grid with a small rectangle at every intersection and a
+// ship, a square grid turned with the ship's heading, with a small rectangle at every intersection and a
 // translucent fill, clipped to the sensor radius, and two concentric outlines (inner at the
 // sensor boundary, outer `outer_offset` beyond it). Distances (spacing, radius, offset) and
 // rectangle sizes are world units, so the rectangles scale with the grid at every zoom;
@@ -25,6 +25,8 @@ const int MAX_POLYGON_POINTS = 128;
 
 // Set per overlay by sensor_grid_overlay.gd from Sensors.sensor_range (not edited here).
 instance uniform float sensor_radius = 100.0;
+// The ship's X axis on the plane (unit), set per overlay by the script: the grid's axes.
+instance uniform vec2 grid_axis = vec2(1.0, 0.0);
 
 group_uniforms overall;
 uniform float overall_opacity : hint_range(0.0, 1.0) = 0.64;
@@ -163,7 +165,8 @@ void fragment() {
 	float area_px = max(fwidth(area), 1e-5);
 	float inside = clamp(-area / area_px + 0.5, 0.0, 1.0);
 
-	vec2 cell = local / max(grid_spacing, 1e-3) + grid_origin;
+	vec2 heading_local = vec2(dot(local, grid_axis), dot(local, vec2(-grid_axis.y, grid_axis.x))); // in the ship's frame
+	vec2 cell = heading_local / max(grid_spacing, 1e-3) + grid_origin;
 	vec2 cell_px = max(fwidth(cell), vec2(1e-5)); // cells per pixel
 	vec2 d = abs(fract(cell - 0.5) - 0.5) / cell_px; // px to the nearest line on each axis
 	float line = max(stroke(d.x, grid_thickness * px_scale), stroke(d.y, grid_thickness * px_scale));

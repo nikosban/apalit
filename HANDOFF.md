@@ -780,12 +780,13 @@ Combat behaviour is frozen as accepted (section 6).
 - Sensor grid overlay (`presentation/sensor_grid/`; accepted 2026-10-29):
   `sensor_grid_overlay.tscn` (`SensorGridOverlay`, one `MeshInstance3D` quad), added by
   the arena's combat layer next to `FogView` in scenes with `Sensors` (in `ALWAYS_NODES`).
-  Shown under `selection().selected[0]` at y 0.04, world-axis aligned, radius
-  `Sensors.sensor_range`. `sensor_grid.gdshader` draws, from one signed distance field,
-  the fill, grid, intersection rectangles and two outlines (inner at the boundary, outer
-  `outer_offset` 3 u beyond). Every visual value is a uniform in the shared
-  `sensor_grid_material.tres` (Inspector; owner-tuned: overall opacity 0.32, grid 4.625 u,
-  rectangles 0.8 u capped at 2 px); line widths are px at 1080 lines, spacing, offsets and
+  Shown under `selection().selected[0]` at y 0.04 (the quad world-axis aligned), radius
+  `Sensors.sensor_range`; the grid and its rectangles turn with the ship's heading (instance
+  parameter `grid_axis`, the ship's X axis, set every frame). `sensor_grid.gdshader` draws,
+  from one signed distance field, the fill, grid, intersection rectangles and two outlines
+  (inner at the boundary, outer `outer_offset` beyond). Every visual value is a uniform in
+  the shared `sensor_grid_material.tres` (Inspector; owner-tuned: overall opacity 0.32,
+  grid 4.625 u, rectangles 0.8 u capped at 2 px, inner outline 2 px, outer 1 px, gap 2 u); line widths are px at 1080 lines, spacing, offsets and
   rectangles world units. Cutouts are line-of-sight shadows from the ship (accepted
   2026-10-29): every static obstacle footprint from `PlanarCollision.obstacles()`
   (circles, rotated boxes) reaching the overlay, grown by `cutout_clearance` 1 u, casts
@@ -1121,7 +1122,7 @@ distribution, logistics balance, models and UI polish.
 - Rendering frame spikes (cause unknown, not GroupOrders): once about 2.0–2.5 s after
   Showcase start (34 ms, 39–295 ms with four ships selected) and occasional 40–160 ms
   frames near the sector edge. Not investigated.
-- Sensor grid overlay: in shadows narrower than twice the 3 u outline gap the outer
+- Sensor grid overlay: in shadows narrower than twice the 2 u outline gap the outer
   outline starts only where the wedge has widened (a thin line inside the cutout); a
   visible sliver between two nearly touching shadows keeps its own outlines (it is in
   line of sight); an obstacle whose grown footprint contains the ship casts no shadow;
