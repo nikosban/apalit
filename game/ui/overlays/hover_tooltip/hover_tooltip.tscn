@@ -1,0 +1,10 @@
+[gd_scene format=3]
+
+[node name="HoverTooltip" type="PanelContainer"]
+visible = false
+mouse_filter = 2
+metadata/cursor_offset = Vector2(18, 18)
+
+[node name="Label" type="Label" parent="."]
+layout_mode = 2
+mouse_filter = 2

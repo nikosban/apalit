@@ -53,6 +53,7 @@ func _initialize() -> void:
 	await _test_review()
 	await _test_panel_width()
 	await _test_refinery_display()
+	await _test_visual_authoring()
 	print("RESULT: %s (%d of %d checks failed)" % ["PASS" if _failures == 0 else "FAIL", _failures, _checks])
 	quit(0 if _failures == 0 else 1)
 
@@ -218,3 +219,92 @@ func _check(label: String, ok: bool) -> void:
 	if not ok:
 		_failures += 1
 	print("%-130s %s" % [label, "PASS" if ok else "FAIL"])
+
+
+# Scoped theme consumption: production output, static compatibility and isolation.
+func _test_visual_authoring() -> void:
+	var shared: Theme = preload("res://game/ui/theme/apalit_theme.tres")
+	var station_script = preload("res://game/ui/station_panel.gd")
+	var station_panel = _main.get_node("StationPanel")
+	var details: RichTextLabel = station_panel.get_node("Panel/Layout/Scroll/Body/Production/Details")
+	var yard_station = _main.get_node("Stations/Shipyard")
+	var storage: Inventory = yard_station.storage
+	storage.amounts.clear()
+	storage.add(&"iron_ingot", 200)
+	var default_lines: Array[String] = station_script._ingot_lines(&"mining_ship", storage)
+	_check("C: two-argument static requirements keep original available/missing RGB and quantities",
+		default_lines[0].contains("[color=#7ec27e]available[/color]")
+		and default_lines[1].contains("[color=#e0705a]missing 100[/color]"))
+	station_panel.select(yard_station)
+	_check("C: production control-resolved requirements equal static shared-theme output",
+		details.text.contains("\n".join(default_lines)))
+
+	# A local theme changes this panel; the default/static source stays untouched.
+	var station_shell: Control = station_panel.get_node("Panel")
+	var original_station_theme: Theme = station_shell.theme
+	var local_theme: Theme = shared.duplicate(true)
+	station_shell.theme = local_theme
+	local_theme.set_color(&"available", &"ProductionRequirements", Color("#336699"))
+	local_theme.set_color(&"missing", &"ProductionRequirements", Color("#aa55cc"))
+	station_panel._process(0.0)
+	var explicit_lines: Array[String] = station_script._ingot_lines(&"mining_ship", storage,
+		details.get_theme_color(&"available"), details.get_theme_color(&"missing"))
+	_check("C: explicit static colors are formatted into production BBCode",
+		explicit_lines[0].contains("[color=#336699]available[/color]")
+		and explicit_lines[1].contains("[color=#aa55cc]missing 100[/color]")
+		and details.text.contains("\n".join(explicit_lines)))
+	_check("C: per-panel colors leave the shared/static palette and default Label color unchanged",
+		station_script._ingot_lines(&"mining_ship", storage) == default_lines
+		and shared.get_color(&"font_color", &"Label").is_equal_approx(Color(0.88, 0.9, 0.92)))
+
+	# Deliberate, synchronous test edit, restored before the next frame: both fallback
+	# and a production control must consume that same shared definition.
+	station_shell.theme = original_station_theme
+	var old_available := shared.get_color(&"available", &"ProductionRequirements")
+	shared.set_color(&"available", &"ProductionRequirements", Color("#123456"))
+	station_panel._process(0.0)
+	var propagated: Array[String] = station_script._ingot_lines(&"mining_ship", storage)
+	var propagation_ok := propagated[0].contains("[color=#123456]available[/color]") and details.text.contains(propagated[0])
+	shared.set_color(&"available", &"ProductionRequirements", old_available)
+	_check("C: shared requirement edit propagates to production and two-argument static fallback", propagation_ok)
+	station_panel.select(null)
+	storage.amounts.clear()
+
+	var shell: Control = _panel.get_node("Panel")
+	var hull: Dictionary = _panel._hull_loss
+	var armor: Dictionary = _panel._armor_loss
+	var label: Label = hull.label
+	_check("C: hull/armor loss labels retain exact RGB without masking theme overrides",
+		label.get_theme_color(&"font_color").is_equal_approx(Color(1, 0.3, 0.25))
+		and (armor.label as Label).get_theme_color(&"font_color").is_equal_approx(Color(1, 0.72, 0.2))
+		and not label.has_theme_color_override(&"font_color"))
+	var original_theme: Theme = shell.theme
+	shell.theme = shared.duplicate(true)
+	var tone := Color(0.2, 0.4, 0.6)
+	shell.theme.set_color(&"font_color", &"HullLossLabel", tone)
+	await process_frame
+	await process_frame # Let deferred theme notifications run (process_frame precedes node processing).
+	_panel._reset_loss(hull, 100.0)
+	_panel._reset_loss(armor, 100.0)
+	_panel._track_loss(hull, 90.0, 10.0)
+	_check("C: damage flash uses themed label color (bar %s, theme %s, text %s, visible %s)" % [str((hull.bar as Control).modulate), str(label.get_theme_color(&"font_color")), label.text, label.visible],
+		(hull.bar as Control).modulate.is_equal_approx(tone) and label.text == "−10"
+		and label.visible and hull.total == 10.0)
+	_panel._track_loss(hull, 85.0, 10.25)
+	_check("C: a second loss accumulates, while armor state/control and shared theme stay independent",
+		hull.total == 15.0 and armor.total == 0.0 and (armor.bar as Control).modulate == Color.WHITE
+		and shared.get_color(&"font_color", &"HullLossLabel").is_equal_approx(Color(1, 0.3, 0.25)))
+	tone = Color(0.6, 0.2, 0.4)
+	shell.theme.set_color(&"font_color", &"HullLossLabel", tone)
+	await process_frame
+	await process_frame
+	_panel._track_loss(hull, 85.0, 10.25)
+	_check("C: theme edits reach an active flash (bar %s, theme %s)" % [str((hull.bar as Control).modulate), str(label.get_theme_color(&"font_color"))],
+		(hull.bar as Control).modulate.is_equal_approx(tone))
+	_panel._track_loss(hull, 85.0, 11.25)
+	_check("C: real-time hold/fade remains unchanged", label.visible and is_equal_approx(label.modulate.a, 0.5))
+	_panel._reset_loss(hull, 85.0)
+	_check("C: selection-reset feedback leaves the bar white and the loss hidden",
+		not label.visible and (hull.bar as Control).modulate == Color.WHITE)
+	shell.theme = original_theme
+	_panel._reset_loss(armor, 100.0)

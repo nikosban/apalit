@@ -41,8 +41,6 @@ const DisplayName := preload("res://game/ui/display_name.gd")
 const ResourceTile := preload("res://game/ui/components/resource_tile.tscn")
 const CHOOSE_STATION := "Choose a station"
 const NEAREST_BASE := "Nearest station"
-const HULL_LOSS_COLOR := Color(1.0, 0.3, 0.25) # Red: hull damage.
-const ARMOR_LOSS_COLOR := Color(1.0, 0.72, 0.2) # Amber: armor condition lost.
 
 @export var selection_path := NodePath("../Selection")
 @export var loss_hold := 1.0 # s (real time): window collecting one damage burst, shown at full strength.
@@ -97,8 +95,8 @@ var _named: Node3D = null # The ship the name field was filled for.
 @onready var _armor_bar: ProgressBar = $Panel/Layout/Scroll/Body/Status/Armor/Bar
 # Damage feedback per durability row: the last value seen, the current burst's total,
 # when its window started and when the bar last flashed (real seconds).
-@onready var _hull_loss := {"label": $Panel/Layout/Scroll/Body/Status/Hull/Row/Loss, "bar": _hull_bar, "color": HULL_LOSS_COLOR}
-@onready var _armor_loss := {"label": $Panel/Layout/Scroll/Body/Status/Armor/Row/Loss, "bar": _armor_bar, "color": ARMOR_LOSS_COLOR}
+@onready var _hull_loss := {"label": $Panel/Layout/Scroll/Body/Status/Hull/Row/Loss, "bar": _hull_bar}
+@onready var _armor_loss := {"label": $Panel/Layout/Scroll/Body/Status/Armor/Row/Loss, "bar": _armor_bar}
 @onready var _combat: Control = $Panel/Layout/Scroll/Body/Combat
 @onready var _tactic: OptionButton = $Panel/Layout/Scroll/Body/Combat/TacticRow/Tactic
 @onready var _command: Label = $Panel/Layout/Scroll/Body/Combat/Command
@@ -141,7 +139,6 @@ func _ready() -> void:
 		if _orders != null and ship != null:
 			_orders.set_stance([ship], _tactic.get_item_id(index)))
 	for state: Dictionary in [_hull_loss, _armor_loss]:
-		(state.label as Label).add_theme_color_override(&"font_color", state.color)
 		_reset_loss(state, 0.0)
 	_on_selection_changed()
 
@@ -216,7 +213,7 @@ func _track_loss(state: Dictionary, current: float, now: float) -> void:
 		label.text = "−%d" % maxi(1, roundi(state.total))
 		label.modulate.a = 1.0 if age < loss_hold else 1.0 - (age - loss_hold) / loss_fade
 	var flash := clampf(1.0 - (now - state.flash) / loss_fade, 0.0, 1.0)
-	(state.bar as Control).modulate = Color.WHITE.lerp(state.color, flash)
+	(state.bar as Control).modulate = Color.WHITE.lerp(label.get_theme_color(&"font_color"), flash)
 
 
 # A newly selected ship starts from its current values with no feedback shown.

@@ -27,8 +27,7 @@ const RefinerySlot := preload("res://game/ui/components/refinery_slot.gd")
 const DisplayName := preload("res://game/ui/display_name.gd")
 const ResourceTile := preload("res://game/ui/components/resource_tile.tscn")
 const MINERALS: Array[StringName] = [&"iron", &"nickel", &"silicon", &"cobalt", &"gold", &"titanium"]
-const AVAILABLE_COLOR := "#7ec27e"
-const MISSING_COLOR := "#e0705a"
+const SharedTheme := preload("res://game/ui/theme/apalit_theme.tres")
 const IDLE_NOTE := "An order starts construction as soon as every ingot is in this station's storage; construction cannot be cancelled."
 const WAITING_NOTE := "Construction starts automatically once every ingot is here, and cannot be cancelled then. Nothing is reserved meanwhile."
 
@@ -185,15 +184,17 @@ func _show_production(yard: Shipyard, storage: Inventory) -> void:
 	var state := yard.state
 	var active := yard.recipe
 	var lines: Array[String] = []
+	var available := _production_details.get_theme_color(&"available")
+	var missing := _production_details.get_theme_color(&"missing")
 	match state:
 		Shipyard.State.IDLE:
 			_production_status.text = "Status: Idle"
 			for id: StringName in Shipyard.RECIPE_ORDER:
 				lines.append("[b]%s[/b] - %d s" % [Shipyard.RECIPES[id].name, roundi(Shipyard.RECIPES[id].duration)])
-				lines.append_array(_ingot_lines(id, storage))
+				lines.append_array(_ingot_lines(id, storage, available, missing))
 		Shipyard.State.WAITING:
 			_production_status.text = "Status: Waiting for Materials - %s" % Shipyard.RECIPES[active].name
-			lines.append_array(_ingot_lines(active, storage))
+			lines.append_array(_ingot_lines(active, storage, available, missing))
 		Shipyard.State.CONSTRUCTING:
 			_production_status.text = "Status: Constructing %s" % Shipyard.RECIPES[active].name
 			lines.append("%d s remaining - cannot be cancelled" % ceili(yard.remaining_time()))
@@ -215,12 +216,16 @@ func _show_production(yard: Shipyard, storage: Inventory) -> void:
 
 
 # One line per ingredient: required, held here, and missing (red) or complete (green).
-static func _ingot_lines(id: StringName, storage: Inventory) -> Array[String]:
+# Two-argument callers explicitly use the SAME shared theme as the production panel.
+# Production supplies control-resolved colors, respecting scoped theme overrides.
+static func _ingot_lines(id: StringName, storage: Inventory, available: Variant = null, missing: Variant = null) -> Array[String]:
+	var available_color: Color = SharedTheme.get_color(&"available", &"ProductionRequirements") if available == null else available
+	var missing_color: Color = SharedTheme.get_color(&"missing", &"ProductionRequirements") if missing == null else missing
 	var lines: Array[String] = []
 	var ingots: Dictionary = Shipyard.RECIPES[id].ingots
 	for ingot: StringName in ingots:
 		var required: int = ingots[ingot]
 		var held := storage.quantity_of(ingot)
-		var state := "[color=%s]missing %d[/color]" % [MISSING_COLOR, required - held] if held < required else "[color=%s]available[/color]" % AVAILABLE_COLOR
+		var state := "[color=%s]missing %d[/color]" % ["#" + missing_color.to_html(false), required - held] if held < required else "[color=%s]available[/color]" % ("#" + available_color.to_html(false))
 		lines.append("    %s: required %d, available %d - %s" % [Inventory.display_name(ingot), required, held, state])
 	return lines

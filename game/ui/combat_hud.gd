@@ -14,10 +14,10 @@ extends CanvasLayer
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const RouteFollower := preload("res://game/navigation/route_follower.gd")
 const DisplayName := preload("res://game/ui/display_name.gd")
-const BAR_SIZE := Vector2(44, 4) # px at 1080 lines
+const HudView := preload("res://game/ui/overlays/combat_hud/combat_hud_view.tscn")
 const TARGET_HINT := "Choose a target: click a hostile ship  |  Esc or right-click elsewhere cancels"
 
-var _bars: Control
+var _view: Control
 var _result: Label
 var _speed: Label # Simulation speed (TimeControl) and the target-selection hint.
 var _inspect: Label # Target eligibility at the cursor during target selection.
@@ -27,27 +27,11 @@ var _inspect: Label # Target eligibility at the cursor during target selection.
 
 func _ready() -> void:
 	layer = 1
-	_bars = Control.new()
-	_bars.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_bars.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_bars.draw.connect(_draw_bars)
-	add_child(_bars)
-	_result = _label(Control.PRESET_CENTER, Vector2.ZERO, 24)
-	_result.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_result.grow_vertical = Control.GROW_DIRECTION_BOTH
-	_result.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_speed = _label(Control.PRESET_TOP_RIGHT, Vector2(-12, 12), 18)
-	_speed.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_speed.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_inspect = _label(Control.PRESET_TOP_LEFT, Vector2.ZERO, 13)
-	_inspect.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
-	var panel := StyleBoxFlat.new()
-	panel.bg_color = Color(0.08, 0.085, 0.09, 0.85)
-	panel.border_color = Color(0.5, 0.52, 0.55, 0.8)
-	panel.set_border_width_all(1)
-	panel.set_content_margin_all(6)
-	_inspect.add_theme_stylebox_override("normal", panel)
-	_inspect.visible = false
+	_view = HudView.instantiate()
+	add_child(_view)
+	_result = _view.get_node("Result")
+	_speed = _view.get_node("Speed")
+	_inspect = _view.get_node("Inspection")
 
 
 func _label(preset: Control.LayoutPreset, offset: Vector2, size: int) -> Label:
@@ -62,7 +46,7 @@ func _label(preset: Control.LayoutPreset, offset: Vector2, size: int) -> Label:
 
 
 func _process(_delta: float) -> void:
-	_bars.queue_redraw()
+	_draw_bars()
 	var result: Variant = _arena.get("result_text")
 	_result.text = result if result is String else ""
 	var time_control = _arena.get("time_control")
@@ -87,10 +71,10 @@ func _update_inspection(selected: Array) -> void:
 	_inspect.text = inspect_text(selected, picked)
 	_inspect.reset_size()
 	var area := _arena.get_viewport().get_visible_rect().size
-	var at := mouse + Vector2(18, 18)
-	if at.x + _inspect.size.x > area.x - 8.0:
-		at.x = mouse.x - 18.0 - _inspect.size.x # flip to the cursor's left near the edge
-	at.y = clampf(at.y, 8.0, maxf(8.0, area.y - _inspect.size.y - 8.0))
+	var at: Vector2 = mouse + _view.cursor_offset
+	if at.x + _inspect.size.x > area.x - _view.edge_margin:
+		at.x = mouse.x - _view.cursor_offset.x - _inspect.size.x # flip to the cursor's left near the edge
+	at.y = clampf(at.y, _view.edge_margin, maxf(_view.edge_margin, area.y - _inspect.size.y - _view.edge_margin))
 	_inspect.position = at
 	_inspect.visible = true
 
@@ -190,29 +174,24 @@ static func ammunition_text(weapon: Node) -> String:
 	return text
 
 
+# Controller owns all world queries and eligibility; view receives screen data only.
 func _draw_bars() -> void:
+	var entries: Array[Dictionary] = []
 	var camera := _arena.get_viewport().get_camera_3d()
-	if camera == null:
-		return
 	var markers = _arena.get("markers")
 	var alpha: float = 1.0 if markers == null else 1.0 - markers.emphasis()
-	if alpha <= 0.0:
-		return # The tactical markers carry the ships at full Tactical emphasis.
-	for ship: Node3D in _arena.get_node("Ships").get_children():
-		var combat = CombatShip.of(ship)
-		if combat == null or combat.removed_from_play:
-			continue
-		if _arena.has_method("player_sees") and not _arena.player_sees(ship):
-			continue
-		var point: Vector3 = ship.global_position + Vector3(0, 2.2, 0)
-		if camera.is_position_behind(point):
-			continue
-		var screen := camera.unproject_position(point)
-		var origin := screen - Vector2(BAR_SIZE.x * 0.5, 0)
-		if not combat.alive:
-			_bars.draw_string(ThemeDB.fallback_font, origin, "DESTROYED", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 0.6, 0.3, alpha))
-			continue
-		var share: float = clampf(combat.health / combat.max_health, 0.0, 1.0) if combat.max_health > 0.0 else 0.0
-		_bars.draw_rect(Rect2(origin, BAR_SIZE), Color(0, 0, 0, 0.6 * alpha))
-		_bars.draw_rect(Rect2(origin, Vector2(BAR_SIZE.x * share, BAR_SIZE.y)), Color(CombatShip.FACTION_COLORS[combat.faction].lerp(Color.WHITE, 0.2), alpha))
-		_bars.draw_rect(Rect2(origin, BAR_SIZE), Color(1, 1, 1, 0.5 * alpha), false, 1.0)
+	if camera != null and alpha > 0.0:
+		for ship: Node3D in _arena.get_node("Ships").get_children():
+			var combat = CombatShip.of(ship)
+			if combat == null or combat.removed_from_play:
+				continue
+			if _arena.has_method("player_sees") and not _arena.player_sees(ship):
+				continue
+			var point: Vector3 = ship.global_position + _view.bar_style.world_offset
+			if camera.is_position_behind(point):
+				continue
+			var share: float = clampf(combat.health / combat.max_health, 0.0, 1.0) if combat.max_health > 0.0 else 0.0
+			entries.append({"position": camera.unproject_position(point), "share": share,
+				"destroyed": not combat.alive, "alpha": alpha,
+				"color": Color(CombatShip.FACTION_COLORS[combat.faction].lerp(Color.WHITE, _view.bar_style.faction_lightening), alpha)})
+	_view.set_entries(entries)

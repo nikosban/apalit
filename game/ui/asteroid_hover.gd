@@ -8,7 +8,7 @@ extends CanvasLayer
 const AsteroidField := preload("res://game/resources/asteroid_field.gd")
 const Survey := preload("res://game/survey/survey.gd")
 const ShipSelection := preload("res://game/selection/ship_selection.gd")
-const CURSOR_OFFSET := Vector2(18, 18)
+const Tooltip := preload("res://game/ui/overlays/hover_tooltip/hover_tooltip.tscn")
 
 @export var field_path := NodePath("../Asteroids")
 @export var survey_path := NodePath("../Survey")
@@ -28,12 +28,8 @@ var _label: Label
 
 func _ready() -> void:
 	layer = 2 # Above the panels (layer 1).
-	_panel = PanelContainer.new()
-	_label = Label.new()
-	_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_panel.visible = false
-	_panel.add_child(_label)
+	_panel = Tooltip.instantiate()
+	_label = _panel.get_node("Label")
 	add_child(_panel)
 
 
@@ -49,7 +45,7 @@ func _process(_delta: float) -> void:
 	_label.text = hovered_station.describe() if hovered_station != null else describe(hovered)
 	_panel.reset_size()
 	var limit := viewport.get_visible_rect().size - _panel.size
-	_panel.position = (mouse + CURSOR_OFFSET).clamp(Vector2.ZERO, limit.max(Vector2.ZERO))
+	_panel.position = (mouse + (_panel.get_meta("cursor_offset") as Vector2)).clamp(Vector2.ZERO, limit.max(Vector2.ZERO))
 
 
 ## Asteroid under a screen point, or -1 (also when a ship is under it). Phase C: in

@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-30 — Shared UI visual authoring
+
+HUD controls and batched hull bars, hover tooltips and notices now use shared authored visuals under `game/ui/overlays/`, with one F6 overlay preview; hull/armor feedback and production requirement colors use scoped entries in the existing theme (issue #5). Accepted by the owner; no gameplay change, and the planned rendered smoke pass was not completed.
+
 ## 2026-10-30 — Reusable combat flash
 
 Every combat flash (muzzle, impact, burst, destruction) is now one reusable `combat_flash.tscn` with five shared, Inspector-editable presets and an F6 preview (`game/presentation/effects/combat_flash/`), spawned by `combat_effects.gd` through its unchanged API; rendered output is pixel-identical to the former procedural spheres (issue #4). No gameplay change.

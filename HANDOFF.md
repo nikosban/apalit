@@ -39,6 +39,8 @@ Stages 1–5, the final launch-profile revision, Stage 6B, the two-FF-01 Combat 
 the legacy ship cleanup, is accepted by the owner. PDC raid sweep (2026-10-28, section
 4.6 PDC entry) is on `main` and accepted by the owner after a Combat Test playtest.
 
+UI visual authoring (issue #5, section 4.9) is accepted by the owner.
+
 ## 2. Project layout and scenes
 
 ### Repository
@@ -122,6 +124,7 @@ the lab era) and the layout contract in section 3.
   (three FF-01s per side; `encounters.gd` holds E05 only),
   `combat_positioning_demo.tscn`, `turret_pitch_range.tscn`, test-only scripts. The
   combat lab and the E01–E04 / P01–P03 scenarios were removed with the legacy ships.
+- `game/ui/overlays/overlay_preview.tscn`: shared HUD, hover tooltip and notice authoring scene (section 4.9).
 - `game/presentation/thrusters/thruster_fx_preview.tscn`: thruster authoring scene.
 - `game/presentation/movement_indicator/movement_indicator_preview.tscn`: movement
   indicator authoring scene (section 4.7).
@@ -838,7 +841,8 @@ Combat behaviour is frozen as accepted (section 6).
 ### 4.9 UI (`ui/`)
 
 - Foundation: `ui/theme/apalit_theme.tres` (HeaderLabel, SectionHeader, MutedLabel,
-  WarningLabel, SegmentButton), `resource_icons.gd` (generated placeholders),
+  WarningLabel, SegmentButton, HullLossLabel, ArmorLossLabel, ProductionRequirements),
+  `resource_icons.gd` (generated placeholders),
   `ui/components/` (`panel_shell`, `section`, `refinery_slot`, `resource_tile`,
   `resource_row`, `segmented_control`): display-only scenes that emit signals;
   gameplay stays in its systems. No UI framework or state manager.
@@ -865,9 +869,28 @@ Combat behaviour is frozen as accepted (section 6).
 - `transport_editor.tscn/.gd`: edits a draft of loading requirements (tabs Ore,
   Ingots (Ice shared with Ore), Components disabled); nothing is live until Apply
   (`Transport.apply_requirements()`, all or nothing); Cancel discards the draft.
-- `asteroid_hover.gd` (layer 2): survey text at the cursor, also the station hover;
-  not over a ship or GUI. `combat_hud.gd` (`CombatHUD`): hull bars, speed / pause
-  line, target-selection readout, scenario result. Notices share one label.
+- Shared overlay visuals (`ui/overlays/`, issue #5): `combat_hud/combat_hud_view.tscn`
+  authors result, speed and target-inspection labels and draws all hull bars on one
+  canvas surface. `combat_hud.gd` retains world projection, fog/target eligibility,
+  tactical fade decisions, static text APIs and the fixture subclass's `_label()` helper;
+  the view receives projected positions and display data only. Hull-bar appearance is
+  Inspector-editable in `combat_hud/hull_bar_style.tres`; inspection cursor offset/margin
+  are exports on CombatHudView. No per-ship UI nodes.
+- `asteroid_hover.gd` (layer 2) retains survey/station text, picking, GUI suppression
+  and edge clamping; its panel/label are `overlays/hover_tooltip/hover_tooltip.tscn`
+  (`cursor_offset` metadata on HoverTooltip). `overlays/notice/notice.tscn` is the single
+  `NoticeUI/Notice` definition in Test Arena, Combat Test, Movement Test and the encounter
+  fixture; notification replacement and two-second real-time timing stay in `movement_lab.gd`.
+- F6 authoring: `overlays/overlay_preview.tscn` instances all three production visuals;
+  keys 1–4 isolate All / HUD / Hover / Notice. Sample states are Inspector exports on
+  OverlayPreview. There is no additional panel preview; inspect production panels in Test Arena.
+- Color authority: `apalit_theme.tres` HullLossLabel / ArmorLossLabel `font_color`
+  drives both loss text and scripted bar modulation; ProductionRequirements `available`
+  / `missing` colors are explicitly formatted into production BBCode. The two-argument
+  static `_ingot_lines()` fallback reads that same shared theme. Original colors and
+  feedback timing are retained; controls keep runtime state separate from shared styles.
+  Existing meters, inventory components and procedural icons remain; custom cursor art
+  and editable icon palette/geometry are deferred from this batch.
 - Debug panel (`debug/`, top left, off at launch): Movement, Navigation, Avoidance
   Debug (collision contacts under Avoidance).
 
@@ -1250,6 +1273,22 @@ distribution, logistics balance, models and UI polish.
   old / new alternated twice: mean 4.03–4.09 / 4.05–4.13 ms, p95 10.8–11.1 / 11.0–11.1 ms
   (within noise). Note: `process_frame` is emitted before nodes process, so a test observes
   a flash one frame before it ages.
+- UI authoring (issue #5, 2026-10-30, Godot 4.7.2, `--fixed-fps 60`): two
+  pre-change baselines of eight affected suites and four 600-frame scene runs all passed.
+  After migration: `selection_test` 41, `command_cursor_test` 12, `survey_test` 50,
+  `combat/time_test` 37, `transport_editor_test` 13 and `shipyard_test` 42 checks passed;
+  `ui_qol_test` 24 (11 added checks for theme consumption, both static helper forms,
+  propagation, isolation and feedback semantics) passed. Existing output matched the
+  baselines except the documented W1 intermittency: `combat/weapon_info_test` 12/13,
+  one PDC tracking-angle mismatch (32.3° / 32.4°); no script errors. Test Arena,
+  Combat Test, Movement Test and E05 600-frame smoke runs loaded without errors;
+  Test Arena/Combat Test were also checked after the panel-color batch. The overlay
+  preview loaded headless. Rendered baseline Test Arena/ship panel was inspected, but
+  Computer Use was stopped before the combined post-change 1920×1080 / 1280×720 smoke
+  pass; rendered parity, preview isolation and live interactions remain unverified by
+  the agent. Owner accepted with this limitation. Godot generated three overlay script
+  `.uid` files; a generated untracked runtime-log folder was removed, and later logs
+  were directed into the ignored `.godot/` cache. No full-project regression for this task.
 - Full regression (2026-10-30, Godot 4.7.2, `--fixed-fps 60`; all 62 suites and the four
   600-frame scene runs once, the changed suites twice): every scene run loads without
   errors; no suite logs a script error; the only failures are the known ones below.

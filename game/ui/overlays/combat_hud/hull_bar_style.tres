@@ -1,0 +1,14 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://game/ui/overlays/combat_hud/hull_bar_style.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+bar_size = Vector2(44, 4)
+world_offset = Vector3(0, 2.2, 0)
+background = Color(0, 0, 0, 0.6)
+border = Color(1, 1, 1, 0.5)
+border_width = 1.0
+faction_lightening = 0.2
+destroyed_color = Color(1, 0.6, 0.3, 1)
+destroyed_font_size = 12

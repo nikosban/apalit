@@ -19,6 +19,8 @@
 [ext_resource type="Script" path="res://game/time/sim_clock.gd" id="90_clock"]
 [ext_resource type="PackedScene" path="res://game/presentation/movement_indicator/movement_indicator.tscn" id="200_movement_indicator"]
 
+[ext_resource type="PackedScene" path="res://game/ui/overlays/notice/notice.tscn" id="notice_shared"]
+
 [sub_resource type="Environment" id="Environment_lab"]
 background_mode = 1
 background_color = Color(0.05, 0.055, 0.06, 1)
@@ -90,6 +92,7 @@ size = Vector3(2, 4, 20)
 [sub_resource type="BoxMesh" id="BoxMesh_rotated_block"]
 material = SubResource("StandardMaterial3D_obstacle")
 size = Vector3(16, 4, 4)
+
 
 [node name="MovementLab" type="Node3D"]
 script = ExtResource("6_lab")
@@ -283,17 +286,7 @@ script = ExtResource("11_navigation_debug")
 [node name="AvoidanceDebug" type="Node3D" parent="."]
 script = ExtResource("13_avoidance_debug")
 
-[node name="NoticeUI" type="CanvasLayer" parent="."]
-
-[node name="Notice" type="Label" parent="NoticeUI"]
-visible = false
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-offset_top = 64.0
-grow_horizontal = 2
-theme_override_font_sizes/font_size = 20
-horizontal_alignment = 1
+[node name="NoticeUI" parent="." instance=ExtResource("notice_shared")]
 
 [node name="DebugUI" parent="." instance=ExtResource("8_debug")]
 navigation_debug_path = NodePath("../NavigationDebug")

@@ -66,6 +66,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 
 [node name="Loss" type="Label" parent="Panel/Layout/Scroll/Body/Status/Hull/Row"]
+theme_type_variation = &"HullLossLabel"
 visible = false
 layout_mode = 2
 horizontal_alignment = 2
@@ -90,6 +91,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 
 [node name="Loss" type="Label" parent="Panel/Layout/Scroll/Body/Status/Armor/Row"]
+theme_type_variation = &"ArmorLossLabel"
 visible = false
 layout_mode = 2
 horizontal_alignment = 2

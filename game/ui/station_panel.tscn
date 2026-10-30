@@ -74,6 +74,7 @@ layout_mode = 2
 autowrap_mode = 3
 
 [node name="Details" type="RichTextLabel" parent="Panel/Layout/Scroll/Body/Production"]
+theme_type_variation = &"ProductionRequirements"
 layout_mode = 2
 mouse_filter = 2
 bbcode_enabled = true
