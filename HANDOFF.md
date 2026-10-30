@@ -13,8 +13,8 @@ ships); production combat on every ship (hull, factions, weapon loadouts on the
 FF-01 warship, Commands / Tactics, faction-shared sensors
 and fog of war, a minimal hostile commander); global pause and time dilation;
 continuous camera zoom with Local / Tactical semantic zoom and a Strategic View;
-environment rendering (sky, lighting, fog, god rays); a themed inspector UI and reusable
-thruster VFX. No component manufacturing, station construction, save system or
+environment rendering (sky, lighting, fog, god rays); a themed inspector UI, reusable
+thruster VFX and a reusable combat flash. No component manufacturing, station construction, save system or
 strategic AI.
 
 FF-01 combat adjustments (developed on `combat_adjustments`, merged into `main` on
@@ -125,6 +125,8 @@ the lab era) and the layout contract in section 3.
 - `game/presentation/thrusters/thruster_fx_preview.tscn`: thruster authoring scene.
 - `game/presentation/movement_indicator/movement_indicator_preview.tscn`: movement
   indicator authoring scene (section 4.7).
+- `game/presentation/effects/combat_flash/combat_flash_preview.tscn`: combat flash
+  authoring scene (section 4.8).
 
 ## 3. Architecture
 
@@ -785,6 +787,24 @@ Combat behaviour is frozen as accepted (section 6).
   - Ordnance: `WeaponGeometry.build_ordnance()` adds effects to torpedo and missile
 	nozzles and missile attitude mounts; `ordnance.gd` drives them; sizes in
 	`OrdnanceConfig`. The `OrdnanceTrails` ribbon is kept (owner choice).
+- Combat flash (issue #4; `presentation/effects/combat_flash/`): every muzzle flash,
+  impact, burst and destruction flash is one `combat_flash.tscn` (`MeshInstance3D`, shared
+  radius-1 sphere, unshaded alpha material local to the scene, no shadows) grown linearly
+  from `radius` to `radius` × `growth` and faded linearly to transparent over `lifetime`,
+  then freed. `game/combat/combat_effects.gd` (node `Effects`, `@tool` for the preview) is
+  the only spawner: public API `muzzle_flash()`, `impact()`, `burst()`, `destruction()`,
+  `active_count()` unchanged; it keeps positions and offsets (muzzle +0.08 u × size along
+  the direction, destruction +0.5 u Y) and passes caller colours and sizes per flash.
+  Flashes are direct children of `Effects` (FogView hides them outside coverage; never
+  under a ship), process in idle frames and inherit its pausable mode. Shared look, edited
+  once for every scene (Inspector on `Effects` or the files): `combat_flash_style.gd`
+  presets `muzzle.tres` (0.12 u, 1.6×, 0.09 s, caller colour blended 0.6 to
+  (1, 0.95, 0.7)), `impact.tres` (0.18 u, 3×, 0.25 s, (1, 0.65, 0.25)), `impact_soft.tres`
+  (0.12 u, 2×, 0.18 s, (0.7, 0.75, 0.8)), `burst.tres` (1 u × caller radius, 2.2×, 0.3 s,
+  caller colour), `destruction.tres` (1 u, 4×, 0.8 s, (1, 0.5, 0.15)); a flash reads its
+  preset once at start, so edits reach new flashes. F6 preview: the production spawner
+  replays eleven samples every 1.2 s (also in the editor; unowned children); keys 1–3 zoom
+  5 / 40 / 150. No pooling (E05 measured within noise).
 - Environment (`sector_environment.gd`, `SectorEnvironment`; profile
   `sector_profile.gd` / `warm_sector.tres`): key light, ambient, background, ground;
   rocks, debris and dust pockets around formations. Sky `environment_experiment`: A
@@ -1151,6 +1171,9 @@ distribution, logistics balance, models and UI polish.
   shows only the rig's authored zoom 15 pose; editor-time redraw on a style change and
   live rendered gameplay were not verified by tests; several selected ships are not
   covered by an automated check.
+- Combat flash: editor-time preview replay and preset-edit responsiveness are not
+  covered by tests; Combat Test performance was not measured separately (E05 was the
+  high-load case).
 - Thrusters: a teleported ship (`place()`) can flash its jets for a tick; particles
   pause with the game but do not follow time dilation.
 - UI: at 1280 × 720 long names clip in editor rows and the Ingots list scrolls; a wide
@@ -1191,8 +1214,8 @@ distribution, logistics balance, models and UI polish.
   `C:\Users\Nikos\Downloads\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe`
   (4.7.2.stable). Git 2.55.0 and GitHub CLI 2.102.0 installed; `gh` logged in as
   `nikosban`, pushes use SSH.
-- Suites: 40 in `game/tests/`, 22 in `game/tests/combat/`, `game/tests/docking/tri_dock_test.gd`
-  (63 total). Run: `<godot console> --headless --path . -s res://game/tests/<name>.gd`.
+- Suites: 40 in `game/tests/`, 23 in `game/tests/combat/`, `game/tests/docking/tri_dock_test.gd`
+  (64 total). Run: `<godot console> --headless --path . -s res://game/tests/<name>.gd`.
 - `--fixed-fps 60` is required for every combat suite and for `shipyard_runtime_test`,
   `reuse_test` (uninterrupted loop as fast as possible), `camera_test`,
   `tactical_view_test`, `strategic_view_test` (fails its boundary-fade check without
@@ -1217,6 +1240,16 @@ distribution, logistics balance, models and UI polish.
   a container). The headless window is 64 × 64 (screen scale 0.033), so in other
   headless suites the px-sized symbol is about 30 u across and lines are usually
   omitted; `selection_test` checks the omission rule instead of a drawn line.
+- Combat flash (2026-10-30, `--fixed-fps 60`): `combat/combat_flash_test` (42 checks:
+  every variant against the pre-extraction formula frame by frame, isolation, preset
+  propagation, pause and time scale, `active_count()`, cleanup and reset, fog, preview);
+  11 affected suites and the `main.tscn` / `combat_test.tscn` scene runs against two
+  pre-change baselines: differences only on lines that also differ between baselines, only
+  the known `fleet_test` failures. Rendered parity against the old procedural flash in
+  Combat Test at zoom 5 / 40 / 150: 72 captures pixel-identical. Rendered E05, 2400 frames,
+  old / new alternated twice: mean 4.03–4.09 / 4.05–4.13 ms, p95 10.8–11.1 / 11.0–11.1 ms
+  (within noise). Note: `process_frame` is emitted before nodes process, so a test observes
+  a flash one frame before it ages.
 - Full regression (2026-10-30, Godot 4.7.2, `--fixed-fps 60`; all 62 suites and the four
   600-frame scene runs once, the changed suites twice): every scene run loads without
   errors; no suite logs a script error; the only failures are the known ones below.

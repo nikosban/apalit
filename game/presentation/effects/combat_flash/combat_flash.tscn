@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/presentation/effects/combat_flash/combat_flash.gd" id="1_flash"]
+
+[sub_resource type="SphereMesh" id="SphereMesh_flash"]
+radius = 1.0
+height = 2.0
+radial_segments = 12
+rings = 6
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_flash"]
+resource_local_to_scene = true
+transparency = 1
+shading_mode = 0
+
+[node name="CombatFlash" type="MeshInstance3D"]
+material_override = SubResource("StandardMaterial3D_flash")
+cast_shadow = 0
+mesh = SubResource("SphereMesh_flash")
+script = ExtResource("1_flash")

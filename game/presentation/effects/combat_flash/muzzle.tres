@@ -1,0 +1,11 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://game/presentation/effects/combat_flash/combat_flash_style.gd" id="1_style"]
+
+[resource]
+script = ExtResource("1_style")
+radius = 0.12
+growth = 1.6
+lifetime = 0.09
+blend_color = Color(1, 0.95, 0.7, 1)
+blend = 0.6
