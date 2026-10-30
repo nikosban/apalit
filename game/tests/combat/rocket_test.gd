@@ -104,7 +104,8 @@ func _configuration() -> void:
 	node.free()
 	_check("six complete salvos in the stock (48 / 8)", c.ammunition % 8 == 0 and c.ammunition / 8 == 6)
 	_check("Kestrel and NC-90 configurations unchanged; the torpedo and missile threats use the shared ordnance defaults",
-		KESTREL.damage == 0.2 and KESTREL.penetration == 1.0 and KESTREL.cooldown == 0.08 and KESTREL.weapon_range == 25.0
+		KESTREL.damage == 0.2 and KESTREL.penetration == 1.0 and KESTREL.cooldown == 0.0333 and KESTREL.weapon_range == 75.0
+		and KESTREL.projectile_lifetime == 1.35 and KESTREL.rounds_per_target == 4
 		and NC90.damage == 12.0 and NC90.penetration == 20.0
 		and NC90.weapon_range == 75.0 and TORPEDO.ordnance.kind == &"torpedo" and TORPEDO.ordnance.radius == 0.4
 		and MISSILE.ordnance.kind == &"missile" and MISSILE.ordnance.radius == 0.4)
@@ -749,7 +750,7 @@ func _interception() -> void:
 	r_id = _round(KESTREL, _at(Vector2(3, 1.5)), Vector3.RIGHT, true)
 	await _frames(12)
 	var alive: bool = _ordnance(k_id) != null and _ordnance(k_id).live
-	await _frames(20) # The round's 0.45 s lifetime.
+	await _frames(roundi(KESTREL.projectile_lifetime * 60.0) - 12 + 3) # The rest of the round's 1.35 s lifetime.
 	_check("a round passing 1.5 u beside a rocket leaves it alive (rocket %s after the pass, round %s)" % ["live" if alive else "gone", _round_record(r_id).get("outcome", "live")],
 		alive and _round_record(r_id).get("outcome", "") == "expired")
 	_clear_flight()
@@ -800,13 +801,31 @@ func _interception() -> void:
 
 
 # --- T: threat evaluation and the missile rule ----------------------------------------
+# Each case asks a mount that has not swept yet (_select resets the raid sweep), so its pick
+# is the first engageable threat in its defensive order.
 
 func _select(weapon: Node) -> Node3D:
 	weapon.defense_target = null
 	weapon.defense_category = -1
 	weapon.defense_time = INF
+	_fresh_sweep(weapon)
 	weapon._choose_defense()
 	return weapon.defense_target
+
+
+# Puts the PDC family's own state (raid sweep, committed prediction, their counters) back to
+# a new mount's: every variable pdc.gd declares beyond the Gatling's, read from a fresh,
+# never-stepped instance, so the reset follows the script without naming its fields.
+func _fresh_sweep(weapon: Node) -> void:
+	var fresh: Node = PDC.new()
+	var gatling_script: Script = Gatling
+	var pdc_script: Script = PDC
+	var inherited := gatling_script.get_script_property_list().map(func(p: Dictionary) -> String: return p.name)
+	for p: Dictionary in pdc_script.get_script_property_list():
+		if p.usage & PROPERTY_USAGE_SCRIPT_VARIABLE and not inherited.has(p.name):
+			var value: Variant = fresh.get(p.name)
+			weapon.set(p.name, value.duplicate() if value is Array else value)
+	fresh.free()
 
 
 # Hostile ordnance at `rel`, 0.7 u up (about the PDC muzzle height, clear of the hull
@@ -932,6 +951,7 @@ func _measurement() -> void:
 				w.reload_left = 0.0
 				w.cooldown_left = 0.0
 				w.rng.seed = seed * 100 + i
+				_fresh_sweep(w)
 			_reset_launcher(launcher, seed)
 			shooter.stance = CombatShip.Stance.AGGRESSIVE
 			scene.sensors.evaluate()

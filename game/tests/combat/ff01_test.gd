@@ -234,7 +234,7 @@ func _selection_and_movement() -> void:
 	var panel := scene.get_node("ShipPanel")
 	await process_frame
 	_check("FF-01 panel: hull 160, command controls, two NC-90 and four PDC-20 weapon rows",
-		panel.ship == subject and panel._hull.text == "Hull: 160 / 160" and panel._combat.visible
+		panel.ship == subject and panel._hull.visible and panel._hull_amount.text == "Hull: 160 / 160" and panel._combat.visible
 		and panel._weapons.text.count("NC-90 Bastion") == 2 and panel._weapons.text.count("PDC-20 Kestrel") == 4)
 	var destination := Vector3(-18, 0, -40)
 	await _look_at(destination)

@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-30 — Test audit for retiring `combat_adjustments`
+
+Updated `pdc_test`, `rocket_test`, `cannon_test` and `weapon_info_test` to the accepted 75 u raid-sweep Kestrel (with new live raid-sweep checks), and fixed the ship-panel references whose script errors silently skipped checks in `ff01_test` and `combat_scene_test`; HANDOFF now records the branch as merged, the repository as public, and the current known failures.
+
 ## 2026-10-29 — Sector Showcase removed
 
 Removed `sector_showcase.tscn` and its only user, `sector_backdrop.gd`; `sector_environment_test` and `positioning_boundary_test` now run their sector, sky, environment-switch and positioning cases on Combat Test (environment 39/39; positioning keeps its pre-existing Attack-Move leash failure); accepted by the owner.

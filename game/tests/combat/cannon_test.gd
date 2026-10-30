@@ -320,10 +320,13 @@ func _coverage() -> void:
 
 func _live_fire() -> void:
 	print("\n=== G live tracking and firing (Combat.step -> turret -> Projectiles)")
-	# This suite measures Bastion impacts. The installed guided launcher can reach every
-	# test bearing and would otherwise kill its targets during these cannon-only cases.
-	ff01.get_node("Weapons/WayfarerHardpoint").weapon().enabled = false
+	# This suite measures Bastion impacts. The other installed families reach the test
+	# targets (the guided launcher every bearing, the 75 u Kestrels the 40 u targets) and
+	# would otherwise add their rounds and kill the targets during these cannon-only cases.
 	var combat = CombatShip.of(ff01)
+	for weapon in combat.weapons:
+		if weapon.config != NC90:
+			weapon.disable() # Also cancels any pending launches from salvo weapons.
 	var projectiles: Node = scene.projectiles
 	var spawned := {}
 	var record_spawn := func(record: Dictionary) -> void: spawned[record.id] = record.duplicate()

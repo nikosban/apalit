@@ -1,7 +1,8 @@
 extends SceneTree
 ## PDC family: PDC-20 Kestrel configuration, the four Kestrels on FF-01, physical dispersion,
 ## defensive target selection (protection hierarchy, torpedo priority and the 1.5 s missile
-## override, Guard, independent mounts, arcs and range), physical interception, offensive
+## override, Guard, independent mounts, arcs and range), the raid sweep (micro-bursts cycled
+## across threats), physical interception, offensive
 ## damage through the shared armor pipeline, and repeatable interception-throughput
 ## measurements (observations, no pass threshold).
 ## Run: <godot console> --headless --path . --fixed-fps 60 -s res://game/tests/combat/pdc_test.gd
@@ -17,6 +18,7 @@ const OrdnanceConfig := preload("res://game/weapons/ordnance_config.gd")
 const Weapon := preload("res://game/weapons/weapon.gd")
 const Gatling := preload("res://game/weapons/gatling.gd")
 const PDC := preload("res://game/weapons/pdc.gd")
+const PDC_CONFIG := preload("res://game/weapons/pdc_config.gd")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const MOUNTS := ["ForwardPortPDCHardpoint", "ForwardStarboardPDCHardpoint", "AftPortPDCHardpoint", "AftStarboardPDCHardpoint"]
 const MOUNT_ROWS := { # position, neutral yaw (deg), yaw limit (deg)
@@ -57,6 +59,7 @@ func _initialize() -> void:
 	_geometry()
 	_targeting()
 	await _continuous_fire()
+	await _raid_sweep()
 	await _interception()
 	await _live_dispersion()
 	await _throughput()
@@ -84,14 +87,17 @@ func _configuration() -> void:
 		c != null and c.display_name == "PDC-20 Kestrel" and c.family == &"gatling" and c.size == 0)
 	_check("base hull damage 0.2, penetration 1 (explicitly configured), armor damage 0",
 		c.damage == 0.2 and c.has_penetration and c.penetration == 1.0 and c.resolved_penetration() == 1.0 and c.armor_damage == 0.0)
-	_check("interval 0.08 s, 70 u/s tracer, maximum range 25 u (no degradation), dispersion 2.5 deg",
-		c.cooldown == 0.08 and c.projectile_speed == 70.0 and c.projectile_style == &"tracer" and c.weapon_range == 25.0
-		and c.effective() == 25.0 and c.lead_quality(25.0) == 1.0 and c.dispersion_max_deg == 2.5)
-	_check("magazine 40, 400 rounds per mount, reload 3 s",
-		c.magazine_size == 40 and c.ammunition == 400 and c.reload_time == 3.0)
-	_check("starting values from the Gatling family: lifetime 0.45 s, travel factor 1.25, alignment 3 deg, yaw 140 / pitch 120 deg/s, idle reload 0.25 s",
-		c.projectile_lifetime == 0.45 and c.travel_factor == 1.25 and c.alignment_tolerance_deg == 3.0 and c.yaw_speed_deg == 140.0
+	_check("interval 0.0333 s (30 rds/s), 70 u/s tracer, maximum range 75 u (no degradation), dispersion 0.75 deg",
+		c.cooldown == 0.0333 and c.projectile_speed == 70.0 and c.projectile_style == &"tracer" and c.weapon_range == 75.0
+		and c.effective() == 75.0 and c.lead_quality(75.0) == 1.0 and c.dispersion_max_deg == 0.75)
+	_check("magazine 120, 1200 rounds per mount, reload 3 s",
+		c.magazine_size == 120 and c.ammunition == 1200 and c.reload_time == 3.0)
+	_check("lifetime 1.35 s, travel factor 1.25, alignment 3 deg, yaw 140 / pitch 120 deg/s, idle reload 0.25 s",
+		c.projectile_lifetime == 1.35 and c.travel_factor == 1.25 and c.alignment_tolerance_deg == 3.0 and c.yaw_speed_deg == 140.0
 		and c.pitch_speed_deg == 120.0 and c.idle_reload_delay == 0.25)
+	_check("raid sweep: PDC configuration, 4-round micro-bursts, no switch delay, threat list re-read every 0.25 s; committed prediction 0.5 s / 1.5 deg",
+		c.get_script() == PDC_CONFIG and c.rounds_per_target == 4 and c.target_switch_delay == 0.0 and c.raid_refresh_interval == 0.25
+		and c.prediction_update_interval == 0.5 and c.prediction_error_degrees == 1.5)
 	var root_node := KESTREL_SCENE.instantiate()
 	_check("pdc20_kestrel.tscn: PDC-family script (extends the Gatling mount) with the Kestrel configuration and editable geometry",
 		root_node.get_script() == PDC and root_node is Gatling and root_node.config == KESTREL and root_node.base_diameter == 0.36
@@ -110,7 +116,7 @@ static func _angle(a: Vector3, b: Vector3) -> float:
 
 
 func _dispersion() -> void:
-	print("\n=== D dispersion (Weapon.disperse at 2.5 deg)")
+	print("\n=== D dispersion (Weapon.disperse at %.2f deg)" % KESTREL.dispersion_max_deg)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 2027
 	var axis := Vector3(-0.4, 0.1, -1.0).normalized()
@@ -147,10 +153,10 @@ func _dispersion() -> void:
 			seen[d] = true
 	var mean := sum / samples
 	var inner_share := float(inner) / samples
-	print("  %d samples: max %.5f deg, mean %.5f deg (expectation %.5f), share within 1.25 deg %.4f (expectation %.4f), quadrants %s"
+	print("  %d samples: max %.5f deg, mean %.5f deg (expectation %.5f), share within half the maximum %.4f (expectation %.4f), quadrants %s"
 		% [samples, max_angle, mean, mean_expected, inner_share, half_share, str(quadrants)])
-	_check("every direction stays within the 2.5 deg half-angle cone (max %.5f deg) and keeps unit length" % max_angle, max_angle <= limit + ANGLE_EPS and unit_length)
-	_check("uniform over the cone's solid angle: mean %.4f within %.4f +/- 0.03, share within 1.25 deg %.4f within %.4f +/- 0.015" % [mean, mean_expected, inner_share, half_share],
+	_check("every direction stays within the %.2f deg half-angle cone (max %.5f deg) and keeps unit length" % [limit, max_angle], max_angle <= limit + ANGLE_EPS and unit_length)
+	_check("uniform over the cone's solid angle: mean %.4f within %.4f +/- 0.03, share within half the maximum %.4f within %.4f +/- 0.015" % [mean, mean_expected, inner_share, half_share],
 		absf(mean - mean_expected) < 0.03 and absf(inner_share - half_share) < 0.015)
 	_check("azimuth uniform: each quadrant %s within 25%% +/- 1.5%%" % str(quadrants),
 		quadrants.all(func(n: int) -> bool: return absf(float(n) / samples - 0.25) < 0.015))
@@ -299,7 +305,23 @@ func _reset_pdcs(seed_base: int) -> void:
 		w.defense_target = null
 		w.mode = "idle"
 		w.rng.seed = seed_base * 100 + i
+		_fresh_sweep(w)
 		i += 1
+
+
+# Puts the PDC family's own state (raid sweep, committed prediction, their counters) back to
+# a new mount's: every variable pdc.gd declares beyond the Gatling's, read from a fresh,
+# never-stepped instance, so the reset follows the script without naming its fields.
+func _fresh_sweep(weapon: Node) -> void:
+	var fresh: Node = PDC.new()
+	var gatling_script: Script = Gatling
+	var pdc_script: Script = PDC
+	var inherited := gatling_script.get_script_property_list().map(func(p: Dictionary) -> String: return p.name)
+	for p: Dictionary in pdc_script.get_script_property_list():
+		if p.usage & PROPERTY_USAGE_SCRIPT_VARIABLE and not inherited.has(p.name):
+			var value: Variant = fresh.get(p.name)
+			weapon.set(p.name, value.duplicate() if value is Array else value)
+	fresh.free()
 
 
 # --- E: installation and geometry ----------------------------------------------------
@@ -339,8 +361,8 @@ func _installation() -> void:
 	for i in pdcs.size():
 		for j in range(i + 1, pdcs.size()):
 			distinct = distinct and pdcs[i] != pdcs[j] and pdcs[i].rng != pdcs[j].rng
-	_check("each Kestrel is its own instance with its own RNG and a full 40 + 360 round stock", distinct
-		and pdcs.all(func(w: Node) -> bool: return w.magazine == 40 and w.ammo == 360 and w.cooldown_left == 0.0 and w.defense_target == null))
+	_check("each Kestrel is its own instance with its own RNG and a full 120 + 1080 round stock", distinct
+		and pdcs.all(func(w: Node) -> bool: return w.magazine == 120 and w.ammo == 1080 and w.cooldown_left == 0.0 and w.defense_target == null))
 	# Independent state: firing one mount changes only its own magazine, cooldown and RNG.
 	var before := pdcs.map(func(w: Node) -> Array: return [w.magazine, w.ammo, w.cooldown_left, w.rng.state])
 	var target := scene.get_node("Ships/HostileFF01") as Node3D
@@ -348,7 +370,7 @@ func _installation() -> void:
 	pdcs[1]._fire(target)
 	var after := pdcs.map(func(w: Node) -> Array: return [w.magazine, w.ammo, w.cooldown_left, w.rng.state])
 	_check("one shot from the forward-starboard mount changes only its magazine (%d), cooldown (%.2f) and RNG state" % [after[1][0], after[1][2]],
-		after[1][0] == 39 and after[1][2] == KESTREL.cooldown and after[1][3] != before[1][3]
+		after[1][0] == 119 and after[1][2] == KESTREL.cooldown and after[1][3] != before[1][3]
 		and after[0] == before[0] and after[2] == before[2] and after[3] == before[3])
 	_clear_flight()
 	_reset_pdcs(1)
@@ -382,6 +404,8 @@ func _geometry() -> void:
 
 
 # --- T: defensive target selection (PDC._choose_defense, read without stepping) -----
+# Each case asks a mount that has not swept yet (_select resets the sweep), so its pick is
+# the first engageable threat in its defensive order; the sweep itself is section R.
 
 # Ordnance `kind` at ship-frame offset `rel`, flying straight at `target` (or along
 # `heading` when given) so that its predicted impact on `target` is `time` seconds.
@@ -402,6 +426,7 @@ func _select(weapon: Node) -> Node3D:
 	weapon.defense_target = null
 	weapon.defense_category = -1
 	weapon.defense_time = INF
+	_fresh_sweep(weapon)
 	weapon._choose_defense()
 	return weapon.defense_target
 
@@ -529,10 +554,16 @@ func _targeting() -> void:
 		picks[0] == String(port.name) and picks[2] == String(port.name) and picks[1] == "none" and picks[3] == "none"
 		and not _pdc("ForwardStarboardPDCHardpoint").engageable(port))
 	_clear_flight()
-	var far := _threat(&"torpedo", Vector2(30, 0), ff01, 2.5)
+	var far := _threat(&"torpedo", Vector2(KESTREL.weapon_range + 10.0, 0), ff01, 7.0)
 	picks = _pdcs().map(func(w: Node) -> String: return _label(_select(w)))
-	_check("T8 torpedo 30 u out (a threat, %.2f s, beyond the 25 u range): no mount engages %s" % [Gatling.threat_time(far, ff01), str(picks)],
+	_check("T8 torpedo %.0f u out (a threat, %.2f s, beyond the %.0f u range): no mount engages %s" % [KESTREL.weapon_range + 10.0,
+		Gatling.threat_time(far, ff01), KESTREL.weapon_range, str(picks)],
 		Gatling.threat_time(far, ff01) < INF and picks.all(func(p: String) -> bool: return p == "none"))
+	_clear_flight()
+	var near := _threat(&"torpedo", Vector2(KESTREL.weapon_range - 15.0, 0), ff01, 5.0)
+	var near_pick := _select(subject)
+	_check("T8 the same torpedo %.0f u out (inside the range): the aft-starboard mount engages it (%s)" % [KESTREL.weapon_range - 15.0, _label(near_pick)],
+		near_pick == near)
 	_clear_flight()
 	_place(ally_a, site + Vector2(-150, 0) if site.x > 0.0 else site + Vector2(150, 0))
 	_place(ally_b, site + Vector2(-170, 0) if site.x > 0.0 else site + Vector2(170, 0))
@@ -572,11 +603,167 @@ func _continuous_fire() -> void:
 	for i in range(1, frames.size()):
 		gaps[frames[i] - frames[i - 1]] = gaps.get(frames[i] - frames[i - 1], 0) + 1
 	print("  %d rounds, gaps in ticks %s, engaged %d ticks, outcome %s" % [frames.size(), str(gaps), engaged_frames, outcome])
-	# 0.08 s at 60 Hz: the shared cooldown elapses on the 5th tick (0.0833 s).
-	_check("once engaged, the mount fires every cooldown (5 ticks at 60 Hz) until the threat ends: %d rounds, gaps %s, %s" % [frames.size(), str(gaps), outcome],
-		frames.size() >= 2 and gaps.keys() == [5] and outcome == "intercepted")
+	# 0.0333 s at 60 Hz: the shared cooldown elapses on the 2nd tick (0.0333... s). A single
+	# threat keeps being fired at past the 4-round micro-burst, with no gap at the burst edge.
+	_check("once engaged, the mount fires every cooldown (2 ticks at 60 Hz) until the threat ends: %d rounds, gaps %s, %s" % [frames.size(), str(gaps), outcome],
+		frames.size() >= 2 and gaps.keys() == [2] and outcome == "intercepted")
 	_clear_flight()
 	await physics_frame
+
+
+# --- R: raid sweep --------------------------------------------------------------------
+# Live mounts (FF-01 Combat stepped) against torpedoes with a zero interception radius, so
+# no round can destroy them and the firing pattern alone shows the sweep. A torpedo at
+# ship-frame `rel` flies at FF-01 (12 u/s), so nearer ones arrive earlier.
+
+func _untouchable(rel: Vector2) -> Node3D:
+	var config: Resource = _threat_config(&"torpedo", 40.0, 110.0)
+	config.ordnance.radius = 0.0
+	var from := _at(rel)
+	var axis: Vector3 = (ff01.global_position - from) * Vector3(1, 0, 1)
+	return _ordnance(projectiles.launch(hostile, HOSTILE, Transform3D(Basis.looking_at(axis.normalized(), Vector3.UP), from), config, ff01))
+
+
+# Steps FF-01 with only `mounts` enabled for up to `frames` ticks (or until every mount has
+# fired `rounds`); `each_tick` runs after every tick. Returns {mount: [[target, tick], ...]}.
+func _sweep_shots(mounts: Array, frames: int, rounds: int, each_tick := Callable()) -> Dictionary:
+	var shots := {}
+	var tick := {"n": 0}
+	var record := func(w: Node, _id: int, target: Node3D, _o: Transform3D) -> void: shots[w].append([target, tick.n])
+	for w: Node in _pdcs():
+		w.enabled = mounts.has(w)
+	for w: Node in mounts:
+		shots[w] = []
+		w.shot.connect(record)
+	var combat = CombatShip.of(ff01)
+	combat.set_physics_process(true)
+	for i in frames:
+		await physics_frame
+		tick.n += 1
+		if each_tick.is_valid():
+			each_tick.call()
+		if mounts.all(func(w: Node) -> bool: return shots[w].size() >= rounds):
+			break
+	combat.set_physics_process(false)
+	for w: Node in mounts:
+		w.shot.disconnect(record)
+	return shots
+
+
+# Consecutive rounds at the same target as [target, rounds] runs.
+static func _runs(shots: Array) -> Array:
+	var runs := []
+	for s: Array in shots:
+		if not runs.is_empty() and runs[-1][0] == s[0]:
+			runs[-1][1] += 1
+		else:
+			runs.append([s[0], 1])
+	return runs
+
+
+func _run_text(runs: Array) -> String:
+	return " ".join(runs.map(func(r: Array) -> String: return "%s x%d" % [_label(r[0]) if is_instance_valid(r[0]) else "(freed)", r[1]]))
+
+
+func _restore_ff01() -> void:
+	_clear_flight()
+	var combat = CombatShip.of(ff01)
+	combat.health = combat.max_health
+	combat.armor = combat.max_armor
+	for w: Node in _pdcs():
+		w.enabled = true
+
+
+func _raid_sweep() -> void:
+	print("\n=== R raid sweep (live mounts; torpedoes no round can destroy)")
+	var burst: int = KESTREL.rounds_per_target
+	var subject: Node = _pdc("AftStarboardPDCHardpoint")
+
+	# R1: three threats; bursts of four rounds cycled through the mount's own defensive order.
+	_home("R1")
+	await physics_frame
+	_reset_pdcs(21)
+	var near := _untouchable(Vector2(40, 4))
+	var mid := _untouchable(Vector2(46, 16))
+	var far := _untouchable(Vector2(52, 28))
+	var stock: int = subject.rounds_left()
+	var shots: Dictionary = await _sweep_shots([subject], 240, 6 * burst)
+	var fired: Array = shots[subject].slice(0, 6 * burst)
+	var runs := _runs(fired)
+	print("  aft-starboard, first %d rounds: %s; %d switches, %d commitments" % [fired.size(), _run_text(runs), subject.switches, subject.commits])
+	_check("R1 three threats: micro-bursts of exactly %d rounds (%s)" % [burst, _run_text(runs)],
+		fired.size() == 6 * burst and runs.size() == 6 and runs.all(func(r: Array) -> bool: return r[1] == burst))
+	_check("R1 the sweep starts on the most urgent threat and cycles nearest, middle, farthest, then wraps to the nearest again",
+		runs.size() == 6 and runs.map(func(r: Array) -> Node3D: return r[0]) == [near, mid, far, near, mid, far])
+	_check("R1 every threat stays live (no round can destroy it): the sweep moves on without waiting for a hit",
+		[near, mid, far].all(func(t: Node3D) -> bool: return is_instance_valid(t) and t.live))
+	_check("R1 ammunition: one round per shot (%d fired, %d used), all from the magazine" % [subject.shots, stock - subject.rounds_left()],
+		subject.shots == stock - subject.rounds_left() and subject.defense_shots == subject.shots and subject.magazine == KESTREL.magazine_size - subject.shots)
+	_check("R1 a committed prediction is taken on every newly selected threat (%d commitments, %d bursts)" % [subject.commits, runs.size()],
+		subject.commits >= runs.size())
+	_restore_ff01()
+
+	# R2: a threat that dies mid-burst ends the burst; the next threat gets a full burst.
+	_home("R2")
+	await physics_frame
+	_reset_pdcs(22)
+	# The callbacks hold the first threat's id, not the node, which is freed when removed.
+	var first_id: int = _untouchable(Vector2(40, 4)).id
+	var second := _untouchable(Vector2(46, 16))
+	var count := {"first": 0}
+	var on_first := func(_w: Node, _id: int, target: Node3D, _o: Transform3D) -> void:
+		if is_instance_valid(target) and target.id == first_id:
+			count.first += 1
+	subject.shot.connect(on_first)
+	var kill := func() -> void:
+		var node := _ordnance(first_id)
+		if count.first == 2 and node != null and node.live:
+			projectiles._finish_ordnance(node, "cleared", "", node.global_position, "")
+	shots = await _sweep_shots([subject], 240, 2 + 2 * burst, kill)
+	subject.shot.disconnect(on_first)
+	runs = _runs(shots[subject])
+	print("  aft-starboard: %s" % _run_text(runs))
+	_check("R2 a threat removed after 2 rounds of its burst ends that burst; the next threat gets a full %d-round burst (%s)" % [burst, _run_text(runs)],
+		runs.size() >= 2 and runs[0][1] == 2 and runs[1][0] == second and runs[1][1] >= burst)
+	_restore_ff01()
+
+	# R3: a single threat keeps being fired at past the burst, with no pause at the burst edge,
+	# and its committed prediction is renewed every 0.5 s.
+	_home("R3")
+	await physics_frame
+	_reset_pdcs(23)
+	var lone := _untouchable(Vector2(46, 16))
+	shots = await _sweep_shots([subject], 90, 1000)
+	var ticks: Array = shots[subject].map(func(s: Array) -> int: return s[1])
+	var gaps := {}
+	for i in range(1, ticks.size()):
+		gaps[ticks[i] - ticks[i - 1]] = gaps.get(ticks[i] - ticks[i - 1], 0) + 1
+	var span: float = (ticks[-1] - ticks[0]) / 60.0 if ticks.size() > 1 else 0.0
+	print("  aft-starboard: %d rounds over %.2f s, gaps %s, %d switches, %d commitments" % [ticks.size(), span, str(gaps), subject.switches, subject.commits])
+	_check("R3 one threat: every one of %d rounds at it (%d bursts' worth), one selection, gaps %s (no pause at a burst edge)" % [ticks.size(), ticks.size() / burst, str(gaps)],
+		ticks.size() > 3 * burst and shots[subject].all(func(s: Array) -> bool: return s[0] == lone) and subject.switches == 1 and gaps.keys() == [2])
+	_check("R3 the committed prediction is renewed every %.1f s while firing at it (%d commitments over %.2f s)" % [KESTREL.prediction_update_interval, subject.commits, span],
+		subject.commits >= 1 + floori(span / KESTREL.prediction_update_interval))
+	_restore_ff01()
+
+	# R4: two mounts decide independently: both start on the most urgent threat (no
+	# reservation), and each cycles through its own list.
+	_home("R4")
+	await physics_frame
+	_reset_pdcs(24)
+	var fs: Node = _pdc("ForwardStarboardPDCHardpoint")
+	var a := _untouchable(Vector2(40, 0))
+	var b := _untouchable(Vector2(48, -10))
+	shots = await _sweep_shots([fs, subject], 240, 4 * burst)
+	var fs_runs := _runs(shots[fs].slice(0, 4 * burst))
+	var as_runs := _runs(shots[subject].slice(0, 4 * burst))
+	print("  forward-starboard: %s\n  aft-starboard: %s" % [_run_text(fs_runs), _run_text(as_runs)])
+	var alternating := func(r: Array) -> bool: return r.size() == 4 and r.map(func(x: Array) -> Node3D: return x[0]) == [a, b, a, b] \
+		and r.all(func(x: Array) -> bool: return x[1] == burst)
+	_check("R4 two mounts, two threats: both start on the more urgent one and each alternates its own %d-round bursts" % burst,
+		alternating.call(fs_runs) and alternating.call(as_runs))
+	_restore_ff01()
+	_reset_pdcs(1)
 
 
 # --- I: physical interception ---------------------------------------------------------
@@ -644,10 +831,15 @@ func _interception() -> void:
 	# A miss: a round passing 1.5 u beside a torpedo (interception radius 0.4 u).
 	t_id = projectiles.launch(hostile, HOSTILE, Transform3D(Basis.looking_at(Vector3.LEFT), _at(Vector2(14, 0))), TORPEDO, ff01)
 	r_id = _round(_at(Vector2(3, 1.5)), Vector3.RIGHT)
-	await _frames(30)
+	await _frames(12)
 	var t_node := _ordnance(t_id)
-	_check("a missed round does not destroy the threat: torpedo %s, round %s" % ["live" if t_node != null and t_node.live else "gone", _round_record(r_id).get("outcome", "live")],
-		t_node != null and t_node.live and _round_record(r_id).get("outcome", "") == "expired")
+	var passed_alive: bool = t_node != null and t_node.live
+	# The rest of the round's 1.35 s lifetime (the torpedo flies on and may reach FF-01 meanwhile).
+	await _frames(roundi(KESTREL.projectile_lifetime * 60.0) - 12 + 3)
+	_check("a missed round does not destroy the threat: torpedo %s after the pass, round %s" % ["live" if passed_alive else "gone", _round_record(r_id).get("outcome", "live")],
+		passed_alive and _ordnance_record(t_id).get("outcome", "") != "intercepted" and _round_record(r_id).get("outcome", "") == "expired")
+	CombatShip.of(ff01).health = CombatShip.of(ff01).max_health
+	CombatShip.of(ff01).armor = CombatShip.of(ff01).max_armor
 	_clear_flight()
 	# Cannon shells are not interceptable: not selected as threats, and a round passes through.
 	var combat = CombatShip.of(ff01)
@@ -760,8 +952,8 @@ func _live_dispersion() -> void:
 	var own_hits: Array = projectiles.records.filter(func(r: Dictionary) -> bool: return spawned.has(r.id) and r.ship == "FF01")
 	_check("%d defensive shots, each exactly one physical projectile (%d spawned) at its muzzle with the Kestrel values" % [shots.size(), spawned.size()],
 		one_each and values_ok and shots.size() >= 6)
-	_check("live projectile velocity deviates from the barrel by at most 2.5 deg (max %.4f deg, %d distinct deviations)" % [max_dev, deviations.size()],
-		max_dev <= 2.5 + ANGLE_EPS and max_dev > 0.1 and deviations.size() > shots.size() / 2)
+	_check("live projectile velocity deviates from the barrel by at most %.2f deg (max %.4f deg, %d distinct deviations)" % [KESTREL.dispersion_max_deg, max_dev, deviations.size()],
+		max_dev <= KESTREL.dispersion_max_deg + ANGLE_EPS and max_dev > 0.1 and deviations.size() > shots.size() / 2)
 	_check("muzzle clearance during firing: no Kestrel round hit FF-01's own hull (%d)" % own_hits.size(), own_hits.is_empty())
 	CombatShip.of(ff01).health = CombatShip.of(ff01).max_health
 	CombatShip.of(ff01).armor = CombatShip.of(ff01).max_armor
@@ -894,7 +1086,7 @@ func _run_launches(seed: int, launches: Array) -> Dictionary:
 static func _miss_causes(id: int, outcome: String, d: Dictionary, rounds: int) -> String:
 	var causes: Array[String] = []
 	if d.in_range == 0:
-		causes.append("range (never within 25 u of a mount)")
+		causes.append("range (never within %.0f u of a mount)" % KESTREL.weapon_range)
 	for key: String in ["arc", "blocked", "busy", "reloading", "empty", "tracking"]:
 		if d[key] > 0:
 			var label: String = {"arc": "firing arc", "blocked": "no solution / obstructed", "busy": "mount on another threat",
@@ -1104,8 +1296,8 @@ func _offense() -> void:
 	var reload_gap: int = gaps.max() if not gaps.is_empty() else 0
 	var before_reload := gaps.find(reload_gap) + 1
 	print("  forward-starboard: %d rounds in 8 s, %d before the first reload, longest gap %d ticks" % [shot_ticks.size(), before_reload, reload_gap])
-	_check("magazine and reload apply to offense: 40 rounds, then a 3 s reload (gap %.2f s), then fire resumes (%d rounds in 8 s)" % [reload_gap / 60.0, shot_ticks.size()],
-		before_reload == 40 and reload_gap >= 180 and reload_gap <= 186 and shot_ticks.size() > 40)
+	_check("magazine and reload apply to offense: 120 rounds, then a 3 s reload (gap %.2f s), then fire resumes (%d rounds in 8 s)" % [reload_gap / 60.0, shot_ticks.size()],
+		before_reload == 120 and reload_gap >= 180 and reload_gap <= 186 and shot_ticks.size() > 120)
 	# Armor condition zero: the full 0.2.
 	target.armor = 0.0
 	var count := events.size()

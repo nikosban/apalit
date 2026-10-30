@@ -227,10 +227,10 @@ func _s5_controls() -> void:
 	var panel: Node = scene.get_node("ShipPanel")
 	scene.selection().set_selection([ff01_ship])
 	await process_frame
-	var row := [panel._hull.text, panel._combat.visible]
+	var row := [panel._hull.visible, panel._hull_amount.text, panel._combat.visible]
 	print("  panel: %s" % str(row))
 	_check("armed ship panel: hull and Combat",
-		row == ["Hull: 160 / 160", true])
+		row == [true, "Hull: 160 / 160", true])
 	scene.selection().set_selection([ff01_ship])
 	await process_frame
 	panel._tactic.item_selected.emit(panel._tactic.get_item_index(CombatShip.Stance.AGGRESSIVE))
@@ -245,7 +245,7 @@ func _s5_unarmed_panel() -> void:
 	await process_frame
 	var panel: Node = scene.get_node("ShipPanel")
 	_check("unarmed Miner1 panel: hull 150, no Combat section",
-		panel._hull.text == "Hull: 150 / 150" and not panel._combat.visible)
+		panel._hull.visible and panel._hull_amount.text == "Hull: 150 / 150" and not panel._combat.visible)
 
 
 # Sets up the economy on main.tscn: mining, a refinery slot, a ship under construction,

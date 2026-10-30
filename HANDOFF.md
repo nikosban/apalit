@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-Last updated: 2026-10-29. Current state only. Development history is in `CHANGELOG.md` and Git; earlier versions of this file
+Last updated: 2026-10-30. Current state only. Development history is in `CHANGELOG.md` and Git; earlier versions of this file
 (per-task verification logs, measurements, prototype records) are in Git history.
 
 ## 1. Status
@@ -17,7 +17,8 @@ environment rendering (sky, lighting, fog, god rays); a themed inspector UI and 
 thruster VFX. No component manufacturing, station construction, save system or
 strategic AI.
 
-FF-01 combat adjustments (branch `combat_adjustments`, not merged into `main`): the
+FF-01 combat adjustments (developed on `combat_adjustments`, merged into `main` on
+2026-10-27 in `13537ed`): the
 FF-01 frigate in an expanded Combat Test arena, then Stage 1 global armor and damage
 resolution (`f152f8b`), Stage 2 Cannon family / NC-90 Bastion (`586ac21`), Stage 3 PDC
 family / PDC-20 Kestrel (`94a7a37`), Stage 4 Rocket family / RL-8 Barrage
@@ -71,9 +72,12 @@ the legacy ship cleanup, is accepted by the owner. PDC raid sweep (2026-10-28, s
 - `archive/`: local only, ignored by Git (section 9).
 - `AGENTS.md`, `CHANGELOG.md`, `HANDOFF.md`, `.editorconfig`, `.gitattributes`
   (text stored with LF), `.gitignore` (`.godot/`, `/android/`, `/archive/`).
-- Git: branch `main`, remote `origin` = `git@github.com:nikosban/apalit.git`
-  (private). No commit or push conventions are decided beyond the initial setup.
-  Current work: `combat_adjustments` (pushed, not merged into `main`).
+- Git: branch `main` (all current work), remote `origin` = `git@github.com:nikosban/apalit.git`
+  (public on GitHub, checked 2026-10-30; whether it stays public is an open owner
+  decision, section 10). No commit or push conventions are decided beyond the initial setup.
+  `combat_adjustments` (local and remote, `9edd0fb`) has no commits outside `main`; its
+  deletion awaits owner approval. `stash@{0}` (Combat Test ±150 test edits made on that
+  branch, superseded by `e9dfb5b`) is kept by owner decision.
 
 Terminology (owner-agreed): shared, self-contained pieces such as the camera rig are
 "reusable scenes" (own `.tscn`, instanced into other scenes).
@@ -1063,10 +1067,10 @@ distribution, logistics balance, models and UI polish.
   as "Order not accepted". Verified only by a temporary reproduction (refused and valid
   replacement, moved aside, held during docking); no suites were run. Out of scope:
   `hostile_fleet`'s candidate loop now sees real refusals, unverified.
-- Weapon-profile removal (2026-10-27) test limits: `command_test`, `e05_behavior_test`,
-  `positioning_boundary_test`, `ff01_test` and `combat_scene_test` were not run as whole
-  suites; their Behavior ships now use FF-01 positioning, so movement measurements may
-  differ. The checks that depended on the deleted engagement path now verify state:
+- Weapon-profile removal (2026-10-27) test limits: their Behavior ships now use FF-01
+  positioning. Whole-suite runs (2026-10-30): `e05_behavior_test`, `ff01_test` and
+  `combat_scene_test` pass; `command_test` and `positioning_boundary_test` fail (section 8
+  known failures). The checks that depended on the deleted engagement path now verify state:
   C11 (engaged target is only the manual target), E05 V1 (every accepted combat
   objective was for a hostile in contact), V8 (no request after contact loss; the
   deleted path's "pursuit stopped" stop is gone) and `_case_engagement` (objective
@@ -1173,35 +1177,26 @@ distribution, logistics balance, models and UI polish.
   10 guard, `station_docking_test` deliberate `cancel()`, tri-dock navigation edge
   warnings. Verification scope follows `AGENTS.md` steps C and D. No runner script is
   kept.
-- Combat Test test cleanup (2026-10-27, `e9dfb5b`): `ff01_test` 45, `combat_scene_test`
-  25 and `positioning_boundary_test` 76 checks pass. 18 scene-dependent assertions were
-  removed (`ff01_test` `_preserved_arena()` and its spawn-clearance check;
-  `positioning_boundary_test` `_case_combat_arena()`); these suites set their own
-  ship positions (`combat_scene_test`: FF-01s at ±45 facing each other; `ff01_test`:
-  `FF01` at (−45, 0)) and do not depend on the authored spawns. Combat Test isolation (2026-10-27): `armor_test`
-  stages its own ships (`FF01` (−260, −260), `HostileFF01` (260, −260)) and passes 52/52; `rocket_test` and
-  `guided_missile_test` each drop one scene-content assertion (roster, 36 asteroids, ±380), parse-checked only, not
-  run. Other suites that load `combat_test.tscn` were not re-run after the ±150 repositioning.
-- Legacy cleanup verification (2026-10-27, focused: only suites whose fixtures or
-  dependencies changed, plus a resource-reference check with no missing references):
-  FF-01 weapon suites `ff01_test` 52, `armor_test` 52, `cannon_test` 45, `pdc_test` 63,
-  `rocket_test` 71 (now 70 checks), `guided_missile_test` 69 (now 68), `launch_profiles_test` 48,
-  `barrage_trajectory_test` 148, `positioning_boundary_test` 86, `combat_scene_test`
-  25, `time_test` 37, `e05_behavior_test` 10, `shipyard_runtime_test` 25 and
-  `thruster_view_test` 22 checks pass; `fleet_test` 41/42 and `combat_positioning_test`
-  40/41 (known failures below). Retired-ship-only tests were deleted (`behavior_test`,
-  `hull_test`, `salvo_test`, `weapons_test`). The older figures in this section
-  predate the cleanup. Earlier final launch-profile regression:
-  24/25 combat suites pass, with only the same pre-existing `fleet_test` hostile-focus
-  failure and no new diagnostics; the 600-frame Combat Test smoke run passes.
-  Five seeded muzzle-distance salvos per broadside: 39/40 hits at 25 u, 27/40 at
-  45 u, 20/40 at 55 u, 17/40 at 60 u. Acquisition-boundary, continuation, physical
-  interception, lifetime, motion and maneuver-evasion controls pass; sampled Wayfarer
-  flight traces are identical to baseline. Rendered inspection and final profiles
-  are accepted by the owner. PDC offense fixtures isolate other weapon families.
-  Logs/measurements: `archive/barrage_travel70_verification_2026-10-26/` (local only).
-- `combat/positioning_boundary_test.gd`: 76/76 checks pass (Combat Test case removed in
-  the test cleanup), covering configured sector
+- Full regression (2026-10-30, Godot 4.7.2, `--fixed-fps 60`; all 62 suites and the four
+  600-frame scene runs once, the changed suites twice): every scene run loads without
+  errors; no suite logs a script error; the only failures are the known ones below.
+  Suites changed on 2026-10-30: `pdc_test` 74, `rocket_test` 70, `cannon_test` 45,
+  `ff01_test` 45, `combat_scene_test` 25 checks pass; `weapon_info_test` 13 (W1
+  intermittent, below); `guided_missile_test` 68 needed no change. `pdc_test` section R
+  checks the raid sweep on live mounts against torpedoes no round can destroy (4-round
+  bursts cycled through the defensive order and wrapping, a removed threat ending its
+  burst, a single threat fired at continuously, independent mounts, one round per shot,
+  commitments). Selection cases in `pdc_test` / `rocket_test` reset each mount's PDC state
+  (`_fresh_sweep()`, copied from a fresh `pdc.gd` instance), so each pick is a fresh
+  mount's. Bastion and PDC offense fixtures disable the other weapon families.
+- Harnesses count only `_check()` results: a script error silently skips the rest of a
+  case and the suite can still print PASS, so a run is valid only if its log also has
+  no `SCRIPT ERROR`.
+- Barrage measurement (2026-10-26, owner-accepted): five seeded muzzle-distance salvos
+  per broadside, 39/40 hits at 25 u, 27/40 at 45 u, 20/40 at 55 u, 17/40 at 60 u.
+  Logs: `archive/barrage_travel70_verification_2026-10-26/` (local only).
+- `combat/positioning_boundary_test.gd`: 66/67 (Attack-Move leash, known failures
+  below), covering configured sector
   sizes, the follower's navigation reference, footprint and clearance margins, Guard,
   engagement, Defensive positioning and group waypoints. I01 verification compared
   28 existing suites and four scene smoke runs against two pre-change baselines:
@@ -1215,11 +1210,25 @@ distribution, logistics balance, models and UI polish.
   and routed; `trace` prints 60 Hz traces). Final Stage 6B regression: only the three
   known failures below; `obstruction_test` check 4's crossing scenario is shifted
   inward (`_start_inside()`) so every ship starts inside the sector.
-- Known open failures: `navigation_test` 1 (FF-01, formerly Destroyer, redirect aim
-  line), `obstruction_test` 10/12 (the two cause B overshoot checks), `fleet_test`
-  hostile focus (1 hostile shot off the controller's focus; present since the
-  2026-10-24 Destroyer hull redesign, unchanged by the cleanup) and
-  `combat_positioning_test` detour (section 7).
+- Known open failures (2026-10-30; none caused by the test corrections of that date):
+  - `navigation_test` 1 (FF-01, formerly Destroyer, redirect aim line).
+  - `obstruction_test` 10/12 (the two cause B overshoot checks).
+  - `fleet_test` hostile focus (hostile shots off the controller's focus; present since
+    the 2026-10-24 Destroyer hull redesign).
+  - `combat_positioning_test` 39/40 detour (section 7).
+  - `command_test` 21/23: "Aggressive: an enemy 78 u off the route causes no detour" and
+    "Move keeps an independent target; … re-targeting ends the Attack and stays"; both
+    also fail before the PDC raid sweep (`b17c227`); origin not investigated.
+  - `positioning_boundary_test` 66/67: Attack-Move leash ("newly valid stations outside
+    the Attack-Move leash do not replace destination travel"; CHANGELOG 2026-10-29).
+  - Intermittent since the PDC raid sweep (75 u Kestrels fire far more in the E05
+    battles; verified against `b17c227`): `fleet_test` "node count does not grow across
+    resets" (snapshots include 109–158 Kestrel rounds in flight, spread 85–168 against a
+    120 limit, failed 3 of 5 runs; before: 26 in flight, spread 0–1; orphans stay 0) and
+    `weapon_info_test` W1 (1 of about 164,000 weapon-ticks in 1 of 4 runs: a Kestrel's
+    "Tracking (38.1° off)" from assess() against "38.2° off" from the authorization, the
+    angle measured from the muzzle before and after the turret turn and rounded). Test
+    and production unchanged; fixing either needs an owner decision.
 - Headless input injection: `push_input(event, true)` (local coordinates); in a `-s`
   script add scenes after the first `process_frame`. `mining_test`, `survey_test` and
   `docking_test` step physics manually and switch off `Fuel`.
@@ -1248,14 +1257,12 @@ distribution, logistics balance, models and UI polish.
 
 ## 10. Next task and open items
 
-Next task: update `pdc_test`, `rocket_test`, `guided_missile_test` and `ff01_test`, which
-still assert the former 25 u Kestrel and first-engageable PDC selection (not run since the
-accepted PDC raid sweep, 2026-10-28; its focused verification: Combat Test load, all eight
-FF-01 Kestrel mounts wired, anti-ship offense on the per-tick solution,
-`saturation_eval.gd -- combined` with no script errors, expiring misses and unchanged
-experimental variants). Then: a read-only architecture inventory (brief from the owner;
-nothing is changed in it). Stage 6B, the two-FF-01 Combat Test and the legacy ship cleanup are
-accepted on `combat_adjustments`; the branch remains separate from `main`. New work follows `AGENTS.md`.
+Next task: owner approval to delete `combat_adjustments` (local and remote); then a
+read-only architecture inventory (brief from the owner; nothing is changed in it). New work
+follows `AGENTS.md`.
+
+Open follow-ups (not started): the two intermittent PDC-exposed test failures and the
+`command_test` failures (section 8 known failures); cleanup of `stash@{0}`.
 
 Open owner decisions:
 
@@ -1263,6 +1270,7 @@ Open owner decisions:
 - Renaming the experiment-era exports (`environment_experiment`, `lighting_experiment_d`,
   `strategic_experiment_e`).
 - Commit and push conventions.
+- Whether the GitHub repository stays public (it is public; checked 2026-10-30).
 
 Open, not investigated: the rendering frame spikes and the Group MOVE avoidance cases
 (section 7).

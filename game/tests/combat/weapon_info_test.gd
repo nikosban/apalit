@@ -138,8 +138,15 @@ func _case_reasons() -> void:
 	for w in [cannon, gatling, rocket, missile]:
 		r[w.config.family] = w.assess(target)
 	print("  ahead 50 u: " + str(r))
-	_check("50 u ahead: cannon, rockets and missiles can engage; point defense is out of range (25 u)",
-		r[&"cannon"].capable and r[&"rocket"].capable and r[&"missile"].capable and not r[&"gatling"].capable and r[&"gatling"].reason.begins_with("Out of range"))
+	_check("50 u ahead: cannon, point defense (75 u), rockets and missiles can engage",
+		r[&"cannon"].capable and r[&"gatling"].capable and r[&"rocket"].capable and r[&"missile"].capable)
+	_place("HostileFF01B", open + Vector2(85, 0), WEST) # beyond the cannon's and the PDC's 75 u
+	await physics_frame
+	var beyond := {"cannon": cannon.assess(target), "gatling": gatling.assess(target), "missile": missile.assess(target)}
+	print("  ahead 85 u: " + str(beyond))
+	_check("85 u ahead: cannon and point defense out of range (75 u), missiles (90 u) still capable",
+		not beyond.cannon.capable and beyond.cannon.reason.begins_with("Out of range") and not beyond.gatling.capable
+		and beyond.gatling.reason.begins_with("Out of range") and beyond.missile.capable)
 	_place("HostileFF01B", open + Vector2(-30, 0), WEST) # astern
 	await physics_frame
 	var astern := {"cannon": cannon.assess(target), "rocket": rocket.assess(target), "missile": missile.assess(target)}
@@ -185,17 +192,23 @@ func _case_reasons() -> void:
 		var reason: String = w.reason
 		if expect.reason.begins_with("Reloading") and reason.begins_with("Reloading"):
 			continue
-		# Out of range reports the live muzzle distance, which moves with a turning turret.
-		if expect.state == w.state and expect.reason.begins_with("Out of range") and reason.begins_with("Out of range"):
-			continue
+		# Out of range reports the live muzzle distance and Tracking the live angle off the
+		# solution; both move with a turning turret.
+		for live: String in ["Out of range", "Tracking ("]:
+			if expect.state == w.state and expect.reason.begins_with(live) and reason.begins_with(live):
+				reason = expect.reason
 		if expect.state != w.state or (expect.reason != reason and not (expect.reason == "Ready" and reason == "Firing")):
 			same = false
 			print("  differs: %s assess '%s' / authorization '%s'" % [w.name, expect.reason, reason])
 	_check("assigned for real, the next tick's authorization gives the reasons the readout showed", same)
 	var text := CombatHud.inspect_text([scene.ship("FF01A")], target)
 	print(text.indent("  "))
+	var lines_ok := true
+	for w in CombatShip.of(scene.ship("FF01A")).weapons:
+		var now: Dictionary = w.assess(target)
+		lines_ok = lines_ok and text.contains("%s %s: %s" % ["+" if now.capable else "-", w.config.display_name, now.reason])
 	_check("the HUD readout lists the distance and every weapon with its assess() reason",
-		text.contains("FF-01") and text.contains("50.0 u") and text.contains("- NC-90 Bastion: Out of ammunition") and text.contains("- PDC-20 Kestrel: Out of range"))
+		text.contains("FF-01") and text.contains("50.0 u") and text.contains("- NC-90 Bastion: Out of ammunition") and text.contains("+ PDC-20 Kestrel: ") and lines_ok)
 
 
 ## W3: envelopes only on request; Alt does not change orders or target-selection clicks.
