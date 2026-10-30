@@ -123,6 +123,8 @@ the lab era) and the layout contract in section 3.
   `combat_positioning_demo.tscn`, `turret_pitch_range.tscn`, test-only scripts. The
   combat lab and the E01–E04 / P01–P03 scenarios were removed with the legacy ships.
 - `game/presentation/thrusters/thruster_fx_preview.tscn`: thruster authoring scene.
+- `game/presentation/movement_indicator/movement_indicator_preview.tscn`: movement
+  indicator authoring scene (section 4.7).
 
 ## 3. Architecture
 
@@ -225,7 +227,7 @@ The scenes and scripts work only under this layout:
 ### Runtime ship registration
 
 A ship added under `Ships` at run time must be registered: `ShipSelection.register_ship()`
-(pick boxes, ring) and `movement_lab.register_ship()` (notices, destination marker,
+(pick boxes, ring) and `movement_lab.register_ship()` (notices, movement indicator,
 command layer, Selection, Combat `destroyed` / `removing`); both idempotent. The
 Shipyard sets the transform before `add_child()` (Locomotion reads it in `_ready()`)
 and emits `ship_deployed`, which `movement_lab.gd` handles in the same call. An
@@ -713,22 +715,34 @@ Combat behaviour is frozen as accepted (section 6).
   ObjectMarkers ship icons fade with 1 − emphasis. Picking: an interactive ship marker
   (emphasis ≥ `interactive_emphasis` 0.5; nearest centre, ties by Ships order), else
   the hull; stations and asteroids keep model picks.
-- Destination presentation (issue #2): trajectory lines (also held MOVE) and the
-  request connector stop `destination_gap_world` (export on `movement_lab.gd`, 0.25 u,
-  the single authority) beyond the marker's outer edge: Local/Tactical 0.75 u torus
-  (read from its mesh), so 1.00 u from the centre; Strategic `clip_route()` converts the
-  4 px ring (+ half line width) to world units with the current camera, then adds the
-  same world gap (never a pixel minimum). Lines that do not clear it are omitted;
-  destinations unchanged. Colours (provisional): line `0.33` grey
-  (`DESTINATION_LINE_COLOR`); marker and connector `0.65` grey in the shared
-  `presentation/destination_marker_material.tres` (Combat Test, Movement Test,
-  encounter arena); Strategic `ROUTE_COLOR` `0.65` grey.
+- Movement indicator (issue #3; `presentation/movement_indicator/`): one
+  `movement_indicator.tscn` (`MovementIndicator`, CanvasLayer 0, mouse ignored, in
+  `ALWAYS_NODES`) per gameplay scene (Test Arena, Combat Test, Movement Test, encounter
+  arena) is the only drawing of selected ships' movement orders. Display only:
+  `movement_lab._process()` passes `set_entries()` per selected ship {ship, from,
+  destination (held MOVE point, WAITING request or Locomotion destination), requested
+  (connector), route (Strategic `order_lines()` route while the handoff runs)} and
+  the handoff `progress` as `route_blend` (straight line cross-faded into the route, one
+  symbol). Line, detached arc (facing the incoming line) and circle lie on the ground
+  plane, projected through the current camera (perspective ellipse, round top-down);
+  sizes are fixed physical screen px (`get_screen_transform()` scale), the symbol's
+  width across the screen at the destination; drawn over the 3D view and under the
+  ship markers and panels. Lines and connector stop `destination_gap_world` (export on
+  `movement_lab.gd`, 0.25 u) beyond the whole symbol; a line that does not clear it is
+  omitted, the symbol stays. Shared look, edited once for every scene:
+  `movement_indicator_style.tres` (`color` #838A91, line 2 px, circle 28 px, stroke 2
+  px, arc 28 px, offset 8 px, sweep 90°; provisional, owner to tune). F6 preview: the
+  production renderer and camera rig with editable sample orders (Ships, Destination,
+  Requested, Via markers); keys 1–4 zoom 5 / 40 / 150 / Strategic scale; in the editor
+  the rig camera keeps its authored zoom 15 pose. `layout()` / `entries()` are the
+  query API used by tests.
 - Strategic View (`strategic_view.gd`): one more outward notch at the rig's maximum
   hands over (0.45 s) to a fixed top-down camera framing the sector on render layer
   20; an inward notch returns to the exact saved pose. Layer 20: simplified lit
   asteroid spheres (the sun is also put on layer 20), overlay (contours, shadow bands,
   dust; experiment E adds formation density and haze), FogView's material. Screen
-  space: selected routes, cluster and per-family resource markers with radial
+  space: selected waypoint and Attack-Move lines (routes are the movement indicator's),
+  cluster and per-family resource markers with radial
   expansion (groups ≤ 6), refused-command boundary. Picking: markers only; no input
   completes during a handoff.
 - `tactical_grid.gd`: withdrawn; created only with `tactical_grid_available` (kept
@@ -1131,6 +1145,12 @@ distribution, logistics balance, models and UI polish.
   plane); at most 64 circle and 8 box shadows (nearest the ship kept); box shadows not
   seen (no stations in Combat Test); obstacles added after start are not cut
   (PlanarCollision reads them once); no automated tests (owner decision).
+- Movement indicator: strokes are constant px (not foreshortened); the arc follows the
+  world direction of the incoming line, so it can appear on any screen side; at zoom 5
+  the 40° pitch flattens the circle to about 0.64 of its width; the editor preview
+  shows only the rig's authored zoom 15 pose; editor-time redraw on a style change and
+  live rendered gameplay were not verified by tests; several selected ships are not
+  covered by an automated check.
 - Thrusters: a teleported ship (`place()`) can flash its jets for a tick; particles
   pause with the game but do not follow time dilation.
 - UI: at 1280 × 720 long names clip in editor rows and the Ingots list scrolls; a wide
@@ -1171,8 +1191,8 @@ distribution, logistics balance, models and UI polish.
   `C:\Users\Nikos\Downloads\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe`
   (4.7.2.stable). Git 2.55.0 and GitHub CLI 2.102.0 installed; `gh` logged in as
   `nikosban`, pushes use SSH.
-- Suites: 39 in `game/tests/`, 22 in `game/tests/combat/`, `game/tests/docking/tri_dock_test.gd`
-  (62 total). Run: `<godot console> --headless --path . -s res://game/tests/<name>.gd`.
+- Suites: 40 in `game/tests/`, 22 in `game/tests/combat/`, `game/tests/docking/tri_dock_test.gd`
+  (63 total). Run: `<godot console> --headless --path . -s res://game/tests/<name>.gd`.
 - `--fixed-fps 60` is required for every combat suite and for `shipyard_runtime_test`,
   `reuse_test` (uninterrupted loop as fast as possible), `camera_test`,
   `tactical_view_test`, `strategic_view_test` (fails its boundary-fade check without
@@ -1188,6 +1208,15 @@ distribution, logistics balance, models and UI polish.
   10 guard, `station_docking_test` deliberate `cancel()`, tri-dock navigation edge
   warnings. Verification scope follows `AGENTS.md` steps C and D. No runner script is
   kept.
+- Movement indicator (2026-10-30, `--fixed-fps 60`): the 12 affected suites, the new
+  `movement_indicator_test` (33 checks) and five 600-frame scene runs (the four above
+  plus `movement_test.tscn`) compared against two pre-change baselines: all pass, no
+  script errors, differences only object IDs, seeds and reworded checks.
+  `movement_indicator_test` runs Combat Test in a bare 1920 × 1080 SubViewport (one
+  canvas unit = one screen px) and logs one expected Godot warning (SubViewport outside
+  a container). The headless window is 64 × 64 (screen scale 0.033), so in other
+  headless suites the px-sized symbol is about 30 u across and lines are usually
+  omitted; `selection_test` checks the omission rule instead of a drawn line.
 - Full regression (2026-10-30, Godot 4.7.2, `--fixed-fps 60`; all 62 suites and the four
   600-frame scene runs once, the changed suites twice): every scene run loads without
   errors; no suite logs a script error; the only failures are the known ones below.
@@ -1237,9 +1266,9 @@ distribution, logistics balance, models and UI polish.
 	resets" (snapshots include 109–158 Kestrel rounds in flight, spread 85–168 against a
 	120 limit, failed 3 of 5 runs; before: 26 in flight, spread 0–1; orphans stay 0) and
 	`weapon_info_test` W1 (1 of about 164,000 weapon-ticks in 1 of 4 runs: a Kestrel's
-    "Tracking (38.1° off)" from assess() against "38.2° off" from the authorization, the
-    angle measured from the muzzle before and after the turret turn and rounded). Test
-    and production unchanged; fixing either needs an owner decision.
+	"Tracking (38.1° off)" from assess() against "38.2° off" from the authorization, the
+	angle measured from the muzzle before and after the turret turn and rounded). Test
+	and production unchanged; fixing either needs an owner decision.
 - Headless input injection: `push_input(event, true)` (local coordinates); in a `-s`
   script add scenes after the first `process_frame`. `mining_test`, `survey_test` and
   `docking_test` step physics manually and switch off `Fuel`.
@@ -1292,8 +1321,8 @@ Open follow-ups (not started): the two intermittent PDC-exposed test failures an
 Open owner decisions:
 
 - Permanent sector size and fuel balance (`local_fuel_scale` 0.1 is a prototype value).
-- Final destination gap (0.25 u) and neutral line/marker greys (section 4.7; provisional,
-  accepted for now on 2026-10-30).
+- Final movement indicator tuning: `movement_indicator_style.tres` values and the 0.25 u
+  destination gap (section 4.7; provisional defaults).
 - Renaming the experiment-era exports (`environment_experiment`, `lighting_experiment_d`,
   `strategic_experiment_e`).
 - Commit and push conventions.

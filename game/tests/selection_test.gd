@@ -219,13 +219,19 @@ func _test_orders() -> void:
 	_steps(60)
 	_check("deselected ship keeps its order and moves", miner.has_destination and miner.planar_position.distance_to(before) > 1.0)
 	_lab._process(0.0)
-	_check("no marker for an unselected ship", not _marker("Miner").visible)
+	_check("no marker for an unselected ship", _marker("Miner") == null)
 	_click(_screen("Miner"))
 	_lab._process(0.0)
-	var marker := _marker("Miner")
-	_check("reselecting shows its current order (marker at the destination)", marker.visible
-		and Vector2(marker.global_position.x, marker.global_position.z).distance_to(first) < 0.05)
-	_check("destination line drawn", (_lab.get_node("DestinationLines").mesh as ImmediateMesh).get_surface_count() == 1)
+	var marker: Variant = _marker("Miner")
+	_check("reselecting shows its current order (marker at the destination)", marker != null
+		and (marker as Vector2).distance_to(first) < 0.05)
+	var drawn: Array = _lab.get_node("MovementIndicator").layout().filter(func(item: Dictionary) -> bool: return item.entry.ship == _ship("Miner"))
+	# Headless the window is 64 x 64, so the px-sized symbol is large in the world: the line
+	# is drawn exactly when the ship is beyond the symbol and gap (movement_indicator_test
+	# checks it on a 1080p screen).
+	var beyond: bool = not drawn.is_empty() and Vector2(_ship("Miner").global_position.x, _ship("Miner").global_position.z).distance_to(first) > drawn[0].clearance
+	_check("destination line drawn when the ship is beyond the symbol and gap (beyond: %s)" % beyond,
+		drawn.size() == 1 and drawn[0].lines.size() == 1 and (drawn[0].lines[0].points.size() > 1) == beyond)
 	# Redirect while moving: momentum kept, order replaced at once.
 	var second := Vector2(80, -30)
 	var velocity: Vector2 = miner.velocity
@@ -242,7 +248,7 @@ func _test_orders() -> void:
 	_check("deselected ship completes its order (arrived)", miner.arrived and miner.planar_position.distance_to(second) < 0.05)
 	_click(_screen("Miner"))
 	_lab._process(0.0)
-	_check("no marker after completion", not _marker("Miner").visible)
+	_check("no marker after completion", _marker("Miner") == null)
 	_layout()
 
 
@@ -395,5 +401,9 @@ func _ground_screen(point: Vector2) -> Vector2:
 	return _camera.unproject_position(Vector3(point.x, 0.0, point.y))
 
 
-func _marker(ship_name: String) -> Node3D:
-	return _lab._markers[_ship(ship_name)][0]
+# The destination the movement indicator shows for a ship, or null.
+func _marker(ship_name: String) -> Variant:
+	for entry: Dictionary in _lab.get_node("MovementIndicator").entries():
+		if entry.ship == _ship(ship_name):
+			return entry.destination
+	return null

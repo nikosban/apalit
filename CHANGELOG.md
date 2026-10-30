@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-30 — Reusable movement indicator
+
+One shared `MovementIndicator` scene and style resource (`game/presentation/movement_indicator/`, with an F6 preview) now draws every selected ship's movement order as a ground-plane line, detached arc and circle of fixed physical pixel size, replacing the 3D destination lines and markers, the yellow Tactical order line and the Strategic route drawing in all four gameplay scenes (issue #3). No gameplay change.
+
 ## 2026-10-30 — Trajectory lines separated from destination markers
 
 Trajectory lines, held-MOVE lines, the request connector and Strategic routes now stop a fixed world-space gap (`destination_gap_world`, provisional 0.25 u) beyond the destination marker's edge, and lines, markers and routes use provisional neutral greys from one shared marker material (issue #2). No gameplay change.

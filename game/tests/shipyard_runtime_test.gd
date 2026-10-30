@@ -374,9 +374,8 @@ func _check_registration(ship: Node3D) -> void:
 			continue
 		expected += 1
 		connected += node.notice.get_connections().filter(func(c: Dictionary) -> bool: return c.callable.get_object() == _main).size()
-	var markers: Array = _main._markers[ship] if _main._markers.has(ship) else []
-	_check("A5. %s registered in the call that added it: selection boxes and ring, destination marker and request line, %d notice signals connected once" % [ship.name, expected],
-		selection._parts.has(ship) and selection._rings.has(ship) and markers.size() == 2 and markers[0].get_parent() == _main
+	_check("A5. %s registered in the call that added it: selection boxes and ring, movement indicator, %d notice signals connected once" % [ship.name, expected],
+		selection._parts.has(ship) and selection._rings.has(ship) and _main._registered.has(ship)
 		and connected == expected)
 
 

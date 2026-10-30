@@ -369,7 +369,7 @@ func _s6_produced() -> void:
 	raider.name = "Raider"
 	raider.get_node("Combat").faction = 1
 	raider.get_node("Combat").stance = CombatShip.Stance.HOLD_FIRE
-	var lab_markers: Dictionary = scene._markers
+	var lab_markers: Dictionary = scene._registered
 	var names := []
 	# The Mining Ship was ordered in _economy(); each produced ship is verified and destroyed
 	# before the next order (an idle ship on the deployment point holds the next deployment).

@@ -490,16 +490,16 @@ func _test_construction_and_deployment() -> void:
 		for connection: Dictionary in ship.get_node(node_name).notice.get_connections():
 			if connection.callable.get_object() == _main:
 				connected += 1
-	_check("6. registered: selection hull boxes and one ring, destination marker and request line, 4 notice signals connected once",
-		selection._parts.has(ship) and selection._rings.size() == rings_before + 1 and _main._markers.has(ship)
-		and _main.get_child_count() == children_before + 2 and connected == 4)
+	_check("6. registered: selection hull boxes and one ring, movement indicator (no node per ship), 4 notice signals connected once",
+		selection._parts.has(ship) and selection._rings.size() == rings_before + 1 and _main._registered.has(ship)
+		and _main.get_child_count() == children_before and connected == 4)
 	selection.register_ship(ship)
 	_main.register_ship(ship)
 	var connected_again := 0
 	for node_name in ["RouteFollower", "Mining", "Docking", "Fuel"]:
 		connected_again += ship.get_node(node_name).notice.get_connections().filter(func(c: Dictionary) -> bool: return c.callable.get_object() == _main).size()
 	_check("6. registering again changes nothing (rings, markers, connections)", selection._rings.size() == rings_before + 1
-		and _main.get_child_count() == children_before + 2 and connected_again == 4)
+		and _main.get_child_count() == children_before and connected_again == 4)
 	selection.set_selection([ship])
 	_check("6. selectable: the selection holds the new ship", selection.selected == [ship])
 	selection.set_selection([])

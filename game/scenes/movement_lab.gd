@@ -29,7 +29,7 @@ extends Node3D
 ## nothing changes) and, accepted, follows the controlled exit; a group MOVE keeps
 ## every ship's GroupOrders destination, ships under station control or docked
 ## taking theirs afterwards. Phase 4: a ship deployed by a shipyard is registered
-## (selection, notices, destination marker) in the call that adds it, and the
+## (selection, notices, movement indicator) in the call that adds it, and the
 ## shipyards' notices use the same label. UX round (P2): a command given during
 ## station control is checked for its intent at once (refused: the held one stays)
 ## and for execution from the ship's actual position when control ends; a held MOVE
@@ -86,17 +86,13 @@ const PLAYER_FACTION := 0
 ## Children that keep processing while paused (input, camera, UI, presentation); every
 ## other child is simulation and pauses.
 const ALWAYS_NODES := ["CameraRig", "Selection", "NoticeUI", "DebugUI", "NavigationDebug", "AvoidanceDebug",
-	"DestinationLines", "DestinationMarker", "RequestLine", "TimeControl", "WeaponEnvelopes", "TacticalMarkers",
+	"MovementIndicator", "TimeControl", "WeaponEnvelopes", "TacticalMarkers",
 	"TacticalGrid", "FogView", "CombatOverlay", "BehaviorView", "CombatHUD", "ShipPanel", "StationPanel",
 	"AsteroidHover", "WorldHighlight", "ObjectMarkers", "CommandCursor", "StrategicView", "SectorEnvironment",
 	"SensorGridOverlay"]
 const SCENARIO_KEYS := [KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS]
 const SCENARIO_ZOOM := 40.0
 const GROUND_HALF_SIZE := 150.0 # Sector half-size without a StaticNavigation (sector_half_size()).
-const MARKER_HEIGHT := 0.02
-const DESTINATION_LINE_HEIGHT := 0.03
-const DESTINATION_LINE_COLOR := Color(0.33, 0.33, 0.33) # Neutral grey (provisional).
-const REQUEST_LINE_MIN := 0.01 # u
 const NOTICE_TIME := 2.0 # s
 const GROUP_NOTICE := "Not enough space for the group - no orders given"
 
@@ -122,12 +118,12 @@ signal target_selection_changed
 @export var lighting_experiment_d := false
 @export var strategic_experiment_e := false
 @export var god_rays_enabled := false
-## World distance (u) between a destination marker's outer edge and the end of the
-## trajectory lines and request connector (Local, Tactical and Strategic; provisional).
+## World distance (u) between the movement indicator's symbol (circle and arc) and the end
+## of the trajectory lines, routes and request connector (every view; provisional).
 @export var destination_gap_world := 0.25
 
 var _notice_left := 0.0
-var _markers := {} # ship -> [destination ring, request line]
+var _registered := {} # ship -> true: registered ships (register_ship())
 var _pending := {} # ship -> {command, callable}: the command its Docking holds (shown by the marker while held)
 var _silent := false # command_available(): the checks run without their notices.
 # Combat layer (scenes with CombatOrders).
@@ -152,7 +148,7 @@ var pointer := Vector2(-1, -1) # Last mouse-motion position (hover readouts).
 @onready var _navigation_debug := $NavigationDebug
 @onready var _avoidance_debug := $AvoidanceDebug
 @onready var _camera_rig := $CameraRig
-@onready var _destination_lines := $DestinationLines as MeshInstance3D
+@onready var _indicator = $MovementIndicator # The scene's one movement indicator (movement_indicator.tscn).
 @onready var _asteroids := get_node_or_null("Asteroids") as AsteroidField # Absent in the test arena.
 @onready var orders = get_node_or_null("CombatOrders") # Combat layer; absent in the test arena.
 @onready var contacts = get_node_or_null("Contacts")
@@ -175,11 +171,6 @@ func _ready() -> void:
 			if shipyard != null:
 				shipyard.notice.connect(_show_notice)
 				shipyard.ship_deployed.connect(_on_ship_deployed)
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.albedo_color = DESTINATION_LINE_COLOR
-	_destination_lines.mesh = ImmediateMesh.new()
-	_destination_lines.material_override = material
 	_selection.selection_changed.connect(_on_selection_changed)
 	_on_selection_changed()
 	if orders != null:
@@ -243,26 +234,19 @@ func _setup_combat_layer() -> void:
 		add_child(sensor_grid)
 
 
-## Connects a ship's notices and gives it a destination marker and request line (the
-## scene's own pair for the first ship, copies for the others): for every ship at
-## start, and (Phase 4) for a ship added under Ships during the game. A ship already
-## registered is left as it is.
+## Connects a ship's notices and adds it to the ships whose orders the movement indicator
+## shows (while selected): for every ship at start, and (Phase 4) for a ship added under
+## Ships during the game. A ship already registered is left as it is.
 func register_ship(ship: Node3D) -> void:
 	_selection.register_ship(ship) # Idempotent; one call registers a ship added at run time.
-	if _markers.has(ship):
+	if _registered.has(ship):
 		return
 	for node in [ship.get_node("RouteFollower"), _mining_of(ship), _docking_of(ship), ship.get_node_or_null("Fuel"), _transport_of(ship)]:
 		if node != null and not node.notice.is_connected(_show_notice):
 			node.notice.connect(_show_notice)
-	var first := _markers.is_empty()
-	var marker: Node3D = $DestinationMarker if first else $DestinationMarker.duplicate()
-	var request_line: Node3D = $RequestLine if first else $RequestLine.duplicate()
-	if not first:
-		add_child(marker)
-		add_child(request_line)
-	_markers[ship] = [marker, request_line]
+	_registered[ship] = true
 	# Combat migration: a destroyed ship leaves the selection at once; when its hulk is
-	# removed its pick boxes, ring and destination marker go.
+	# removed its pick boxes, ring and movement indicator go.
 	var combat = CombatShip.of(ship)
 	if combat != null:
 		combat.destroyed.connect(_on_destroyed)
@@ -277,13 +261,7 @@ func _on_destroyed(destroyed_ship: Node3D) -> void:
 
 func _on_removing(removed_ship: Node3D) -> void:
 	_selection.unregister_ship(removed_ship)
-	if _markers.has(removed_ship):
-		for node: Node3D in _markers[removed_ship]:
-			if node == $DestinationMarker or node == $RequestLine:
-				node.visible = false
-			else:
-				node.queue_free()
-		_markers.erase(removed_ship)
+	_registered.erase(removed_ship)
 
 
 # A shipyard deployed a ship: selection and commands know it before the next frame.
@@ -630,64 +608,37 @@ func _process(delta: float) -> void:
 		delta /= Engine.time_scale
 	_notice_left -= delta
 	_notice.visible = _notice_left > 0.0
-	var lines := _destination_lines.mesh as ImmediateMesh
-	lines.clear_surfaces()
-	var line_points := PackedVector3Array()
-	for ship: Node3D in _markers:
-		var marker: Node3D = _markers[ship][0]
-		var request_line: Node3D = _markers[ship][1]
-		marker.visible = false
-		request_line.visible = false
+	_indicator.destination_gap_world = destination_gap_world
+	var handoff: float = strategic.progress if strategic != null else 0.0
+	var entries := []
+	for ship: Node3D in _registered:
 		var held: Variant = _held_move(ship)
 		if not _selection.selected.has(ship):
 			continue
 		var follower := ship.get_node("RouteFollower") as RouteFollower
 		var locomotion := ship.get_node("Locomotion") as ShipLocomotion
 		var ship_point := Vector2(ship.global_position.x, ship.global_position.z)
-		# Lines stop this far from the marker centre: its outer edge plus the gap.
-		var clearance := (marker.mesh as TorusMesh).outer_radius * marker.scale.x + destination_gap_world
-		var marker_point: Vector2
 		if held != null:
 			# A held MOVE: the requested (group: assigned) point, resolved once control ends.
-			marker.visible = true
-			marker.global_position = Vector3(held.x, MARKER_HEIGHT, held.y)
-			_append_destination_line(line_points, ship_point, held, clearance)
+			entries.append({"ship": ship, "from": ship_point, "destination": held})
 			continue
+		var destination: Vector2
 		if follower.status == RouteFollower.RouteStatus.WAITING:
-			marker_point = follower.requested
+			destination = follower.requested
 		elif locomotion.has_destination:
-			marker_point = locomotion.destination
+			destination = locomotion.destination
 		else:
 			continue
-		marker.visible = true
-		marker.global_position = Vector3(marker_point.x, MARKER_HEIGHT, marker_point.y)
-		_append_destination_line(line_points, ship_point, marker_point, clearance)
-		var requested := follower.requested
-		# The connector leaves the marker: it starts the clearance away from its centre.
-		var length := marker_point.distance_to(requested) - clearance
-		if length > REQUEST_LINE_MIN:
-			request_line.visible = true
-			var from := marker_point + marker_point.direction_to(requested) * clearance
-			var start := Vector3(from.x, MARKER_HEIGHT, from.y)
-			var end := Vector3(requested.x, MARKER_HEIGHT, requested.y)
-			request_line.look_at_from_position((start + end) * 0.5, end, Vector3.UP)
-			request_line.scale = Vector3(1.0, 1.0, length)
-	if not line_points.is_empty():
-		lines.surface_begin(Mesh.PRIMITIVE_LINES)
-		for point in line_points:
-			lines.surface_add_vertex(point)
-		lines.surface_end()
-
-
-# The line from the ship towards its destination marker, stopped `clearance` short of the
-# marker centre; omitted when the ship is within the clearance (the destination is unchanged).
-func _append_destination_line(line_points: PackedVector3Array, from: Vector2, destination: Vector2, clearance: float) -> void:
-	var length := from.distance_to(destination)
-	if length <= clearance:
-		return
-	var end := destination + destination.direction_to(from) * clearance
-	line_points.append(Vector3(from.x, DESTINATION_LINE_HEIGHT, from.y))
-	line_points.append(Vector3(end.x, DESTINATION_LINE_HEIGHT, end.y))
+		var entry := {"ship": ship, "from": ship_point, "destination": destination}
+		if follower.requested.distance_to(destination) > 0.0001:
+			entry.requested = follower.requested
+		if handoff > 0.0:
+			# Strategic View: the planned route still to fly, cross-faded in with the handoff.
+			for line: Dictionary in strategic.order_lines(ship):
+				if line.kind == "route" and (line.points[line.points.size() - 1] as Vector2).distance_to(destination) < 0.01:
+					entry.route = line.points
+		entries.append(entry)
+	_indicator.set_entries(entries, smoothstep(0.0, 1.0, handoff))
 
 
 # The point of the MOVE (or group MOVE) the ship's Docking still holds for it, or null;

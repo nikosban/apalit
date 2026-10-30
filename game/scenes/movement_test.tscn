@@ -17,7 +17,7 @@
 [ext_resource type="Script" path="res://game/orders/group_orders.gd" id="15_group_orders"]
 [ext_resource type="Script" path="res://game/collision/planar_collision.gd" id="16_collision"]
 [ext_resource type="Script" path="res://game/time/sim_clock.gd" id="90_clock"]
-[ext_resource type="Material" path="res://game/presentation/destination_marker_material.tres" id="200_marker_material"]
+[ext_resource type="PackedScene" path="res://game/presentation/movement_indicator/movement_indicator.tscn" id="200_movement_indicator"]
 
 [sub_resource type="Environment" id="Environment_lab"]
 background_mode = 1
@@ -33,15 +33,6 @@ shader = ExtResource("2_grid")
 [sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
 material = SubResource("ShaderMaterial_grid")
 size = Vector2(300, 300)
-
-[sub_resource type="TorusMesh" id="TorusMesh_marker"]
-material = ExtResource("200_marker_material")
-inner_radius = 0.6
-outer_radius = 0.75
-
-[sub_resource type="BoxMesh" id="BoxMesh_request_line"]
-material = ExtResource("200_marker_material")
-size = Vector3(0.05, 0.05, 1)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_obstacle"]
 albedo_color = Color(0.3, 0.31, 0.32, 1)
@@ -284,19 +275,7 @@ script = ExtResource("14_selection")
 [node name="GroupOrders" type="Node" parent="."]
 script = ExtResource("15_group_orders")
 
-[node name="DestinationLines" type="MeshInstance3D" parent="."]
-cast_shadow = 0
-
-[node name="DestinationMarker" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.05, 0, 0, 0, 1, 0, 0.02, 0)
-visible = false
-cast_shadow = 0
-mesh = SubResource("TorusMesh_marker")
-
-[node name="RequestLine" type="MeshInstance3D" parent="."]
-visible = false
-cast_shadow = 0
-mesh = SubResource("BoxMesh_request_line")
+[node name="MovementIndicator" parent="." instance=ExtResource("200_movement_indicator")]
 
 [node name="NavigationDebug" type="Node3D" parent="."]
 script = ExtResource("11_navigation_debug")

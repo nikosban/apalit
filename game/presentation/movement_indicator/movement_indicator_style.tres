@@ -1,0 +1,6 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://game/presentation/movement_indicator/movement_indicator_style.gd" id="1_style"]
+
+[resource]
+script = ExtResource("1_style")

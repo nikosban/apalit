@@ -230,7 +230,7 @@ func _selection_and_movement() -> void:
 	await _look_at(subject.global_position)
 	await _click(MOUSE_BUTTON_LEFT, subject.global_position)
 	_check("a real left-click selects FF-01 through existing hull picking and registration", scene.selection().selected == [subject]
-		and scene.selection()._parts.has(subject) and scene._markers.has(subject))
+		and scene.selection()._parts.has(subject) and scene._registered.has(subject))
 	var panel := scene.get_node("ShipPanel")
 	await process_frame
 	_check("FF-01 panel: hull 160, command controls, two NC-90 and four PDC-20 weapon rows",

@@ -16,7 +16,6 @@ extends CanvasLayer
 ##   faction: the faction tint, and a second outer outline on hostile markers;
 ##   combat ships: one bar inside, two for the large-hull class (radius 5 u or more, larger marker);
 ##   selected: corner brackets;  manual target of a selected ship: four crosshair ticks;
-##   movement order of a selected ship: dashed line to its destination and a small ring;
 ##   destroyed (hulk): a small grey cross;
 ##   station (B2): a pale square with a centre dot, never in a faction tint (stations
 ##   have no faction yet);
@@ -26,9 +25,9 @@ extends CanvasLayer
 ## marker lies inside the station's projected body at every zoom), so their markers are
 ## presentation only. An object that is hovered or selected (WorldHighlight) is marked by
 ## ObjectMarkers instead, so it is never drawn twice. Off-screen objects are not drawn.
-## Phase C: in Strategic View (the scene's `strategic`), whose asteroid clusters and order
-## lines replace them, the asteroid diamonds and the straight order lines fade out with
-## its handoff progress.
+## Movement orders are the scene's MovementIndicator (movement_indicator.tscn), not drawn here.
+## Phase C: in Strategic View (the scene's `strategic`), whose asteroid clusters replace
+## them, the asteroid diamonds fade out with its handoff progress.
 ## Visibility (A5): the arena decides which hostile ships the player may see
 ## (`player_sees()`), and where lost contacts were last seen (`last_known()`); nothing else
 ## is drawn for hostile ships. Lost-contact memory is drawn at every zoom.
@@ -38,7 +37,6 @@ const CameraRig := preload("res://game/camera/camera_rig.gd")
 const ObjectMarkers := preload("res://game/presentation/object_markers.gd")
 const SurveyView := preload("res://game/survey/survey_view.gd")
 const SELECT_COLOR := Color(0.35, 0.9, 0.45)
-const ORDER_COLOR := Color(0.85, 0.6, 0.25)
 const TARGET_COLOR := Color(1.0, 0.85, 0.55)
 const HULK_COLOR := Color(0.55, 0.55, 0.58)
 # Sector Showcase round: the canvas is 1080 lines tall (project base size), so these are
@@ -157,15 +155,6 @@ func _draw_markers() -> void:
 		if combat != null and combat.manual_target != null and is_instance_valid(combat.manual_target):
 			targets[combat.manual_target] = true
 	var width := LINE_WIDTH * scale_factor()
-	# Movement orders of the selected ships first (under the markers).
-	for ship: Node3D in selected:
-		var locomotion = ship.get_node_or_null("Locomotion")
-		if locomotion == null or not locomotion.has_destination or camera.is_position_behind(ship.global_position):
-			continue
-		var from := camera.unproject_position(ship.global_position)
-		var to := camera.unproject_position(Vector3(locomotion.destination.x, 0.0, locomotion.destination.y))
-		_canvas.draw_dashed_line(from, to, Color(ORDER_COLOR, 0.8 * alpha * (1.0 - handoff)), width, 6.0 * scale_factor())
-		_canvas.draw_arc(to, 4.0 * scale_factor(), 0.0, TAU, 16, Color(ORDER_COLOR, 0.9 * alpha * (1.0 - handoff)), width)
 	for ship: Node3D in _arena.get_node("Ships").get_children():
 		var combat = CombatShip.of(ship)
 		if combat == null or combat.removed_from_play or camera.is_position_behind(ship.global_position):

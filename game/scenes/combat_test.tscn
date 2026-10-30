@@ -30,7 +30,7 @@
 [ext_resource type="Script" uid="uid://bwur2ebhjn6e" path="res://game/presentation/combat_overlay.gd" id="97_overlay"]
 [ext_resource type="Script" uid="uid://bqg57sur3v65k" path="res://game/ui/combat_hud.gd" id="98_hud"]
 [ext_resource type="PackedScene" path="res://game/ships/ff01_unit.tscn" id="100_ff01"]
-[ext_resource type="Material" path="res://game/presentation/destination_marker_material.tres" id="200_marker_material"]
+[ext_resource type="PackedScene" path="res://game/presentation/movement_indicator/movement_indicator.tscn" id="200_movement_indicator"]
 
 [sub_resource type="Environment" id="Environment_lab"]
 background_mode = 1
@@ -53,15 +53,6 @@ albedo_color = Color(0.36, 0.34, 0.32, 1)
 material = SubResource("StandardMaterial3D_asteroid")
 radial_segments = 24
 rings = 12
-
-[sub_resource type="TorusMesh" id="TorusMesh_marker"]
-material = ExtResource("200_marker_material")
-inner_radius = 0.6
-outer_radius = 0.75
-
-[sub_resource type="BoxMesh" id="BoxMesh_request_line"]
-material = ExtResource("200_marker_material")
-size = Vector3(0.05, 0.05, 1)
 
 [node name="CombatTest" type="Node3D" unique_id=501574272]
 script = ExtResource("6_lab")
@@ -341,19 +332,7 @@ script = ExtResource("14_selection")
 [node name="GroupOrders" type="Node" parent="." unique_id=847113813]
 script = ExtResource("15_group_orders")
 
-[node name="DestinationLines" type="MeshInstance3D" parent="." unique_id=102169486]
-cast_shadow = 0
-
-[node name="DestinationMarker" type="MeshInstance3D" parent="." unique_id=1581100199]
-transform = Transform3D(1, 0, 0, 0, 0.05, 0, 0, 0, 1, 0, 0.02, 0)
-visible = false
-cast_shadow = 0
-mesh = SubResource("TorusMesh_marker")
-
-[node name="RequestLine" type="MeshInstance3D" parent="." unique_id=2138373871]
-visible = false
-cast_shadow = 0
-mesh = SubResource("BoxMesh_request_line")
+[node name="MovementIndicator" parent="." instance=ExtResource("200_movement_indicator")]
 
 [node name="NavigationDebug" type="Node3D" parent="." unique_id=1057146916]
 script = ExtResource("11_navigation_debug")

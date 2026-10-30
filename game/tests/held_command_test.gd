@@ -190,9 +190,8 @@ func _test_refused_at_release() -> void:
 	_step()
 	_main._process(0.0)
 	_nav.blocked_to = Vector2.INF
-	var marker: Node3D = _main._markers[_ship("Miner1")][0]
 	_check("no route when control ends: refused ('%s'), held command and marker gone, no order, nothing else changed" % _notice_text(),
-		shown and _notice_text() == "No route found" and not _dk("Miner1").has_held_command() and not marker.visible
+		shown and _notice_text() == "No route found" and not _dk("Miner1").has_held_command() and _marker("Miner1") == null
 		and not _lo("Miner1").has_destination and _dk("Miner1").state == Docking.State.NONE and _mining("Miner1").target == 5
 		and _mining("Miner1").status == MiningOperation.Status.NONE)
 	_mining("Miner1").target = -1
@@ -205,7 +204,8 @@ func _test_held_mine() -> void:
 	_steps(60)
 	var asteroid := _nearest_asteroid(_planar(_a) + Vector2(40, 0))
 	_main._order(_ship("Miner1"), {"kind": _main.CommandKind.MINE, "asteroid": asteroid})
-	var held := _dk("Miner1").has_held_command() and not (_main._markers[_ship("Miner1")][0] as Node3D).visible
+	_main._process(0.0)
+	var held := _dk("Miner1").has_held_command() and _marker("Miner1") == null
 	_until(func() -> bool: return not _dk("Miner1").under_control(), 60 * 60)
 	_step()
 	_check("Mine during the exit: held without a ground marker, assigned after control (asteroid %d, %s)" % [asteroid, _mining("Miner1").status_name()],
@@ -219,8 +219,16 @@ func _notice_text() -> String:
 
 func _marker_at(s: String, point: Vector2) -> bool:
 	_main._process(0.0)
-	var marker: Node3D = _main._markers[_ship(s)][0]
-	return marker.visible and Vector2(marker.global_position.x, marker.global_position.z).distance_to(point) < 0.01
+	var marker: Variant = _marker(s)
+	return marker != null and (marker as Vector2).distance_to(point) < 0.01
+
+
+# The destination the movement indicator shows for a ship, or null.
+func _marker(s: String) -> Variant:
+	for entry: Dictionary in _main.get_node("MovementIndicator").entries():
+		if entry.ship == _ship(s):
+			return entry.destination
+	return null
 
 
 func _dock_selected(s: String) -> void:

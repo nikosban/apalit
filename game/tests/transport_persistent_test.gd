@@ -293,8 +293,8 @@ func _test_j_deferred_move() -> void:
 	_main._order(_ship("Transporter"), {"kind": _main.CommandKind.MOVE, "point": points[2]})
 	_main._order(_ship("Transporter"), {"kind": _main.CommandKind.MOVE, "point": Vector2(500, 0)}) # Off the map: refused intent.
 	_main._process(0.0)
-	var marker: Node3D = _main._markers[_ship("Transporter")][0]
-	var shown := marker.visible and Vector2(marker.global_position.x, marker.global_position.z).distance_to(points[2]) < 0.01
+	var shown: bool = _main.get_node("MovementIndicator").entries().any(func(entry: Dictionary) -> bool:
+		return entry.ship == _ship("Transporter") and (entry.destination as Vector2).distance_to(points[2]) < 0.01)
 	var paused := _tr("Transporter").status == TransportOperation.Status.PAUSED
 	_run_until(func() -> bool: return not _dk("Transporter").under_control(), 60.0)
 	_run_until(func() -> bool: return false, 0.1)
