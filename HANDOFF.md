@@ -75,9 +75,9 @@ the legacy ship cleanup, is accepted by the owner. PDC raid sweep (2026-10-28, s
 - Git: branch `main` (all current work), remote `origin` = `git@github.com:nikosban/apalit.git`
   (public on GitHub, checked 2026-10-30; whether it stays public is an open owner
   decision, section 10). No commit or push conventions are decided beyond the initial setup.
-  `combat_adjustments` (local and remote, `9edd0fb`) has no commits outside `main`; its
-  deletion awaits owner approval. `stash@{0}` (Combat Test ±150 test edits made on that
-  branch, superseded by `e9dfb5b`) is kept by owner decision.
+  `combat_adjustments` (`9edd0fb`, fully contained in `main`) was deleted locally and on
+  GitHub on 2026-10-30. `stash@{0}` (Combat Test ±150 test edits made on that branch,
+  superseded by `e9dfb5b`) is kept by owner decision.
 
 Terminology (owner-agreed): shared, self-contained pieces such as the camera rig are
 "reusable scenes" (own `.tscn`, instanced into other scenes).
@@ -1257,8 +1257,7 @@ distribution, logistics balance, models and UI polish.
 
 ## 10. Next task and open items
 
-Next task: owner approval to delete `combat_adjustments` (local and remote); then a
-read-only architecture inventory (brief from the owner; nothing is changed in it). New work
+Next task: a read-only architecture inventory (brief from the owner; nothing is changed in it). New work
 follows `AGENTS.md`.
 
 Open follow-ups (not started): the two intermittent PDC-exposed test failures and the
