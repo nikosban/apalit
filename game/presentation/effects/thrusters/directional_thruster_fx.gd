@@ -13,7 +13,7 @@ extends Node3D
 @export_range(0.0, 1.0) var thrust := 0.0
 @export_range(0.05, 10.0, 0.01, "or_greater") var nozzle_scale := 1.0 # 1 = the Miner's jet (box 0.14 u)
 @export_range(0.1, 5.0, 0.01, "or_greater") var length_multiplier := 1.0
-@export var settings: Resource = preload("res://game/presentation/thrusters/directional_thruster_settings.tres")
+@export var settings: Resource = preload("res://game/presentation/effects/thrusters/directional_thruster_settings.tres")
 
 var _clock := 0.0 # s into the current pulse period; 0 while inactive, so an activation pulses at once
 

@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-Last updated: 2026-10-30. Current state only. Development history is in `CHANGELOG.md` and Git; earlier versions of this file
+Last updated: 2026-10-31. Current state only. Development history is in `CHANGELOG.md` and Git; earlier versions of this file
 (per-task verification logs, measurements, prototype records) are in Git history.
 
 ## 1. Status
@@ -41,6 +41,8 @@ the legacy ship cleanup, is accepted by the owner. PDC raid sweep (2026-10-28, s
 
 UI visual authoring (issue #5, section 4.9) and shared selection/marker styles
 (issue #6, section 4.8) are accepted by the owner.
+Projectile/trail visual authoring and thruster relocation (issue #7, section 4.8)
+are accepted by the owner, including the reported verification limitations.
 
 ## 2. Project layout and scenes
 
@@ -127,7 +129,9 @@ the lab era) and the layout contract in section 3.
   combat lab and the E01–E04 / P01–P03 scenarios were removed with the legacy ships.
 - `game/presentation/markers/marker_preview.tscn`: selection/highlight/Object/Tactical marker authoring scene (section 4.8).
 - `game/ui/overlays/overlay_preview.tscn`: shared HUD, hover tooltip and notice authoring scene (section 4.9).
-- `game/presentation/thrusters/thruster_fx_preview.tscn`: thruster authoring scene.
+- `game/presentation/effects/thrusters/thruster_fx_preview.tscn`: thruster authoring scene.
+- `game/presentation/effects/projectiles/projectile_trail_preview.tscn`: production-backed
+  projectile/trail authoring scene (section 4.8).
 - `game/presentation/movement_indicator/movement_indicator_preview.tscn`: movement
   indicator authoring scene (section 4.7).
 - `game/presentation/effects/combat_flash/combat_flash_preview.tscn`: combat flash
@@ -787,7 +791,22 @@ Combat behaviour is frozen as accepted (section 6).
   Unavailable, arrow) from `resolve_command()` / `command_available()`; cached per
   target / 2 u cell, refreshed every 0.5 s; a group is checked with
   `GroupOrders.can_assign()` after 0.25 s rest. OS cursor shapes are placeholders.
-- Thrusters (`presentation/thrusters/`): two reusable GPU-particle scenes in world
+- Projectile/trail appearance (issue #7): `presentation/effects/projectiles/`
+  `projectile_visual_style.tres` owns fallback shell/tracer dimensions and tint blends;
+  `presentation/effects/ordnance_trails/ordnance_trail_style.tres` owns ribbon widths,
+  RGB, opacity and tail-width ratio. `Projectiles.visual_style` and `OrdnanceTrails.style`
+  take private startup snapshots: save source edits and restart F6/game to apply.
+  Fallback meshes/materials are cached per Projectiles instance and faction/style;
+  the Kestrel's custom mesh bypasses fallback styling. Existing one-node rounds,
+  single-surface ImmediateMesh trails, histories, age/fade/reveal and physics stay in
+  their original renderers. Unknown projectile styles keep shell-sized geometry with
+  non-shell tint; unknown trail kinds (including rocket) keep width 0.1 and white.
+  F6 `projectile_trail_preview.tscn` uses Combat Test and production spawn/launch APIs,
+  both factions and a preview-only torpedo configuration; 1/2/3 zoom 5/40/150, normal
+  camera/time controls, playback/interval/zoom exports on ProjectileTrailPreview.
+  Fog/environment/Strategic/god-ray shader extraction and ordnance modeling are deferred;
+  existing SectorProfile authoring, Combat Flash and #6 systems remain unchanged.
+- Thrusters (`presentation/effects/thrusters/`): two reusable GPU-particle scenes in world
   space with one shader `plasma.gdshader` (per-instance brightness and size are
   instance uniforms, so no shared material is written).
   - `main_thruster_fx.tscn` (`Core`, `Exhaust`, `Trail`, `Glow`; `thrust` 0..1,
@@ -1218,6 +1237,9 @@ distribution, logistics balance, models and UI polish.
   high-load case).
 - Thrusters: a teleported ship (`place()`) can flash its jets for a tick; particles
   pause with the game but do not follow time dilation.
+- `SectorEnvironment.apply_lighting()` writes Ground's shared mesh/material color
+  without localizing it. Cross-instance contamination is an unverified risk, deferred
+  from issue #7; Environment itself is duplicated.
 - UI: at 1280 × 720 long names clip in editor rows and the Ingots list scrolls; a wide
   notice can overlap the debug toggles; icons are placeholders; two overlapping
   highlighted objects share the stencil (no outline between them); asteroid hover fill
@@ -1329,6 +1351,24 @@ distribution, logistics balance, models and UI polish.
   unavailable), while D3D12 Forward+ rendering completed. Godot generated three marker
   script `.uid` files; generated untracked editor artifacts were removed. Verification
   evidence remains only in the ignored `.godot/` cache.
+- VFX authoring (issue #7, accepted 2026-10-31; Godot 4.7.2, `--fixed-fps 60`):
+  two pre-change baselines, then nine targeted suites pass 423 checks (15 added):
+  `thruster_view_test` 22; combat `cannon_test` 52, `pdc_test` 74, `rocket_test` 71,
+  `guided_missile_test` 75, `launch_profiles_test` 48, `fog_test` 19, `time_test` 37,
+  `combat_scene_test` 25. Final logs have no script errors or errors; added cannon
+  fixture teardown was corrected and rerun. Four gameplay scenes and both affected
+  previews load; all 24 relocated files match after path substitution with UIDs retained.
+  Six matched 1920x1080 D3D12 captures (zoom 5/40/150, Strategic, hidden/revealed effects)
+  are byte-identical with particles hidden; full-particle preview rendered separately.
+  Saved edits reach preview and Combat Test; three resets pass pause, time-scale and
+  cleanup probes. Three paired E05 runs (600 warm-up + 1800 measured frames, zoom 150)
+  meet median p95 <=105%: 14.063 -> 14.329 ms (+1.89%); particle-isolated comparison
+  12.970 -> 12.257 ms (-5.50%). Every paired effect/node/draw/surface count matches.
+  Timing spread persists after isolation; no speedup claimed. Native Inspector interaction,
+  disabled environment experiments and full-project regression were not retested.
+  Import refresh resolves relocated UIDs; editor tab history may still log the old shader
+  path. Godot generated three planned script UIDs; evidence remains in `.godot/issue7/`.
+  Detailed results: https://github.com/nikosban/apalit/issues/7#issuecomment-6535372112.
 - Full regression (2026-10-30, Godot 4.7.2, `--fixed-fps 60`; all 62 suites and the four
   600-frame scene runs once, the changed suites twice): every scene run loads without
   errors; no suite logs a script error; the only failures are the known ones below.
@@ -1424,8 +1464,8 @@ distribution, logistics balance, models and UI polish.
 
 ## 10. Next task and open items
 
-Next task: a read-only architecture inventory (brief from the owner; nothing is changed in it). New work
-follows `AGENTS.md`.
+Issue #7 is accepted; no next task is selected. The earlier read-only architecture
+inventory brief remains unstarted. New work follows `AGENTS.md`.
 
 Open follow-ups (not started): the two intermittent PDC-exposed test failures and the
 `command_test` failures (section 8 known failures); cleanup of `stash@{0}`.

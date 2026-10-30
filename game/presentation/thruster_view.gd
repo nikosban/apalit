@@ -11,7 +11,7 @@ extends Node3D
 ## turn). The main engine's state: BOOST while accelerating forward, THRUST while cruising
 ## forward (Stage 6B.2: also through minor braking below CRUISE_BRAKE, its plume dimming
 ## with the braking), IDLE otherwise with propulsion on (stopped, braking, turning,
-## sideways), NONE without. The effects are the reusable thruster scenes (game/presentation/thrusters/):
+## sideways), NONE without. The effects are the reusable thruster scenes (game/presentation/effects/thrusters/):
 ## one main_thruster_fx per main engine, driven by the state's thrust (MAIN_THRUST; BOOST
 ## 0.5 + 0.5 x the main intensity), and one directional_thruster_fx per jet, driven by the
 ## jet's intensity; both sized from the parts (the Miner's are the reference). Everything
@@ -20,8 +20,8 @@ extends Node3D
 
 enum State { NONE, IDLE, THRUST, BOOST }
 
-const MAIN_FX := preload("res://game/presentation/thrusters/main_thruster_fx.tscn")
-const JET_FX := preload("res://game/presentation/thrusters/directional_thruster_fx.tscn")
+const MAIN_FX := preload("res://game/presentation/effects/thrusters/main_thruster_fx.tscn")
+const JET_FX := preload("res://game/presentation/effects/thrusters/directional_thruster_fx.tscn")
 const SMOOTH := 0.08 # s
 const THRESHOLD := 0.02 # Intensity above which a jet fires (and the main engine counts as firing).
 const CRUISE_SPEED := 0.2 # u/s forward speed above which a ship not braking is cruising

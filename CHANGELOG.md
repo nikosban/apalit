@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-31 — Shared projectile and trail visual authoring
+
+Fallback projectile bars and ordnance ribbons now use shared Inspector-editable style resources and a production-backed F6 preview; the existing 24-file thruster package is relocated to `game/presentation/effects/thrusters/` with UIDs and behavior preserved (issue #7). Accepted by the owner; 423 targeted checks pass, matched captures are identical, and the numerical performance gate is met with timing variability documented.
+
 ## 2026-10-30 — Shared selection and marker styles
 
 Selection rings/drag rectangles, world highlights and Object/Tactical markers now use shared Inspector-editable resources under `game/presentation/markers/`, with one production-backed F6 preview and saved-edit/restart snapshots (issue #6). Accepted by the owner; no gameplay change, with matched captures, picking, node counts and draw calls preserved.

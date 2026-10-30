@@ -61,6 +61,7 @@ func _initialize() -> void:
 	await _interception()
 	await _selection()
 	await _measurement()
+	_rocket_trail_fallback()
 	scene.free()
 	await process_frame
 	_check("no orphan nodes after the Rocket verification", Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT) == 0)
@@ -997,3 +998,15 @@ func _threat_config(kind: StringName, damage: float, reach: float) -> Resource:
 	config.ordnance = OrdnanceConfig.new() # default flight values
 	config.ordnance.kind = kind
 	return config
+
+
+func _rocket_trail_fallback() -> void:
+	var trails: MeshInstance3D = scene.get_node("OrdnanceTrails")
+	trails._mesh.clear_surfaces()
+	trails._mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	trails._strip(&"rocket", [Vector3.ZERO, Vector3(2, 0, 0)], [1.0, 0.0], 1.0, null)
+	trails._mesh.surface_end()
+	var arrays: Array = trails.mesh.surface_get_arrays(0)
+	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var colors: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
+	_check("rocket keeps unknown-kind white trail, width 0.1, alpha 0.75 and quarter-width tail", vertices[0].is_equal_approx(Vector3(0, 0, 0.0125)) and vertices[2].is_equal_approx(Vector3(2, 0, 0.05)) and colors[0].r == 1.0 and colors[0].g == 1.0 and colors[0].b == 1.0 and colors[0].a == 0.0 and absf(colors[2].a - 0.75) < 0.005)

@@ -52,6 +52,7 @@ func _initialize() -> void:
 	await _overshoot()
 	await _interception()
 	await _throughput()
+	await _trail_styles()
 	scene.free()
 	await process_frame
 	_check("no orphan nodes after guided-missile verification", Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT) == 0)
@@ -616,3 +617,61 @@ func _throughput() -> void:
 			var again: Dictionary = await _throughput_run(kind, seed)
 			print("  throughput %s seed %d: %s" % [kind, seed, first])
 			_check("repeatable %s throughput seed %d; all four missiles accounted for, four ammo consumed" % [kind, seed], first == again and first.missile_launches == 4 and first.intercepted + first.impacts + first.misses + first.obstacle_hits == 4 and first.missile_ammo == 8 and (kind != "combined" or first.rocket_launches == 8))
+
+
+func _trail_styles() -> void:
+	print("\n=== V ribbon appearance and lifecycle")
+	await _load()
+	var trails: MeshInstance3D = scene.get_node("OrdnanceTrails")
+	var material := trails.material_override as StandardMaterial3D
+	_check("one ImmediateMesh with private unshaded, vertex-colored, alpha, double-sided material", trails.mesh is ImmediateMesh and material.shading_mode == BaseMaterial3D.SHADING_MODE_UNSHADED and material.vertex_color_use_as_albedo and material.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA and material.cull_mode == BaseMaterial3D.CULL_DISABLED)
+	var widths := [0.14, 0.1, 0.1]
+	var colors := [Color(1, 0.78, 0.5), Color(0.85, 0.92, 1), Color.WHITE]
+	var kinds := [&"torpedo", &"missile", &"unknown"]
+	var defaults := true
+	for i in kinds.size():
+		trails._mesh.clear_surfaces()
+		trails._mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+		trails._strip(kinds[i], [Vector3.ZERO, Vector3(2, 0, 0)], [0.5, 0.0], 1.0, null)
+		trails._mesh.surface_end()
+		var arrays: Array = trails.mesh.surface_get_arrays(0)
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var drawn: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
+		defaults = defaults and vertices.size() == 6 and vertices[0].is_equal_approx(Vector3(0, 0, widths[i] * 0.3125)) and vertices[2].is_equal_approx(Vector3(2, 0, widths[i] * 0.5)) \
+			and absf(drawn[0].a - 0.375) < 0.005 and absf(drawn[2].a - 0.75) < 0.005 and Vector3(drawn[2].r, drawn[2].g, drawn[2].b).distance_to(Vector3(colors[i].r, colors[i].g, colors[i].b)) < 0.008
+	_check("torpedo/missile/fallback: exact widths, RGB, 0.75 peak alpha and 0.25 tail-width factor", defaults)
+	var source: Resource = trails.style.duplicate(true)
+	var other: MeshInstance3D = trails.get_script().new()
+	other.name = "OtherTrails"
+	other.style = source
+	other.process_mode = Node.PROCESS_MODE_DISABLED
+	scene.add_child(other)
+	source.missile_width = 0.4
+	source.missile_color = Color.GREEN
+	source.opacity = 0.3
+	var restarted: MeshInstance3D = trails.get_script().new()
+	restarted.name = "RestartedTrails"
+	restarted.style = source
+	restarted.process_mode = Node.PROCESS_MODE_DISABLED
+	scene.add_child(restarted)
+	_check("style snapshots isolate source edits and new renderers consume the changed source", other._style.missile_width == 0.1 and restarted._style.missile_width == 0.4 and restarted._style.missile_color == Color.GREEN and restarted._style.opacity == 0.3 and other.material_override != restarted.material_override and trails.style.missile_width == 0.1)
+	var sample: Node3D = load("res://game/combat/ordnance.gd").new()
+	sample.kind = &"missile"
+	sample.config = OrdnanceConfig.new()
+	sample.config.trail_time = 1.0
+	sample.trail.assign([Vector3.ZERO, Vector3(2, 0, 0)])
+	sample.trail_ages.assign([0.5, 0.0])
+	other.release(sample)
+	sample.trail[0] = Vector3.ONE * 99
+	_check("release keeps independent nozzle-history copies and the original lifetime", other._fading.size() == 1 and other._fading[0].points[0] == Vector3.ZERO and other._fading[0].limit == 1.0)
+	other.reveal = func(_point: Vector3, _faction: int) -> bool: return false
+	other._process(0.0)
+	_check("unrevealed fading trail submits no surface", other.mesh.get_surface_count() == 0)
+	other.reveal = Callable()
+	other._process(0.25)
+	_check("revealed fading trail is one surface and ages in the existing renderer", other.mesh.get_surface_count() == 1 and other._fading[0].ages == [0.75, 0.25])
+	other._process(0.3)
+	_check("released trail disappears when aging leaves fewer than two points", other.mesh.get_surface_count() == 0 and other.trail_count() == 0)
+	sample.free()
+	other.free()
+	restarted.free()

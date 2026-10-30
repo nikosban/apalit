@@ -1,6 +1,0 @@
-[gd_resource type="Resource" format=3 uid="uid://dhm52b704l0k4"]
-
-[ext_resource type="Script" uid="uid://c8nbq78q0kdep" path="res://game/presentation/thrusters/main_thruster_settings.gd" id="1_l6f8k"]
-
-[resource]
-script = ExtResource("1_l6f8k")

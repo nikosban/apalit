@@ -6,8 +6,8 @@ extends RefCounted
 ## the mount's −Z (forward); muzzles sit just beyond the barrel end.
 
 const MUZZLE_GAP := 0.03 # u beyond the barrel end
-const MAIN_FX := preload("res://game/presentation/thrusters/main_thruster_fx.tscn")
-const JET_FX := preload("res://game/presentation/thrusters/directional_thruster_fx.tscn")
+const MAIN_FX := preload("res://game/presentation/effects/thrusters/main_thruster_fx.tscn")
+const JET_FX := preload("res://game/presentation/effects/thrusters/directional_thruster_fx.tscn")
 
 static var _materials := {}
 

@@ -39,6 +39,7 @@ func _initialize() -> void:
 	await _coverage()
 	await _live_fire()
 	await _armor_sequence()
+	await _visual_styles()
 	scene.free()
 	await process_frame
 	_check("no orphan nodes after the cannon verification", Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT) == 0)
@@ -459,3 +460,57 @@ func _armor_sequence() -> void:
 		ids.values().all(func(n: int) -> bool: return n == 1) and ids.keys().all(func(id: int) -> bool: return projectiles.damage_events.get(id, 0) == 1))
 	_check("destroyed once, by the 21st damaging shell (events %d, %d shells fired, hull %.1f)" % [events.size(), fired, target.health],
 		events.size() == 21 and destroyed.size() == 1 and not target.alive and target.health == 0.0)
+
+
+## The authored bar defaults and cache ownership must not alter custom meshes or physics.
+func _visual_styles() -> void:
+	print("\n=== V fallback projectile authoring")
+	scene.free()
+	await process_frame
+	await _load()
+	var p: Node = scene.projectiles
+	p.set_physics_process(false)
+	var defaults := true
+	for faction in 2:
+		for style: StringName in [&"shell", &"tracer", &"unknown"]:
+			var bar: BoxMesh = p._bar(faction, style)
+			var material := bar.material as StandardMaterial3D
+			var expected_size := Vector3(0.045, 0.045, 1.6) if style == &"tracer" else Vector3(0.07, 0.07, 0.55)
+			var expected: Color = CombatShip.FACTION_COLORS[faction].lerp(Color.WHITE, 0.55 if style == &"shell" else 0.35)
+			if style == &"tracer":
+				expected = expected.lerp(Color(1, 0.85, 0.45), 0.45)
+			defaults = defaults and bar.size.is_equal_approx(expected_size) and material.albedo_color.is_equal_approx(expected) \
+				and material.shading_mode == BaseMaterial3D.SHADING_MODE_UNSHADED and not material.emission_enabled
+	_check("both factions: exact shell/tracer/unknown sizes, tint formulas and unshaded non-emissive material", defaults)
+	var source: Resource = p.visual_style.duplicate(true)
+	source.shell_size = Vector3(0.2, 0.3, 0.4)
+	source.tracer_warm_color = Color.GREEN
+	var other: Node3D = p.get_script().new()
+	other.name = "OtherProjectiles"
+	other.visual_style = source
+	other.process_mode = Node.PROCESS_MODE_DISABLED
+	scene.add_child(other)
+	var own: BoxMesh = p._bar(0, &"shell")
+	var changed: BoxMesh = other._bar(0, &"shell")
+	_check("configured second renderer changes its bars without sharing the first renderer's cached mesh/material", changed.size.is_equal_approx(source.shell_size) and own.size.is_equal_approx(Vector3(0.07, 0.07, 0.55)) and own != changed and own.material != changed.material)
+	source.shell_size = Vector3.ONE
+	source.tracer_size = Vector3.ONE * 2.0
+	_check("startup snapshot: cached and previously unseen styles ignore later source edits", other._bar(0, &"unknown").size.is_equal_approx(Vector3(0.2, 0.3, 0.4)) and other._bar(1, &"tracer").size.is_equal_approx(Vector3(0.045, 0.045, 1.6)) and changed.size.is_equal_approx(Vector3(0.2, 0.3, 0.4)))
+	var restarted: Node3D = p.get_script().new()
+	restarted.name = "RestartedProjectiles"
+	restarted.visual_style = source
+	restarted.process_mode = Node.PROCESS_MODE_DISABLED
+	scene.add_child(restarted)
+	_check("new renderer uses current source values, including unknown-style shell-size fallback", restarted._bar(0, &"unknown").size == Vector3.ONE and restarted._bar(0, &"tracer").size == Vector3.ONE * 2.0)
+	var supplied := load("res://game/weapons/pdc20_kestrel_tracer.tres") as Mesh
+	var source_size: Vector3 = supplied.size
+	var count: int = p.get_child_count()
+	p.spawn(ff01, 0, Vector3(0, 50, 0), Vector3.RIGHT, 0.0, 1.0, 1.0, null, &"tracer", null, 0.0, false, supplied)
+	var record: Dictionary = p.active[-1]
+	_check("custom Kestrel mesh bypasses fallback appearance; exactly one node, no child scenes", record.node.mesh == supplied and p.get_child_count() == count + 1 and record.node.get_child_count() == 0 and supplied.size == source_size)
+	var cache_size: int = p._meshes.size()
+	for i in 20:
+		p._bar(0, &"shell")
+	_check("repeated rounds reuse the renderer's mesh and leave shared source/palette unchanged", p._bar(0, &"shell") == own and p._meshes.size() == cache_size and p.visual_style.shell_size.is_equal_approx(Vector3(0.07, 0.07, 0.55)))
+	other.free()
+	restarted.free()

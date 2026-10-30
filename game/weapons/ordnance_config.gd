@@ -43,7 +43,7 @@ extends Resource
 @export var body_radius := 0.09 # u, model
 @export var trail_time := 1.2 # s of trail
 @export var arrival_distance := 2.0 # u: a last known position counts as reached
-# Presentation: the shared thruster effects (game/presentation/thrusters/) on the model.
+# Presentation: the shared thruster effects (game/presentation/effects/thrusters/) on the model.
 @export var thruster_scale := 0.38 # main_thruster_fx nozzle_scale (1 = a 0.2 u nozzle)
 @export var thruster_length := 1.0 # main_thruster_fx length_multiplier
 @export var rcs_scale := 0.25 # directional_thruster_fx nozzle_scale, attitude thrusters (missile)

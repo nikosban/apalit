@@ -1,0 +1,15 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://game/presentation/effects/projectiles/projectile_trail_preview.gd" id="1"]
+
+[node name="ProjectileTrailPreview" type="Node"]
+script = ExtResource("1")
+
+[node name="Instructions" type="CanvasLayer" parent="."]
+layer = 3
+
+[node name="Label" type="Label" parent="Instructions"]
+offset_left = 16.0
+offset_top = 160.0
+mouse_filter = 2
+text = "Fallback shells / tracers / unknown style and Kestrel custom mesh, both factions.\nTorpedo / Wayfarer / Barrage use the production flight and ribbon renderer.\n1 Zoom 5 | 2 Zoom 40 | 3 Zoom 150 | Space pause | -/= speed\nSave projectile_visual_style.tres / ordnance_trail_style.tres; restart F6 to apply."

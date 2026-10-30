@@ -1,8 +1,8 @@
 [gd_scene format=3 uid="uid://ckvv4exsdn0cg"]
 
-[ext_resource type="Script" uid="uid://bmkmj1f6rje4a" path="res://game/presentation/thrusters/thruster_fx_preview.gd" id="1_preview"]
-[ext_resource type="PackedScene" path="res://game/presentation/thrusters/main_thruster_fx.tscn" id="2_main"]
-[ext_resource type="PackedScene" path="res://game/presentation/thrusters/directional_thruster_fx.tscn" id="3_jet"]
+[ext_resource type="Script" uid="uid://bmkmj1f6rje4a" path="res://game/presentation/effects/thrusters/thruster_fx_preview.gd" id="1_preview"]
+[ext_resource type="PackedScene" path="res://game/presentation/effects/thrusters/main_thruster_fx.tscn" id="2_main"]
+[ext_resource type="PackedScene" path="res://game/presentation/effects/thrusters/directional_thruster_fx.tscn" id="3_jet"]
 
 [sub_resource type="Environment" id="Environment_preview"]
 background_mode = 1

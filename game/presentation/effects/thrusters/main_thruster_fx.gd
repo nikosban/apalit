@@ -15,7 +15,7 @@ extends Node3D
 @export var powered := true
 @export_range(0.05, 10.0, 0.01, "or_greater") var nozzle_scale := 1.0 # Width; 1 = the Miner's engine (radius 0.2 u)
 @export_range(0.1, 5.0, 0.01, "or_greater") var length_multiplier := 1.0
-@export var settings: Resource = preload("res://game/presentation/thrusters/main_thruster_settings.tres")
+@export var settings: Resource = preload("res://game/presentation/effects/thrusters/main_thruster_settings.tres")
 
 var _exhaust: GPUParticles3D
 var _trail: GPUParticles3D

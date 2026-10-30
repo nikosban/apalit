@@ -1,8 +1,8 @@
 [gd_scene format=3]
 
-[ext_resource type="Script" path="res://game/presentation/thrusters/directional_thruster_fx.gd" id="1_b201i"]
-[ext_resource type="Material" path="res://game/presentation/thrusters/directional_exhaust_process.tres" id="2_8y8ba"]
-[ext_resource type="Material" path="res://game/presentation/thrusters/plasma_directional.tres" id="3_afjsq"]
+[ext_resource type="Script" path="res://game/presentation/effects/thrusters/directional_thruster_fx.gd" id="1_b201i"]
+[ext_resource type="Material" path="res://game/presentation/effects/thrusters/directional_exhaust_process.tres" id="2_8y8ba"]
+[ext_resource type="Material" path="res://game/presentation/effects/thrusters/plasma_directional.tres" id="3_afjsq"]
 
 [sub_resource type="QuadMesh" id="QuadMesh_1xkhn"]
 material = ExtResource("3_afjsq")

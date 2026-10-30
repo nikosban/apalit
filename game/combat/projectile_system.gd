@@ -2,7 +2,7 @@ extends Node3D
 ## Combat (migrated from the prototype): everything in flight (node `Projectiles`, physics priority 3, after
 ## every ship's Combat).
 ##
-## Rounds (v0.2): small emissive bars (cannon shells, Gatling tracers) travelling from the
+## Rounds (v0.2): small unshaded bars (or weapon-supplied meshes) travelling from the
 ## muzzle at constant velocity; every tick its segment (previous → next position) is
 ## swept against every ship's visible hull boxes (the firing ship excepted for its own
 ## rounds), the asteroid spheres and, v0.3, every hostile guided ordnance's interception
@@ -29,8 +29,6 @@ extends Node3D
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const Ordnance := preload("res://game/combat/ordnance.gd")
 const CombatObstacles := preload("res://game/combat/combat_obstacles.gd")
-const STYLES := {&"shell": Vector3(0.07, 0.07, 0.55), &"tracer": Vector3(0.045, 0.045, 1.6)}
-const BAR_SIZE := Vector3(0.07, 0.07, 0.55)
 
 signal impact(record: Dictionary)
 signal spawned_projectile(record: Dictionary)
@@ -42,6 +40,8 @@ signal ordnance_finished(record: Dictionary)
 @export var effects_path := NodePath("../Effects")
 @export var contacts_path := NodePath("../Contacts")
 @export var trails_path := NodePath("../OrdnanceTrails")
+## Fallback bars only. Save the shared resource and restart F6/game to apply.
+@export var visual_style: Resource = preload("res://game/presentation/effects/projectiles/projectile_visual_style.tres")
 
 var active: Array[Dictionary] = []
 var ordnance: Array = [] # Live guided ordnance nodes.
@@ -53,7 +53,8 @@ var damage_events := {} # projectile / ordnance id -> damage applications (must 
 var records: Array[Dictionary] = [] # Finished rounds (tests): {id, outcome, ship, point, traveled, age, ...}
 var ordnance_records: Array[Dictionary] = [] # Finished ordnance (tests).
 var _next_id := 1
-static var _meshes := {}
+var _meshes := {} # Private cache: one mesh/material per faction/style for this run.
+var _visual_style: Resource
 
 @onready var _ships := get_node(ships_path)
 @onready var _asteroids = get_node_or_null(asteroids_path)
@@ -63,6 +64,7 @@ static var _meshes := {}
 
 
 func _ready() -> void:
+	_visual_style = visual_style.duplicate(true)
 	process_physics_priority = 3
 
 
@@ -309,12 +311,10 @@ func _bar(faction: int, style: StringName) -> BoxMesh:
 	if not _meshes.has(key):
 		var material := StandardMaterial3D.new()
 		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		var color: Color = CombatShip.FACTION_COLORS[faction].lerp(Color.WHITE, 0.55 if style == &"shell" else 0.35)
-		if style == &"tracer":
-			color = color.lerp(Color(1.0, 0.85, 0.45), 0.45)
+		var color: Color = _visual_style.tint_for(CombatShip.FACTION_COLORS[faction], style)
 		material.albedo_color = color
 		var box := BoxMesh.new()
-		box.size = STYLES.get(style, BAR_SIZE)
+		box.size = _visual_style.size_for(style)
 		box.material = material
 		_meshes[key] = box
 	return _meshes[key]

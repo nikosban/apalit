@@ -6,12 +6,12 @@ extends MeshInstance3D
 ## ejection and orientation), fading toward the tail. When an
 ## ordnance ends, its trail is kept and ages out (no new points), then is dropped.
 
-const WIDTH := {&"torpedo": 0.14, &"missile": 0.1}
-const COLOR := {&"torpedo": Color(1.0, 0.78, 0.5), &"missile": Color(0.85, 0.92, 1.0)}
-
 @export var projectiles_path := NodePath("../Projectiles")
+## Save the shared resource and restart F6/game to apply; runtime state never writes it.
+@export var style: Resource = preload("res://game/presentation/effects/ordnance_trails/ordnance_trail_style.tres")
 
 var _mesh := ImmediateMesh.new()
+var _style: Resource
 var _fading: Array[Dictionary] = [] # {kind, points, ages, limit, faction}
 ## v0.4 fog of war: (point, faction) -> whether a trail there may be drawn; unset: all.
 var reveal: Callable = Callable()
@@ -20,6 +20,7 @@ var reveal: Callable = Callable()
 
 
 func _ready() -> void:
+	_style = style.duplicate(true)
 	mesh = _mesh
 	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var material := StandardMaterial3D.new()
@@ -74,8 +75,8 @@ func _process(delta: float) -> void:
 
 
 func _strip(kind: StringName, points: Array, ages: Array, limit: float, camera: Camera3D) -> void:
-	var width: float = WIDTH.get(kind, 0.1)
-	var color: Color = COLOR.get(kind, Color.WHITE)
+	var width: float = _style.width_for(kind)
+	var color: Color = _style.color_for(kind)
 	var count := points.size()
 	var left: Array[Vector3] = []
 	var right: Array[Vector3] = []
@@ -87,11 +88,11 @@ func _strip(kind: StringName, points: Array, ages: Array, limit: float, camera: 
 		var side := direction.cross(view)
 		side = side.normalized() if side.length() > 0.000001 else Vector3.RIGHT
 		var share := 1.0 - clampf(float(ages[i]) / maxf(limit, 0.001), 0.0, 1.0)
-		var half := width * 0.5 * (0.25 + 0.75 * share)
+		var half: float = width * 0.5 * (_style.tail_width_ratio + (1.0 - _style.tail_width_ratio) * share)
 		left.append(p + side * half)
 		right.append(p - side * half)
 		var c := color
-		c.a = 0.75 * share
+		c.a = _style.opacity * share
 		colors.append(c)
 	for i in count - 1:
 		_vertex(left[i], colors[i]); _vertex(right[i], colors[i]); _vertex(left[i + 1], colors[i + 1])
