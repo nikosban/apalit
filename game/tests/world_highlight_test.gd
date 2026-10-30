@@ -121,6 +121,7 @@ func _initialize() -> void:
 	var during := _measure()
 	_check("with overlays on four ships and the station: pick boxes, ring radii, mesh counts and station picks identical to the start (%d values)" % before.size(),
 		during == before)
+	_test_style_snapshot()
 	print("RESULT: %s (%d of %d checks failed)" % ["PASS" if _failures == 0 else "FAIL", _failures, _checks])
 	quit(0 if _failures == 0 else 1)
 
@@ -227,3 +228,41 @@ func _check(label: String, ok: bool) -> void:
 	if not ok:
 		_failures += 1
 	print("%-130s %s" % [label, "PASS" if ok else "FAIL"])
+
+
+func _test_style_snapshot() -> void:
+	var source = _highlight.interaction_style
+	var original: Color = source.selected_color
+	_selection.set_selection([_ship("Miner1"), _ship("Miner2")])
+	_highlight.update(Vector2(-1000, -1000), false)
+	var first: ShaderMaterial = _highlight._materials[_ship("Miner1")][0]
+	var second: ShaderMaterial = _highlight._materials[_ship("Miner2")][0]
+	var before: Color = first.get_shader_parameter("fill_color")
+	source.selected_color = Color(0.8, 0.3, 0.5)
+	_highlight.update(Vector2(-1000, -1000), false)
+	_check("style: active highlight retains ready-time color",
+		(first.get_shader_parameter("fill_color") as Color).is_equal_approx(before))
+	_selection.set_selection([])
+	_highlight.update(Vector2(-1000, -1000), false)
+	_selection.set_selection([_ship("Miner1"), _ship("Miner2")])
+	_highlight.update(Vector2(-1000, -1000), false)
+	_check("style: later highlight state changes still use run snapshot",
+		(first.get_shader_parameter("fill_color") as Color).is_equal_approx(before))
+	var ship: Node3D = _ship("Miner1")
+	var highlight = WorldHighlight.new()
+	_main.add_child(highlight)
+	highlight.update(Vector2(-1000, -1000), false)
+	var next: ShaderMaterial = highlight._materials[ship][0]
+	_check("style: restarted highlight consumes updated shared color",
+		(next.get_shader_parameter("fill_color") as Color).is_equal_approx(Color(source.selected_color, source.selected_fill_alpha)))
+	first.set_shader_parameter("fill_color", Color(1, 0, 0, 0.5))
+	_check("style: object uniforms are independent of other objects and source",
+		first != second and first != next
+		and (second.get_shader_parameter("fill_color") as Color).is_equal_approx(before)
+		and source.selected_color == Color(0.8, 0.3, 0.5))
+	first.set_shader_parameter("fill_color", before)
+	source.selected_color = original
+	_main.remove_child(highlight)
+	highlight.free()
+	_highlight._set_style(_ship("Miner1"), WorldHighlight.Style.SELECTED)
+	_highlight._set_style(_ship("Miner2"), WorldHighlight.Style.SELECTED)

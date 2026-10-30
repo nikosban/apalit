@@ -47,6 +47,7 @@ func _initialize() -> void:
 	_test_moving_selection()
 	_test_orders()
 	_test_group_and_ship_click()
+	_test_style_snapshot()
 	print("RESULT: %s (%d of %d checks failed)" % ["PASS" if _failures == 0 else "FAIL", _failures, _checks])
 	quit(0 if _failures == 0 else 1)
 
@@ -407,3 +408,45 @@ func _marker(ship_name: String) -> Variant:
 		if entry.ship == _ship(ship_name):
 			return entry.destination
 	return null
+
+
+func _test_style_snapshot() -> void:
+	var source = _selection.interaction_style
+	var padding: float = source.ring_padding
+	var color: Color = source.selection_indicator_color
+	var box_color: Color = source.drag_box.bg_color
+	var radius: float = _selection._rings[_ship("Miner")].mesh.outer_radius
+	source.ring_padding = padding + 0.4
+	source.selection_indicator_color = Color(0.8, 0.2, 0.4)
+	source.drag_box.bg_color = Color(0.2, 0.3, 0.4, 0.2)
+	_selection._process(0.0)
+	_check("style: active ring and nested drag style retain ready-time snapshot",
+		is_equal_approx(_selection._rings[_ship("Miner")].mesh.outer_radius, radius)
+		and _selection._ring_material.albedo_color.is_equal_approx(color)
+		and _selection._box.get_theme_stylebox("panel").bg_color == box_color)
+	var late := Node3D.new()
+	late.name = "LateStyleProbe"
+	var mesh := MeshInstance3D.new()
+	mesh.mesh = BoxMesh.new()
+	late.add_child(mesh)
+	_lab.get_node("Ships").add_child(late)
+	_selection.register_ship(late)
+	_check("style: late registration keeps existing run dimensions",
+		is_equal_approx(_selection._rings[late].mesh.outer_radius, sqrt(0.5) + padding))
+	_selection.unregister_ship(late)
+	late.queue_free()
+	var selection = load("res://game/selection/ship_selection.gd").new()
+	_lab.add_child(selection)
+	selection._process(0.0)
+	_check("style: restart consumes new ring and nested drag settings",
+		is_equal_approx(selection._rings[_ship("Miner")].mesh.outer_radius, radius + 0.4)
+		and selection._ring_material.albedo_color.is_equal_approx(source.selection_indicator_color)
+		and selection._box.get_theme_stylebox("panel").bg_color == source.drag_box.bg_color)
+	selection._ring_material.albedo_color = Color(1, 1, 1, 0.1)
+	_check("style: runtime material change does not mutate source or another run",
+		source.selection_indicator_color == Color(0.8, 0.2, 0.4) and _selection._ring_material.albedo_color.is_equal_approx(color))
+	source.ring_padding = padding
+	source.selection_indicator_color = color
+	source.drag_box.bg_color = box_color
+	_lab.remove_child(selection)
+	selection.free()

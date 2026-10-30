@@ -56,7 +56,7 @@ func _initialize() -> void:
 	_check("selected ships: FF01 triangle (combat), Miner1 and Transporter octagons (logistics), cyan (%s)" % str(shapes),
 		shapes == {"FF01": ObjectMarkers.Shape.TRIANGLE, "Miner1": ObjectMarkers.Shape.OCTAGON,
 			"Transporter": ObjectMarkers.Shape.OCTAGON}
-		and _markers.entries().all(func(e: Dictionary) -> bool: return e.color == ObjectMarkers.SELECTED_COLOR))
+		and _markers.entries().all(func(e: Dictionary) -> bool: return e.color == Color(0.30, 0.75, 0.90)))
 	var centred := true
 	for zoom in [5.0, 40.0]:
 		_frame(Vector2(0, 6), zoom)
@@ -77,10 +77,10 @@ func _initialize() -> void:
 	_highlight.update(_camera.unproject_position(station.global_position), true)
 	var hovered := _markers.entries()
 	_check("hovered station: one square, hover colour", hovered.size() == 1 and hovered[0].target == station
-		and hovered[0].shape == ObjectMarkers.Shape.SQUARE and hovered[0].color == ObjectMarkers.HOVER_COLOR)
+		and hovered[0].shape == ObjectMarkers.Shape.SQUARE and hovered[0].color == Color(0.85, 0.90, 0.95))
 	_main.get_node("StationPanel").select(station)
 	_highlight.update(_away, true)
-	_check("selected station: square in the selected colour", _markers.entries().size() == 1 and _markers.entries()[0].color == ObjectMarkers.SELECTED_COLOR)
+	_check("selected station: square in the selected colour", _markers.entries().size() == 1 and _markers.entries()[0].color == Color(0.30, 0.75, 0.90))
 	_main.get_node("StationPanel").select(null)
 
 	var field := _main.get_node("Asteroids")
@@ -115,6 +115,7 @@ func _initialize() -> void:
 	_selection.set_selection([])
 	_highlight.update(_away, true)
 	_check("deselected: no markers", _markers.entries().is_empty())
+	_test_style_snapshot()
 	print("RESULT: %s (%d of %d checks failed)" % ["PASS" if _failures == 0 else "FAIL", _failures, _checks])
 	quit(0 if _failures == 0 else 1)
 
@@ -142,3 +143,31 @@ func _check(label: String, ok: bool) -> void:
 	if not ok:
 		_failures += 1
 	print("%-130s %s" % [label, "PASS" if ok else "FAIL"])
+
+
+func _test_style_snapshot() -> void:
+	var interaction = _markers.interaction_style
+	var source = _markers.marker_style
+	var selected: Color = interaction.selected_color
+	var stroke: float = source.object_stroke
+	interaction.selected_color = Color(0.4, 0.2, 0.8)
+	source.object_stroke = 2.25
+	_frame(Vector2(-8, 14), 30.0)
+	_selection.set_selection([_ship("Miner1")])
+	_highlight.update(_away, false)
+	_check("style: existing Object markers keep color and stroke snapshot",
+		_markers.entries().any(func(entry): return entry.target == _ship("Miner1") and entry.color == selected)
+		and is_equal_approx(_markers._marker.object_stroke, stroke))
+	var ship: Node3D = _ship("Miner1")
+	var markers = ObjectMarkers.new()
+	_main.add_child(markers)
+	_check("style: restarted Object markers consume both updated resources",
+		markers.entries().any(func(entry): return entry.target == ship and entry.color == interaction.selected_color)
+		and is_equal_approx(markers._marker.object_stroke, 2.25))
+	markers._marker.object_stroke = 3.0
+	_check("style: marker runtime changes leave source and other run untouched",
+		is_equal_approx(source.object_stroke, 2.25) and is_equal_approx(_markers._marker.object_stroke, stroke))
+	interaction.selected_color = selected
+	source.object_stroke = stroke
+	_main.remove_child(markers)
+	markers.free()

@@ -17,11 +17,11 @@ enum Style { NONE, HOVER, SELECTED }
 
 const FILL := preload("res://game/presentation/highlight_fill.gdshader")
 const OUTLINE := preload("res://game/presentation/highlight_outline.gdshader")
-const SELECTED_COLOR := Color(0.30, 0.75, 0.90)
-const HOVER_COLOR := Color(0.75, 0.85, 0.95)
-const FILL_ALPHA := {Style.HOVER: 0.04, Style.SELECTED: 0.08}
-const OUTLINE_ALPHA := {Style.HOVER: 0.6, Style.SELECTED: 0.9}
-const OUTLINE_PIXELS := {Style.HOVER: 1.5, Style.SELECTED: 2.0} # Width on screen.
+
+const InteractionStyle := preload("res://game/presentation/markers/interaction_style.gd")
+## Saved style edits apply on the next scene run, not during this run.
+@export var interaction_style: InteractionStyle = preload("res://game/presentation/markers/interaction_style.tres")
+var _interaction: InteractionStyle
 
 @export var selection_path := NodePath("../Selection")
 @export var stations_path := NodePath("../Stations")
@@ -37,6 +37,10 @@ var _materials := {} # object -> [fill, outline] (one pair per object; asteroids
 @onready var _stations := get_node_or_null(stations_path)
 @onready var _station_panel := get_node_or_null(station_panel_path)
 @onready var _field := get_node_or_null(field_path)
+
+
+func _ready() -> void:
+	_interaction = interaction_style.duplicate(true)
 
 
 func _process(_delta: float) -> void:
@@ -125,9 +129,9 @@ func _set_style(target: Node3D, style: Style) -> void:
 			fill.next_pass = outline
 			pair = [fill, outline]
 			_materials[target] = pair
-		var color := SELECTED_COLOR if style == Style.SELECTED else HOVER_COLOR
-		pair[0].set_shader_parameter("fill_color", Color(color, FILL_ALPHA[style]))
-		pair[1].set_shader_parameter("outline_color", Color(color, OUTLINE_ALPHA[style]))
+		var color := _interaction.selected_color if style == Style.SELECTED else _interaction.highlight_hover_color
+		pair[0].set_shader_parameter("fill_color", Color(color, _interaction.selected_fill_alpha if style == Style.SELECTED else _interaction.hover_fill_alpha))
+		pair[1].set_shader_parameter("outline_color", Color(color, _interaction.selected_outline_alpha if style == Style.SELECTED else _interaction.hover_outline_alpha))
 		overlay = pair[0]
 		_styles[target] = style
 	else:
@@ -164,7 +168,8 @@ func _update_widths() -> void:
 	for target: Node3D in _styles:
 		var distance := camera.global_position.distance_to(target.global_position)
 		var per_pixel := 2.0 * distance * tan(deg_to_rad(camera.fov) * 0.5) / maxf(height, 1.0)
-		_materials[target][1].set_shader_parameter("thickness", OUTLINE_PIXELS[_styles[target]] * per_pixel)
+		var pixels: float = _interaction.selected_outline_pixels if _styles[target] == Style.SELECTED else _interaction.hover_outline_pixels
+		_materials[target][1].set_shader_parameter("thickness", pixels * per_pixel)
 
 
 ## Outline width in pixels currently shown for an object (for checks), or 0.

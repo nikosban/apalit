@@ -16,11 +16,17 @@ enum Shape { TRIANGLE, OCTAGON, SQUARE, DIAMOND }
 const WorldHighlight := preload("res://game/presentation/world_highlight.gd")
 const SurveyView := preload("res://game/survey/survey_view.gd")
 const SIZE := 7.0 # px, centre to corner
-const OUTLINE := Color(0.0, 0.0, 0.0, 0.75)
-const SELECTED_COLOR := Color(0.30, 0.75, 0.90)
-const HOVER_COLOR := Color(0.85, 0.90, 0.95)
 const SURVEY_COLORS := {SurveyView.Marker.ASTEROID: SurveyView.UNKNOWN_COLOR, SurveyView.Marker.MINERALS: SurveyView.MINERALS_COLOR,
 	SurveyView.Marker.ICE: SurveyView.ICE_COLOR} # The survey's own colours.
+
+const InteractionStyle := preload("res://game/presentation/markers/interaction_style.gd")
+## Saved style edits apply on the next scene run, not during this run.
+@export var interaction_style: InteractionStyle = preload("res://game/presentation/markers/interaction_style.tres")
+var _interaction: InteractionStyle
+
+const MarkerStyle := preload("res://game/presentation/markers/marker_style.gd")
+@export var marker_style: MarkerStyle = preload("res://game/presentation/markers/marker_style.tres")
+var _marker: MarkerStyle
 
 @export var highlight_path := NodePath("../WorldHighlight")
 @export var survey_view_path := NodePath("../SurveyView")
@@ -38,6 +44,8 @@ var _overlay: Control
 
 
 func _ready() -> void:
+	_interaction = interaction_style.duplicate(true)
+	_marker = marker_style.duplicate(true)
 	var layer := CanvasLayer.new()
 	layer.layer = 0 # Below the panels (layer 1), as the survey overlay.
 	_overlay = Control.new()
@@ -69,7 +77,7 @@ func entries() -> Array:
 			continue
 		if not view.has_point(camera.unproject_position(target.global_position)):
 			continue
-		var color := SELECTED_COLOR if styles[target] == WorldHighlight.Style.SELECTED else HOVER_COLOR
+		var color := _interaction.selected_color if styles[target] == WorldHighlight.Style.SELECTED else _interaction.object_hover_color
 		var shape := Shape.SQUARE
 		var alpha := 1.0
 		var parent := target.get_parent()
@@ -94,7 +102,7 @@ func _draw_markers() -> void:
 		_overlay.draw_colored_polygon(points, Color(entry.color, entry.color.a * entry.alpha))
 		var outline := points.duplicate()
 		outline.append(points[0])
-		_overlay.draw_polyline(outline, Color(OUTLINE, OUTLINE.a * entry.alpha), 1.5, true)
+		_overlay.draw_polyline(outline, Color(_marker.object_outline, _marker.object_outline.a * entry.alpha), _marker.object_stroke, true)
 
 
 ## Corner points of a marker shape around a screen point.

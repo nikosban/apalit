@@ -1,0 +1,15 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://game/presentation/markers/marker_preview.gd" id="1"]
+
+[node name="MarkerPreview" type="Node"]
+script = ExtResource("1")
+
+[node name="Instructions" type="CanvasLayer" parent="."]
+layer = 3
+
+[node name="Label" type="Label" parent="Instructions"]
+offset_left = 16.0
+offset_top = 160.0
+mouse_filter = 2
+text = "1 All | 2 Ring/drag | 3 Highlight | 4 Object | 5 Tactical\n6 Zoom 5 | 7 Zoom 40 | 8 Zoom 100 | 9 Zoom 150 | 0 Strategic\nSave style edits, then restart F6 to apply. Simulation is frozen; camera and selection remain interactive."

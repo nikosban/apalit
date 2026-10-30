@@ -18,6 +18,7 @@ var _failures := 0
 func _initialize() -> void:
 	await process_frame
 	await _load_e05()
+	await _case_style_snapshot()
 	await _case_continuity()
 	await _case_picking()
 	await _case_overlap()
@@ -414,8 +415,8 @@ func _case_objects_shown() -> void:
 		if entry.asteroid >= 0:
 			colours[entry.color] = true
 	var survey: Array = [markers.SurveyView.UNKNOWN_COLOR, markers.SurveyView.MINERALS_COLOR, markers.SurveyView.ICE_COLOR]
-	var quiet: bool = markers.ASTEROID_SIZE < markers.STATION_SIZE and markers.ASTEROID_SIZE < markers.BASE_SIZE and markers.ASTEROID_ALPHA < 1.0
-	_check("asteroid markers are smaller and fainter than station and ship markers (%.0f / %.0f / %.0f px, alpha %.1f) in the survey colours (%d colour(s) now)" % [markers.ASTEROID_SIZE, markers.STATION_SIZE, markers.BASE_SIZE, markers.ASTEROID_ALPHA, colours.size()],
+	var quiet: bool = markers.ASTEROID_SIZE < markers.STATION_SIZE and markers.ASTEROID_SIZE < markers.BASE_SIZE and markers._marker.asteroid_alpha < 1.0
+	_check("asteroid markers are smaller and fainter than station and ship markers (%.0f / %.0f / %.0f px, alpha %.1f) in the survey colours (%d colour(s) now)" % [markers.ASTEROID_SIZE, markers.STATION_SIZE, markers.BASE_SIZE, markers._marker.asteroid_alpha, colours.size()],
 		quiet and colours.keys().all(func(c: Color) -> bool: return survey.has(c)))
 	await _look_at(Vector3(-50, 0, -20), 20.0)
 	_check("zoom 20: emphasis 0, so the object markers draw nothing (their alpha is the emphasis); models shown",
@@ -554,3 +555,40 @@ func _case_removal() -> void:
 	var station_gone: bool = scene.markers.object_entries().all(func(e: Dictionary) -> bool: return e.target != station)
 	station.free()
 	_check("a hidden asteroid and a removed station have no marker (no stale entries); shown again, the asteroid's marker returns", hidden_gone and back and station_gone)
+
+
+# Probe actual production pick outputs before/after a style restart.
+func _case_style_snapshot() -> void:
+	var markers = scene.markers
+	var interaction = markers.interaction_style
+	var source = markers.marker_style
+	var selected: Color = interaction.selection_indicator_color
+	var stroke: float = source.line_width
+	interaction.selection_indicator_color = Color(0.7, 0.2, 0.8)
+	source.line_width = 3.0
+	var fresh = load("res://game/presentation/tactical_markers.gd").new()
+	scene.add_child(fresh)
+	_check("style: active Tactical snapshot stays stable; restart consumes updated sources",
+		markers._interaction.selection_indicator_color == selected and is_equal_approx(markers._marker.line_width, stroke)
+		and fresh._interaction.selection_indicator_color == interaction.selection_indicator_color
+		and is_equal_approx(fresh._marker.line_width, 3.0))
+	var same_sizes := true
+	var same_picks := true
+	# Existing picking/overlap/fog cases cover eligibility; these cases vary styles.
+	for zoom in [5.0, sqrt(3000.0) - 0.001, sqrt(3000.0), sqrt(3000.0) + 0.001, 150.0]:
+		await _set_zoom(zoom)
+		for ship in scene.get_node("Ships").get_children():
+			var radius: float = markers.hit_size(ship)
+			same_sizes = same_sizes and radius == fresh.hit_size(ship)
+			var at := _screen(ship.global_position)
+			for offset in [0.0, radius - 0.001, radius, radius + 0.001]:
+				same_picks = same_picks and markers.marker_at(at + Vector2(offset, 0)) == fresh.marker_at(at + Vector2(offset, 0))
+	_check("style: hit_size is exactly identical after style restart across zooms", same_sizes)
+	_check("style: marker_at is identical at centers/boundaries across interaction threshold", same_picks)
+	fresh._marker.line_width = 4.0
+	_check("style: Tactical stroke edits do not mutate source or another run",
+		is_equal_approx(source.line_width, 3.0) and is_equal_approx(markers._marker.line_width, stroke))
+	interaction.selection_indicator_color = selected
+	source.line_width = stroke
+	scene.remove_child(fresh)
+	fresh.free()

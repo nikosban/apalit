@@ -39,7 +39,8 @@ Stages 1–5, the final launch-profile revision, Stage 6B, the two-FF-01 Combat 
 the legacy ship cleanup, is accepted by the owner. PDC raid sweep (2026-10-28, section
 4.6 PDC entry) is on `main` and accepted by the owner after a Combat Test playtest.
 
-UI visual authoring (issue #5, section 4.9) is accepted by the owner.
+UI visual authoring (issue #5, section 4.9) and shared selection/marker styles
+(issue #6, section 4.8) are accepted by the owner.
 
 ## 2. Project layout and scenes
 
@@ -124,6 +125,7 @@ the lab era) and the layout contract in section 3.
   (three FF-01s per side; `encounters.gd` holds E05 only),
   `combat_positioning_demo.tscn`, `turret_pitch_range.tscn`, test-only scripts. The
   combat lab and the E01–E04 / P01–P03 scenarios were removed with the legacy ships.
+- `game/presentation/markers/marker_preview.tscn`: selection/highlight/Object/Tactical marker authoring scene (section 4.8).
 - `game/ui/overlays/overlay_preview.tscn`: shared HUD, hover tooltip and notice authoring scene (section 4.9).
 - `game/presentation/thrusters/thruster_fx_preview.tscn`: thruster authoring scene.
 - `game/presentation/movement_indicator/movement_indicator_preview.tscn`: movement
@@ -764,6 +766,23 @@ Combat behaviour is frozen as accepted (section 6).
 - `object_markers.gd`: 7 px markers on hover or selection only: triangle combat
   ships, octagon ships with Cargo, square stations, diamond asteroids (survey colours:
   grey unknown, amber minerals, blue ice). Shape points shared with tactical markers.
+- Shared selection/marker appearance (`presentation/markers/`, issue #6):
+  `interaction_style.tres` owns selected cyan (WorldHighlight/ObjectMarkers), selection
+  green (rings/Tactical brackets), the two distinct hover colors, highlight alpha/width,
+  ring dimensions and the drag StyleBox. `marker_style.tres` owns marker-only colors,
+  alpha, tint treatment and strokes; faction and survey palettes remain with CombatShip
+  and SurveyView. Each of ShipSelection, WorldHighlight, ObjectMarkers and TacticalMarkers
+  deep-copies its referenced resources at `_ready()`: save source edits and restart
+  F6/project to apply them. Existing visuals and later ship registrations use that run's
+  snapshots; runtime materials/state never modify source resources. Shape generation,
+  geometry/picking rules, stencil passes, culling, emphasis and contact-memory stroke
+  remain in their existing owners; no per-marker nodes or new renderer.
+- F6 `markers/marker_preview.tscn` uses the production Test Arena/renderers with frozen
+  simulation: keys 1–5 isolate All / Ring and drag / Highlight / Object / Tactical;
+  6–9 zoom 5 / 40 / 100 / 150; 0 toggles Strategic. Sample family/zoom/hover are exports
+  on MarkerPreview. Deferred from this batch: scan-feedback and mining-beam authoring,
+  behavior/weapon/combat guidance styles, Strategic/contact-memory styles and debug
+  overlays. Sensor grid and Movement Indicator remain unchanged, with no relocation.
 - `command_cursor.gd`: shows what a right-click would do (Move, Mine, Dock,
   Unavailable, arrow) from `resolve_command()` / `command_available()`; cached per
   target / 2 u cell, refreshed every 0.5 s; a group is checked with
@@ -1289,6 +1308,27 @@ distribution, logistics balance, models and UI polish.
   the agent. Owner accepted with this limitation. Godot generated three overlay script
   `.uid` files; a generated untracked runtime-log folder was removed, and later logs
   were directed into the ignored `.godot/` cache. No full-project regression for this task.
+- Selection/marker styles (issue #6, 2026-10-30, Godot 4.7.2, `--fixed-fps 60`):
+  two pre-change baselines; post-change `selection_test` 45, `world_highlight_test` 19,
+  `object_markers_test` 15, `tactical_view_test` 30, `strategic_view_test` 30,
+  `combat/fog_test` 19 and `shipyard_runtime_test` 25 checks passed (183 total, 15 added).
+  Test Arena, Combat Test, Movement Test and E05 600-frame smoke runs loaded successfully.
+  No script errors; WorldHighlight's early navigation-map synchronization error occurs
+  in both baselines too. Log differences are added checks/counts, object IDs, source
+  trace lines and baseline-varying seeds/timings. An isolated prototype was verified
+  before production changes, then removed. With matched Test Arena states at 1920×1080
+  and 1280×720, six production captures are byte-identical to the originals; all 120
+  stable frames per state retain 825 nodes and draw calls 573 / 477 / 401 at zoom
+  20 / sqrt(3000) / 100 (particle visuals hidden to isolate stable marker rendering).
+  Eligible asteroid populations/batching and exact pick probes match. Rendered preview
+  isolation, saved style edit/restart, drag, GUI selection/wheel blocking, scan/upload
+  and asteroid highlight coexistence, beam presentation fixture, target guidance/pause,
+  lost contacts and Strategic handoff were checked at both resolutions. Full mining
+  gameplay and native Inspector interaction were not retested; no full-project regression.
+  Rendered/editor probes logged environment user/cache-path errors (shader caching
+  unavailable), while D3D12 Forward+ rendering completed. Godot generated three marker
+  script `.uid` files; generated untracked editor artifacts were removed. Verification
+  evidence remains only in the ignored `.godot/` cache.
 - Full regression (2026-10-30, Godot 4.7.2, `--fixed-fps 60`; all 62 suites and the four
   600-frame scene runs once, the changed suites twice): every scene run loads without
   errors; no suite logs a script error; the only failures are the known ones below.

@@ -23,12 +23,11 @@ signal selection_changed
 
 const DRAG_THRESHOLD := 5.0 # px; less movement between press and release is a click.
 const PICK_TOLERANCE := 0.3 # u added around each visible hull part when picking (provisional).
-const RING_PADDING := 0.5 # u between the hull's farthest point and the selection ring.
-const RING_WIDTH := 0.15 # u
-const RING_HEIGHT := 0.03
-const RING_COLOR := Color(0.35, 0.9, 0.45)
-const BOX_FILL := Color(0.35, 0.9, 0.45, 0.12)
-const BOX_BORDER := Color(0.35, 0.9, 0.45, 0.8)
+
+const InteractionStyle := preload("res://game/presentation/markers/interaction_style.gd")
+## Saved style edits apply on the next scene run, not during this run.
+@export var interaction_style: InteractionStyle = preload("res://game/presentation/markers/interaction_style.tres")
+var _interaction: InteractionStyle
 
 @export var ships_path := NodePath("../Ships")
 @export var player_faction := 0
@@ -48,19 +47,16 @@ var _box: Panel
 
 
 func _ready() -> void:
+	_interaction = interaction_style.duplicate(true)
 	_ring_material = StandardMaterial3D.new()
 	_ring_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_ring_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA # Fades with the Tactical emphasis.
-	_ring_material.albedo_color = RING_COLOR
+	_ring_material.albedo_color = _interaction.selection_indicator_color
 	for ship: Node3D in _ships.get_children():
 		register_ship(ship)
 	var layer := CanvasLayer.new()
 	_box = Panel.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = BOX_FILL
-	style.border_color = BOX_BORDER
-	style.set_border_width_all(1)
-	_box.add_theme_stylebox_override("panel", style)
+	_box.add_theme_stylebox_override("panel", _interaction.drag_box)
 	_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_box.visible = false
 	layer.add_child(_box)
@@ -84,13 +80,13 @@ func register_ship(ship: Node3D) -> void:
 			reach = maxf(reach, Vector2(corner.x, corner.z).length())
 	_parts[ship] = parts
 	var torus := TorusMesh.new()
-	torus.outer_radius = reach + RING_PADDING
-	torus.inner_radius = reach + RING_PADDING - RING_WIDTH
+	torus.outer_radius = reach + _interaction.ring_padding
+	torus.inner_radius = reach + _interaction.ring_padding - _interaction.ring_width
 	var ring := MeshInstance3D.new()
 	ring.mesh = torus
 	ring.material_override = _ring_material
 	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	ring.scale = Vector3(1.0, 0.2, 1.0)
+	ring.scale = Vector3(1.0, _interaction.ring_flattening, 1.0)
 	ring.visible = false
 	add_child(ring)
 	_rings[ship] = ring
@@ -99,7 +95,7 @@ func register_ship(ship: Node3D) -> void:
 func _process(_delta: float) -> void:
 	var markers = get_parent().get("markers")
 	var ring_alpha: float = 1.0 if markers == null else 1.0 - markers.emphasis() # The markers' brackets take over.
-	_ring_material.albedo_color = Color(RING_COLOR, ring_alpha)
+	_ring_material.albedo_color = Color(_interaction.selection_indicator_color, ring_alpha)
 	for key: Variant in _rings.keys():
 		if not is_instance_valid(key): # Freed without being unregistered: its ring goes.
 			(_rings[key] as Node).queue_free()
@@ -110,7 +106,7 @@ func _process(_delta: float) -> void:
 		var ring: MeshInstance3D = _rings[ship]
 		ring.visible = selected.has(ship) and ring_alpha > 0.0
 		if ring.visible:
-			ring.global_position = Vector3(ship.global_position.x, RING_HEIGHT, ship.global_position.z)
+			ring.global_position = Vector3(ship.global_position.x, _interaction.ring_height, ship.global_position.z)
 
 
 ## Whether the player may select this ship: live and of the player's faction (a ship

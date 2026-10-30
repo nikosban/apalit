@@ -36,18 +36,21 @@ const CombatShip := preload("res://game/combat/combat_ship.gd")
 const CameraRig := preload("res://game/camera/camera_rig.gd")
 const ObjectMarkers := preload("res://game/presentation/object_markers.gd")
 const SurveyView := preload("res://game/survey/survey_view.gd")
-const SELECT_COLOR := Color(0.35, 0.9, 0.45)
-const TARGET_COLOR := Color(1.0, 0.85, 0.55)
-const HULK_COLOR := Color(0.55, 0.55, 0.58)
 # Sector Showcase round: the canvas is 1080 lines tall (project base size), so these are
 # real px at 1080p; smaller, finer and less filled than before, so hulls show through.
 const BASE_SIZE := 6.5 # px half-extent of a medium-hull frame at 1080 lines
 const STATION_SIZE := 6.0 # px centre to corner of a station square at 1080 lines
-const STATION_COLOR := Color(0.78, 0.8, 0.84)
 const ASTEROID_SIZE := 2.5 # px centre to corner of an asteroid diamond at 1080 lines
-const LINE_WIDTH := 1.0 # px stroke at 1080 lines
-const FILL_ALPHA := 0.15 # marker fills stay light: the model under them stays visible
-const ASTEROID_ALPHA := 0.6 # asteroid markers stay quieter than ships and stations
+const CONTACT_MEMORY_LINE_WIDTH := 1.0 # Deferred contact-memory appearance, independent of marker strokes.
+
+const InteractionStyle := preload("res://game/presentation/markers/interaction_style.gd")
+## Saved style edits apply on the next scene run, not during this run.
+@export var interaction_style: InteractionStyle = preload("res://game/presentation/markers/interaction_style.tres")
+var _interaction: InteractionStyle
+
+const MarkerStyle := preload("res://game/presentation/markers/marker_style.gd")
+@export var marker_style: MarkerStyle = preload("res://game/presentation/markers/marker_style.tres")
+var _marker: MarkerStyle
 
 @export var emphasis_start_distance := 30.0 # zoom distance where the Tactical emphasis starts (0)
 @export var emphasis_end_distance := 100.0 # zoom distance where it is complete (1)
@@ -64,6 +67,8 @@ var _canvas: Control
 
 
 func _ready() -> void:
+	_interaction = interaction_style.duplicate(true)
+	_marker = marker_style.duplicate(true)
 	layer = 0
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_canvas = Control.new()
@@ -140,7 +145,7 @@ func _draw_markers() -> void:
 	var camera := get_viewport().get_camera_3d()
 	if camera == null:
 		return
-	_arena.draw_contact_memory(_canvas, camera, LINE_WIDTH * scale_factor())
+	_arena.draw_contact_memory(_canvas, camera, CONTACT_MEMORY_LINE_WIDTH * scale_factor())
 	var alpha := emphasis() # Markers fade in with the Tactical emphasis.
 	if alpha <= 0.0:
 		return
@@ -154,7 +159,7 @@ func _draw_markers() -> void:
 		var combat = CombatShip.of(ship)
 		if combat != null and combat.manual_target != null and is_instance_valid(combat.manual_target):
 			targets[combat.manual_target] = true
-	var width := LINE_WIDTH * scale_factor()
+	var width := _marker.line_width * scale_factor()
 	for ship: Node3D in _arena.get_node("Ships").get_children():
 		var combat = CombatShip.of(ship)
 		if combat == null or combat.removed_from_play or camera.is_position_behind(ship.global_position):
@@ -166,7 +171,7 @@ func _draw_markers() -> void:
 			continue # Off screen: nothing to draw.
 		var h := half_size(ship)
 		if not combat.alive:
-			var c := Color(HULK_COLOR, 0.8 * alpha)
+			var c := Color(_marker.hulk_color, _marker.hulk_color.a * alpha)
 			_canvas.draw_line(center + Vector2(-h, -h) * 0.6, center + Vector2(h, h) * 0.6, c, width)
 			_canvas.draw_line(center + Vector2(-h, h) * 0.6, center + Vector2(h, -h) * 0.6, c, width)
 			continue
@@ -178,9 +183,9 @@ func _draw_markers() -> void:
 		var shape: int = ObjectMarkers.ship_shape(ship)
 		var size := h * (1.45 if shape == ObjectMarkers.Shape.TRIANGLE else 1.2)
 		var frame := ObjectMarkers.shape_points(shape, center, size)
-		var line := Color(tint.lerp(Color.WHITE, 0.55), 0.95 * alpha)
-		_canvas.draw_colored_polygon(frame, Color(tint.darkened(0.45), FILL_ALPHA * alpha))
-		_canvas.draw_polyline(frame + PackedVector2Array([frame[0]]), line, width + 0.3 * scale_factor(), true)
+		var line := Color(tint.lerp(Color.WHITE, _marker.tint_lightening), _marker.line_alpha * alpha)
+		_canvas.draw_colored_polygon(frame, Color(tint.darkened(_marker.ship_fill_darkening), _marker.fill_alpha * alpha))
+		_canvas.draw_polyline(frame + PackedVector2Array([frame[0]]), line, width + _marker.frame_extra_width * scale_factor(), true)
 		if combat.faction != _arena.PLAYER_FACTION:
 			var outer := ObjectMarkers.shape_points(shape, center, size + 2.5 * scale_factor())
 			_canvas.draw_polyline(outer + PackedVector2Array([outer[0]]), line, width)
@@ -188,11 +193,11 @@ func _draw_markers() -> void:
 			var bars := 2 if h > BASE_SIZE * scale_factor() * 1.1 else 1
 			for i in bars:
 				var y := h * 0.18 + (float(i) - (bars - 1) * 0.5) * h * 0.3
-				_canvas.draw_line(center + Vector2(-h * 0.38, y), center + Vector2(h * 0.38, y), Color(0.95, 0.95, 0.95, 0.9 * alpha), width)
+				_canvas.draw_line(center + Vector2(-h * 0.38, y), center + Vector2(h * 0.38, y), Color(_marker.class_bar_color, _marker.class_bar_color.a * alpha), width)
 		if selected.has(ship):
-			_brackets(center, h * 1.75, Color(SELECT_COLOR, 0.95 * alpha), width)
+			_brackets(center, h * 1.75, Color(_interaction.selection_indicator_color, _marker.selection_alpha * alpha), width)
 		if targets.has(ship):
-			_crosshair(center, h, Color(TARGET_COLOR, 0.95 * alpha), width)
+			_crosshair(center, h, Color(_marker.target_color, _marker.target_color.a * alpha), width)
 
 
 ## The station and asteroid markers to draw now: {target, asteroid (id, or -1 for a
@@ -226,14 +231,14 @@ func object_entries() -> Array:
 			if station.is_visible_in_tree() and not marked.has(station) and not camera.is_position_behind(station.global_position):
 				var center := camera.unproject_position(station.global_position)
 				if view.has_point(center):
-					result.append({"target": station, "asteroid": -1, "position": center, "color": STATION_COLOR})
+					result.append({"target": station, "asteroid": -1, "position": center, "color": _marker.station_color})
 	return result
 
 
 # Asteroids: one small quiet diamond each, all in one batched triangle array (one canvas
 # command however many asteroids); stations: a square with a centre dot.
 func _draw_objects(alpha: float, asteroid_alpha: float) -> void:
-	var width := LINE_WIDTH * scale_factor()
+	var width := _marker.line_width * scale_factor()
 	var size := ASTEROID_SIZE * scale_factor()
 	var points := PackedVector2Array()
 	var colors := PackedColorArray()
@@ -248,7 +253,7 @@ func _draw_objects(alpha: float, asteroid_alpha: float) -> void:
 			var first := points.size()
 			points.append_array([at + Vector2(size, 0), at + Vector2(0, size), at + Vector2(-size, 0), at + Vector2(0, -size)])
 			if not faded.has(color):
-				var c := Color(color, ASTEROID_ALPHA * asteroid_alpha)
+				var c := Color(color, _marker.asteroid_alpha * asteroid_alpha)
 				faded[color] = PackedColorArray([c, c, c, c])
 			colors.append_array(faded[color])
 			indices.append_array([first, first + 1, first + 2, first, first + 2, first + 3])
@@ -257,9 +262,9 @@ func _draw_objects(alpha: float, asteroid_alpha: float) -> void:
 			RenderingServer.canvas_item_add_triangle_array(_canvas.get_canvas_item(), indices, points, colors)
 			indices.clear()
 		var frame := ObjectMarkers.shape_points(ObjectMarkers.Shape.SQUARE, at, STATION_SIZE * scale_factor())
-		_canvas.draw_colored_polygon(frame, Color(color.darkened(0.6), FILL_ALPHA * alpha))
-		_canvas.draw_polyline(frame + PackedVector2Array([frame[0]]), Color(color, 0.95 * alpha), width + 0.3 * scale_factor(), true)
-		_canvas.draw_circle(at, width, Color(color, 0.95 * alpha))
+		_canvas.draw_colored_polygon(frame, Color(color.darkened(_marker.station_fill_darkening), _marker.fill_alpha * alpha))
+		_canvas.draw_polyline(frame + PackedVector2Array([frame[0]]), Color(color, _marker.line_alpha * alpha), width + _marker.frame_extra_width * scale_factor(), true)
+		_canvas.draw_circle(at, width, Color(color, _marker.line_alpha * alpha))
 	if not indices.is_empty():
 		RenderingServer.canvas_item_add_triangle_array(_canvas.get_canvas_item(), indices, points, colors)
 
