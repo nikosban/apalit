@@ -56,7 +56,8 @@ const LAYER := 1 << 19 # Render layer 20: Strategic-only geometry.
 const DETAIL_MASK := 0xFFFFF & ~LAYER # Every other render layer (the detailed 3D scene).
 const BACKGROUND := Color(0.05, 0.055, 0.06) # The scenes' environment background.
 const FogView := preload("res://game/presentation/fog_view.gd")
-const ROUTE_COLOR := Color(0.85, 0.6, 0.25)
+const ROUTE_COLOR := Color(0.65, 0.65, 0.65) # Neutral grey (provisional).
+const ROUTE_END_RADIUS := 4.0 # px, the route's endpoint ring.
 const WAYPOINT_COLOR := Color(0.55, 0.7, 1.0)
 const ATTACK_MOVE_COLOR := Color(1.0, 0.45, 0.35)
 const CLUSTER_COLOR := Color(0.7, 0.72, 0.75)
@@ -977,6 +978,32 @@ func _project(point: Vector2) -> Vector2:
 	return _camera.unproject_position(Vector3(point.x, 0.0, point.y))
 
 
+## A route (world X/Z points) without its part inside the endpoint ring of `ring_px` screen
+## pixels plus the scene's world gap (`destination_gap_world`): the ring's world extent comes
+## from the current camera at the endpoint along the final segment, the gap stays in world
+## units. Empty when nothing of the route clears them; the endpoint itself is unchanged.
+func clip_route(points: PackedVector2Array, ring_px: float) -> PackedVector2Array:
+	var count := points.size()
+	if count < 2:
+		return PackedVector2Array()
+	var end := points[count - 1]
+	var along := end.direction_to(points[count - 2])
+	var pixels_per_unit := _project(end).distance_to(_project(end + along))
+	var clearance: float = ring_px / maxf(pixels_per_unit, 0.0001) + _arena.destination_gap_world
+	for i in range(count - 2, -1, -1):
+		if points[i].distance_to(end) > clearance:
+			# Where segment i -> i + 1 enters the clearance circle around the endpoint.
+			var from := points[i]
+			var direction := from.direction_to(points[i + 1])
+			var offset := from - end
+			var b := offset.dot(direction)
+			var t := -b - sqrt(maxf(b * b - offset.length_squared() + clearance * clearance, 0.0))
+			var result := points.slice(0, i + 1)
+			result.append(from + direction * t)
+			return result
+	return PackedVector2Array()
+
+
 func _draw_under() -> void:
 	if state == State.TACTICAL:
 		return
@@ -997,8 +1024,12 @@ func _draw_under() -> void:
 				points.append(_project(point))
 			match line.kind:
 				"route":
-					_under.draw_polyline(points, Color(ROUTE_COLOR, 0.9 * alpha), width)
-					_under.draw_arc(points[points.size() - 1], 4.0, 0.0, TAU, 16, Color(ROUTE_COLOR, 0.9 * alpha), width)
+					var route := PackedVector2Array()
+					for point: Vector2 in clip_route(line.points, ROUTE_END_RADIUS + width * 0.5):
+						route.append(_project(point))
+					if route.size() > 1:
+						_under.draw_polyline(route, Color(ROUTE_COLOR, 0.9 * alpha), width)
+					_under.draw_arc(points[points.size() - 1], ROUTE_END_RADIUS, 0.0, TAU, 16, Color(ROUTE_COLOR, 0.9 * alpha), width)
 				"waypoints":
 					for i in points.size() - 1:
 						_under.draw_dashed_line(points[i], points[i + 1], Color(WAYPOINT_COLOR, 0.85 * alpha), width, 5.0)

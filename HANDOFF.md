@@ -713,6 +713,16 @@ Combat behaviour is frozen as accepted (section 6).
   ObjectMarkers ship icons fade with 1 − emphasis. Picking: an interactive ship marker
   (emphasis ≥ `interactive_emphasis` 0.5; nearest centre, ties by Ships order), else
   the hull; stations and asteroids keep model picks.
+- Destination presentation (issue #2): trajectory lines (also held MOVE) and the
+  request connector stop `destination_gap_world` (export on `movement_lab.gd`, 0.25 u,
+  the single authority) beyond the marker's outer edge: Local/Tactical 0.75 u torus
+  (read from its mesh), so 1.00 u from the centre; Strategic `clip_route()` converts the
+  4 px ring (+ half line width) to world units with the current camera, then adds the
+  same world gap (never a pixel minimum). Lines that do not clear it are omitted;
+  destinations unchanged. Colours (provisional): line `0.33` grey
+  (`DESTINATION_LINE_COLOR`); marker and connector `0.65` grey in the shared
+  `presentation/destination_marker_material.tres` (Combat Test, Movement Test,
+  encounter arena); Strategic `ROUTE_COLOR` `0.65` grey.
 - Strategic View (`strategic_view.gd`): one more outward notch at the rig's maximum
   hands over (0.45 s) to a fixed top-down camera framing the sector on render layer
   20; an inward notch returns to the exact saved pose. Layer 20: simplified lit
@@ -1215,18 +1225,18 @@ distribution, logistics balance, models and UI polish.
   - `navigation_test` 1 (FF-01, formerly Destroyer, redirect aim line).
   - `obstruction_test` 10/12 (the two cause B overshoot checks).
   - `fleet_test` hostile focus (hostile shots off the controller's focus; present since
-    the 2026-10-24 Destroyer hull redesign).
+	the 2026-10-24 Destroyer hull redesign).
   - `combat_positioning_test` 39/40 detour (section 7).
   - `command_test` 21/23: "Aggressive: an enemy 78 u off the route causes no detour" and
-    "Move keeps an independent target; … re-targeting ends the Attack and stays"; both
-    also fail before the PDC raid sweep (`b17c227`); origin not investigated.
+	"Move keeps an independent target; … re-targeting ends the Attack and stays"; both
+	also fail before the PDC raid sweep (`b17c227`); origin not investigated.
   - `positioning_boundary_test` 66/67: Attack-Move leash ("newly valid stations outside
-    the Attack-Move leash do not replace destination travel"; CHANGELOG 2026-10-29).
+	the Attack-Move leash do not replace destination travel"; CHANGELOG 2026-10-29).
   - Intermittent since the PDC raid sweep (75 u Kestrels fire far more in the E05
-    battles; verified against `b17c227`): `fleet_test` "node count does not grow across
-    resets" (snapshots include 109–158 Kestrel rounds in flight, spread 85–168 against a
-    120 limit, failed 3 of 5 runs; before: 26 in flight, spread 0–1; orphans stay 0) and
-    `weapon_info_test` W1 (1 of about 164,000 weapon-ticks in 1 of 4 runs: a Kestrel's
+	battles; verified against `b17c227`): `fleet_test` "node count does not grow across
+	resets" (snapshots include 109–158 Kestrel rounds in flight, spread 85–168 against a
+	120 limit, failed 3 of 5 runs; before: 26 in flight, spread 0–1; orphans stay 0) and
+	`weapon_info_test` W1 (1 of about 164,000 weapon-ticks in 1 of 4 runs: a Kestrel's
     "Tracking (38.1° off)" from assess() against "38.2° off" from the authorization, the
     angle measured from the muzzle before and after the turret turn and rounded). Test
     and production unchanged; fixing either needs an owner decision.
@@ -1282,6 +1292,8 @@ Open follow-ups (not started): the two intermittent PDC-exposed test failures an
 Open owner decisions:
 
 - Permanent sector size and fuel balance (`local_fuel_scale` 0.1 is a prototype value).
+- Final destination gap (0.25 u) and neutral line/marker greys (section 4.7; provisional,
+  accepted for now on 2026-10-30).
 - Renaming the experiment-era exports (`environment_experiment`, `lighting_experiment_d`,
   `strategic_experiment_e`).
 - Commit and push conventions.

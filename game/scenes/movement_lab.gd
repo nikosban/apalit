@@ -95,7 +95,7 @@ const SCENARIO_ZOOM := 40.0
 const GROUND_HALF_SIZE := 150.0 # Sector half-size without a StaticNavigation (sector_half_size()).
 const MARKER_HEIGHT := 0.02
 const DESTINATION_LINE_HEIGHT := 0.03
-const DESTINATION_LINE_COLOR := Color(0.42, 0.31, 0.15) # Dim marker amber.
+const DESTINATION_LINE_COLOR := Color(0.33, 0.33, 0.33) # Neutral grey (provisional).
 const REQUEST_LINE_MIN := 0.01 # u
 const NOTICE_TIME := 2.0 # s
 const GROUP_NOTICE := "Not enough space for the group - no orders given"
@@ -122,6 +122,9 @@ signal target_selection_changed
 @export var lighting_experiment_d := false
 @export var strategic_experiment_e := false
 @export var god_rays_enabled := false
+## World distance (u) between a destination marker's outer edge and the end of the
+## trajectory lines and request connector (Local, Tactical and Strategic; provisional).
+@export var destination_gap_world := 0.25
 
 var _notice_left := 0.0
 var _markers := {} # ship -> [destination ring, request line]
@@ -640,13 +643,15 @@ func _process(delta: float) -> void:
 			continue
 		var follower := ship.get_node("RouteFollower") as RouteFollower
 		var locomotion := ship.get_node("Locomotion") as ShipLocomotion
+		var ship_point := Vector2(ship.global_position.x, ship.global_position.z)
+		# Lines stop this far from the marker centre: its outer edge plus the gap.
+		var clearance := (marker.mesh as TorusMesh).outer_radius * marker.scale.x + destination_gap_world
 		var marker_point: Vector2
 		if held != null:
 			# A held MOVE: the requested (group: assigned) point, resolved once control ends.
 			marker.visible = true
 			marker.global_position = Vector3(held.x, MARKER_HEIGHT, held.y)
-			line_points.append(Vector3(ship.global_position.x, DESTINATION_LINE_HEIGHT, ship.global_position.z))
-			line_points.append(Vector3(held.x, DESTINATION_LINE_HEIGHT, held.y))
+			_append_destination_line(line_points, ship_point, held, clearance)
 			continue
 		if follower.status == RouteFollower.RouteStatus.WAITING:
 			marker_point = follower.requested
@@ -656,13 +661,14 @@ func _process(delta: float) -> void:
 			continue
 		marker.visible = true
 		marker.global_position = Vector3(marker_point.x, MARKER_HEIGHT, marker_point.y)
-		line_points.append(Vector3(ship.global_position.x, DESTINATION_LINE_HEIGHT, ship.global_position.z))
-		line_points.append(Vector3(marker_point.x, DESTINATION_LINE_HEIGHT, marker_point.y))
+		_append_destination_line(line_points, ship_point, marker_point, clearance)
 		var requested := follower.requested
-		var length := marker_point.distance_to(requested)
+		# The connector leaves the marker: it starts the clearance away from its centre.
+		var length := marker_point.distance_to(requested) - clearance
 		if length > REQUEST_LINE_MIN:
 			request_line.visible = true
-			var start := Vector3(marker_point.x, MARKER_HEIGHT, marker_point.y)
+			var from := marker_point + marker_point.direction_to(requested) * clearance
+			var start := Vector3(from.x, MARKER_HEIGHT, from.y)
 			var end := Vector3(requested.x, MARKER_HEIGHT, requested.y)
 			request_line.look_at_from_position((start + end) * 0.5, end, Vector3.UP)
 			request_line.scale = Vector3(1.0, 1.0, length)
@@ -671,6 +677,17 @@ func _process(delta: float) -> void:
 		for point in line_points:
 			lines.surface_add_vertex(point)
 		lines.surface_end()
+
+
+# The line from the ship towards its destination marker, stopped `clearance` short of the
+# marker centre; omitted when the ship is within the clearance (the destination is unchanged).
+func _append_destination_line(line_points: PackedVector3Array, from: Vector2, destination: Vector2, clearance: float) -> void:
+	var length := from.distance_to(destination)
+	if length <= clearance:
+		return
+	var end := destination + destination.direction_to(from) * clearance
+	line_points.append(Vector3(from.x, DESTINATION_LINE_HEIGHT, from.y))
+	line_points.append(Vector3(end.x, DESTINATION_LINE_HEIGHT, end.y))
 
 
 # The point of the MOVE (or group MOVE) the ship's Docking still holds for it, or null;

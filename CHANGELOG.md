@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-30 — Trajectory lines separated from destination markers
+
+Trajectory lines, held-MOVE lines, the request connector and Strategic routes now stop a fixed world-space gap (`destination_gap_world`, provisional 0.25 u) beyond the destination marker's edge, and lines, markers and routes use provisional neutral greys from one shared marker material (issue #2). No gameplay change.
+
 ## 2026-10-30 — Archive moved outside the project
 
 Moved the local, Git-ignored `archive/` (1,481 files, per-file SHA-256 verified, second verified copy kept) out of the Godot project to the owner's external archive, so Godot no longer scans it; HANDOFF section 9 records the new location, the found recovery snapshots and the future log workflow (issue #1). No gameplay change.
