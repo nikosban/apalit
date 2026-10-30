@@ -69,7 +69,8 @@ the legacy ship cleanup, is accepted by the owner. PDC raid sweep (2026-10-28, s
   prediction horizon, the 2026-10-22 same-course pass side, `Avoidance.forget()` and
   the step 2 re-plan, so it must be reviewed against current avoidance before any
   resumption; it is not production-ready.
-- `archive/`: local only, ignored by Git (section 9).
+- No `archive/` folder: the former local archive is outside the project (section 9);
+  `/archive/` stays in `.gitignore` as a guard against recreating it.
 - `AGENTS.md`, `CHANGELOG.md`, `HANDOFF.md`, `.editorconfig`, `.gitattributes`
   (text stored with LF), `.gitignore` (`.godot/`, `/android/`, `/archive/`).
 - Git: branch `main` (all current work), remote `origin` = `git@github.com:nikosban/apalit.git`
@@ -1194,7 +1195,7 @@ distribution, logistics balance, models and UI polish.
   no `SCRIPT ERROR`.
 - Barrage measurement (2026-10-26, owner-accepted): five seeded muzzle-distance salvos
   per broadside, 39/40 hits at 25 u, 27/40 at 45 u, 20/40 at 55 u, 17/40 at 60 u.
-  Logs: `archive/barrage_travel70_verification_2026-10-26/` (local only).
+  Logs: `barrage_travel70_verification_2026-10-26/` in the external archive (section 9).
 - `combat/positioning_boundary_test.gd`: 66/67 (Attack-Move leash, known failures
   below), covering configured sector
   sizes, the follower's navigation reference, footprint and clearance margins, Guard,
@@ -1202,7 +1203,7 @@ distribution, logistics balance, models and UI polish.
   28 existing suites and four scene smoke runs against two pre-change baselines:
   25 suites and all smoke runs passed, with only the three known failing suites below;
   no new errors or warnings. P02 and integrated combat measurement changes are accepted,
-  reproducible boundary effects. Logs: `archive/i01_verification_2026-10-25/` (local only).
+  reproducible boundary effects. Logs: `i01_verification_2026-10-25/` in the external archive (section 9).
 - `combat/combat_positioning_test.gd` (Stage 6B, fixtures `combat_positioning_harness.gd`,
   `combat_positioning_demo.tscn`): 39/40 by default since the weapon-profile removal
   (detour check, section 7; the profile-selection check and `baseline` mode are removed); `-- movement` 18/18 (route,
@@ -1238,14 +1239,29 @@ distribution, logistics balance, models and UI polish.
 
 ## 9. Archive and recovery
 
-- `archive/apalit_pre_v3_integration_2026-10-14.zip` (local, ignored by Git; 846,971
+- External archive (outside the project, not in Git; moved out of `res://archive/` on
+  2026-10-30, issue #1): `C:\Users\Nikos\Documents\archive\apalit_archive\` (1,481
+  files: the pre-V3 ZIP and the 2026-10-25/26 verification folders). Per-file SHA-256
+  manifest: `C:\Users\Nikos\Documents\archive\apalit_archive.sha256`. Second verified
+  copy: `C:\Users\Nikos\Documents\apalit_archive\` (also contains an accidental
+  duplicate in its `archive\` subfolder). Agents do not write to these locations
+  (`AGENTS.md`); the owner manages them.
+- Archived verification helpers are records, not runnable tools: several
+  (`ownership_roundtrip.gd`, `roundtrip_ff01.gd`, `render_ff01.gd`) use
+  `res://archive/…` paths. To rerun one, restore its folder as `archive/<folder>/` in a
+  disposable copy of the project, never in the working project.
+- `apalit_pre_v3_integration_2026-10-14.zip` (in the external archive; 846,971
   bytes, SHA-256 5C83748EEBD7C13CC019C98079E6D58CF63CF505B9B52F08EDAB15E8646272FC, 112
   files): the original game before Movement V3. Manifest:
-  `archive/apalit_pre_v3_integration_2026-10-14.sha256.txt`. Restore: check the
+  `apalit_pre_v3_integration_2026-10-14.sha256.txt` beside it. Restore: check the
   SHA-256, extract into an empty folder, open in Godot 4.7, compare against the
   manifest.
-- Recovery snapshots (outside the project; location unconfirmed, see section 10),
-  documented in `C:\Users\Nikos\Documents\apalit_backups\` with a `.manifest.txt`
+- Future verification logs: agents write them to a temporary in-project folder that is
+  Git-ignored and Godot-excluded (`.gdignore`), never `archive/`; the owner moves logs
+  worth keeping to the external archive and deletes the temporary copies. The folder's
+  name is undecided and it does not exist yet (section 10).
+- Recovery snapshots (outside the project; found 2026-10-30, both ZIP hashes match) in
+  `C:\Users\Nikos\Documents\archive\apalit_backups\` with a `.manifest.txt`
   each: `apalit_pre_combat_migration_2026-10-19.zip` (892 files, SHA-256
   A2D28390CC75B47BBBD86D3A42AE2B61D7B14B3F535EAF385DFE10C62F8B9D48; runnable combat
   prototype and every experiment) and `apalit_post_combat_migration_2026-10-20.zip`
@@ -1270,6 +1286,8 @@ Open owner decisions:
   `strategic_experiment_e`).
 - Commit and push conventions.
 - Whether the GitHub repository stays public (it is public; checked 2026-10-30).
+- Name of the temporary in-project verification-log folder (section 9); creating it, its
+  `.gdignore` and its `.gitignore` entry need approval.
 
 Open, not investigated: the rendering frame spikes and the Group MOVE avoidance cases
 (section 7).
@@ -1277,9 +1295,6 @@ Open, not investigated: the rendering frame spikes and the Group MOVE avoidance 
 Unresolved documentation questions (from the 2026-10-25 audit; recorded as found,
 not decided):
 
-- Recovery snapshots: the documented folder `C:\Users\Nikos\Documents\apalit_backups\`
-  was not found from the agent session; whether they still exist, and where, is
-  unconfirmed.
 - Headless visible rect (1152 × 648) and the Phase B marker-size note (× 0.75 of a
   648-line canvas): possibly obsolete since the 1920 × 1080 base canvas; not verified.
 - Design triggers: the combat prototype (facing-control trigger) has happened and

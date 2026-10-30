@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-10-30 — Archive moved outside the project
+
+Moved the local, Git-ignored `archive/` (1,481 files, per-file SHA-256 verified, second verified copy kept) out of the Godot project to the owner's external archive, so Godot no longer scans it; HANDOFF section 9 records the new location, the found recovery snapshots and the future log workflow (issue #1). No gameplay change.
+
 ## 2026-10-30 — Test audit for retiring `combat_adjustments`
 
 Updated `pdc_test`, `rocket_test`, `cannon_test` and `weapon_info_test` to the accepted 75 u raid-sweep Kestrel (with new live raid-sweep checks), and fixed the ship-panel references whose script errors silently skipped checks in `ff01_test` and `combat_scene_test`; HANDOFF now records the branch as merged, the repository as public, and the current known failures.
