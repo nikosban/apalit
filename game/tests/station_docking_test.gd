@@ -290,7 +290,7 @@ func _test_cancel() -> void:
 
 # ------------------------------------------------------------------ held and validated commands
 func _test_commands() -> void:
-	var selection := _main.get_node("Selection")
+	var selection := _main.get_node("Player/Selection")
 	var first := _planar(_a) + Vector2(24, -12)
 	var second := _planar(_a) + Vector2(30, 8)
 	# Move during the controlled exit: held, the newest wins, executed when control ends.
@@ -350,7 +350,7 @@ func _test_commands() -> void:
 
 func _dock_selected(s: String) -> void:
 	_reset()
-	_main.get_node("Selection").set_selection([_ship(s)])
+	_main.get_node("Player/Selection").set_selection([_ship(s)])
 	_a.slots[1].ship = _ship("Transporter2")
 	_place(s, _planar(_a) + Vector2(55, 0))
 	_dk(s).dock(_a)
@@ -363,7 +363,7 @@ func _dock_selected(s: String) -> void:
 # Group MOVE with a free ship, a docked ship and a ship under station control: one
 # GroupOrders assignment; each ship ends at its own assigned destination.
 func _test_group() -> void:
-	var selection := _main.get_node("Selection")
+	var selection := _main.get_node("Player/Selection")
 	_reset()
 	_a.slots[1].ship = _ship("FF01")
 	_place("Miner1", _planar(_a) + Vector2(55, 0))
@@ -380,7 +380,7 @@ func _test_group() -> void:
 	await process_frame
 	var click := Vector2(0, -40)
 	# As the scene input does: the clicked ground point from the camera ray, the selection order.
-	var camera: Camera3D = _main.get_node("CameraRig/Camera3D")
+	var camera: Camera3D = _main.get_node("Player/CameraRig/Camera3D")
 	var screen := camera.unproject_position(Vector3(click.x, 0, click.y))
 	var hit: Vector3 = Plane(Vector3.UP, 0.0).intersects_ray(camera.project_ray_origin(screen), camera.project_ray_normal(screen))
 	var expected: Dictionary = _main.get_node("GroupOrders").assign(selection.selected, Vector2(hit.x, hit.z))
@@ -409,8 +409,8 @@ func _ordered(s: String, expected: Dictionary) -> bool:
 
 # ------------------------------------------------------------------ panel
 func _test_panel() -> void:
-	var panel := _main.get_node("ShipPanel")
-	var selection := _main.get_node("Selection")
+	var panel := _main.get_node("Player/ShipPanel")
+	var selection := _main.get_node("Player/Selection")
 	# Under station control: Start / Resume disabled.
 	_reset()
 	_a.slots[1].ship = _ship("Transporter2")
@@ -714,7 +714,7 @@ func _until(condition: Callable, limit: int) -> int:
 
 
 func _frame(center: Vector2, zoom: float) -> void:
-	var rig := _main.get_node("CameraRig")
+	var rig := _main.get_node("Player/CameraRig")
 	rig.global_position = Vector3(center.x, 0, center.y)
 	rig.rotation = Vector3.ZERO
 	rig.zoom_distance = zoom
@@ -722,7 +722,7 @@ func _frame(center: Vector2, zoom: float) -> void:
 
 
 func _right_click(point: Vector2) -> void:
-	var camera: Camera3D = _main.get_node("CameraRig/Camera3D")
+	var camera: Camera3D = _main.get_node("Player/CameraRig/Camera3D")
 	var screen := camera.unproject_position(Vector3(point.x, 0, point.y))
 	for pressed in [true, false]:
 		var event := InputEventMouseButton.new()

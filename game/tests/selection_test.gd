@@ -24,9 +24,9 @@ func _initialize() -> void:
 	await process_frame
 	_lab = LAB.instantiate()
 	root.add_child(_lab)
-	_selection = _lab.get_node("Selection")
-	_camera = _lab.get_node("CameraRig/Camera3D")
-	_rig = _lab.get_node("CameraRig")
+	_selection = _lab.get_node("Player/Selection")
+	_camera = _lab.get_node("Player/CameraRig/Camera3D")
+	_rig = _lab.get_node("Player/CameraRig")
 	for ship_name in SHIPS:
 		for child in ["Locomotion", "RouteFollower", "Avoidance"]:
 			_node(ship_name, child).set_physics_process(false)
@@ -219,14 +219,14 @@ func _test_orders() -> void:
 	var before: Vector2 = miner.planar_position
 	_steps(60)
 	_check("deselected ship keeps its order and moves", miner.has_destination and miner.planar_position.distance_to(before) > 1.0)
-	_lab._process(0.0)
+	_lab.get_node("Player")._process(0.0)
 	_check("no marker for an unselected ship", _marker("Miner") == null)
 	_click(_screen("Miner"))
-	_lab._process(0.0)
+	_lab.get_node("Player")._process(0.0)
 	var marker: Variant = _marker("Miner")
 	_check("reselecting shows its current order (marker at the destination)", marker != null
 		and (marker as Vector2).distance_to(first) < 0.05)
-	var drawn: Array = _lab.get_node("MovementIndicator").layout().filter(func(item: Dictionary) -> bool: return item.entry.ship == _ship("Miner"))
+	var drawn: Array = _lab.get_node("Player/MovementIndicator").layout().filter(func(item: Dictionary) -> bool: return item.entry.ship == _ship("Miner"))
 	# Headless the window is 64 x 64, so the px-sized symbol is large in the world: the line
 	# is drawn exactly when the ship is beyond the symbol and gap (movement_indicator_test
 	# checks it on a 1080p screen).
@@ -248,7 +248,7 @@ func _test_orders() -> void:
 		t += 1
 	_check("deselected ship completes its order (arrived)", miner.arrived and miner.planar_position.distance_to(second) < 0.05)
 	_click(_screen("Miner"))
-	_lab._process(0.0)
+	_lab.get_node("Player")._process(0.0)
 	_check("no marker after completion", _marker("Miner") == null)
 	_layout()
 
@@ -404,7 +404,7 @@ func _ground_screen(point: Vector2) -> Vector2:
 
 # The destination the movement indicator shows for a ship, or null.
 func _marker(ship_name: String) -> Variant:
-	for entry: Dictionary in _lab.get_node("MovementIndicator").entries():
+	for entry: Dictionary in _lab.get_node("Player/MovementIndicator").entries():
 		if entry.ship == _ship(ship_name):
 			return entry.destination
 	return null
@@ -435,7 +435,7 @@ func _test_style_snapshot() -> void:
 		is_equal_approx(_selection._rings[late].mesh.outer_radius, sqrt(0.5) + padding))
 	_selection.unregister_ship(late)
 	late.queue_free()
-	var selection = load("res://game/selection/ship_selection.gd").new()
+	var selection = load("res://game/player/selection/ship_selection.gd").new()
 	_lab.add_child(selection)
 	selection._process(0.0)
 	_check("style: restart consumes new ring and nested drag settings",

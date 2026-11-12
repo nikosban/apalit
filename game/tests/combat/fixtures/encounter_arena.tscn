@@ -1,7 +1,7 @@
 [gd_scene format=3]
 
+[ext_resource type="PackedScene" path="res://game/player/player.tscn" id="player_shared"]
 [ext_resource type="Script" path="res://game/tests/combat/fixtures/combat_arena.gd" id="1_arena"]
-[ext_resource type="PackedScene" path="res://game/camera/camera_rig.tscn" id="2_rig"]
 [ext_resource type="Script" path="res://game/resources/asteroid_field.gd" id="3_field"]
 [ext_resource type="Script" path="res://game/navigation/static_navigation.gd" id="4_navigation"]
 [ext_resource type="Script" path="res://game/collision/planar_collision.gd" id="5_collision"]
@@ -12,7 +12,6 @@
 [ext_resource type="Script" path="res://game/combat/combat_effects.gd" id="11_effects"]
 [ext_resource type="Script" path="res://game/combat/combat_orders.gd" id="12_orders"]
 [ext_resource type="Script" path="res://game/tests/combat/fixtures/enemy_controller.gd" id="13_enemy"]
-[ext_resource type="Script" path="res://game/selection/ship_selection.gd" id="14_selection"]
 [ext_resource type="Script" path="res://game/orders/group_orders.gd" id="15_group_orders"]
 [ext_resource type="Script" path="res://game/debug/navigation_debug.gd" id="16_navigation_debug"]
 [ext_resource type="Script" path="res://game/debug/avoidance_debug.gd" id="17_avoidance_debug"]
@@ -23,9 +22,7 @@
 [ext_resource type="Script" path="res://game/combat/ordnance_trails.gd" id="22_trails"]
 [ext_resource type="Script" path="res://game/tests/combat/fixtures/encounters.gd" id="23_encounters"]
 [ext_resource type="Script" path="res://game/time/sim_clock.gd" id="90_clock"]
-[ext_resource type="PackedScene" path="res://game/presentation/movement_indicator/movement_indicator.tscn" id="200_movement_indicator"]
 
-[ext_resource type="PackedScene" path="res://game/ui/overlays/notice/notice.tscn" id="notice_shared"]
 
 [sub_resource type="Environment" id="Environment_arena"]
 background_mode = 1
@@ -58,7 +55,9 @@ environment = SubResource("Environment_arena")
 transform = Transform3D(0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, -0.75, 0.433013, 0, 10, 0)
 shadow_enabled = true
 
-[node name="CameraRig" parent="." instance=ExtResource("2_rig")]
+[node name="Player" parent="." instance=ExtResource("player_shared")]
+
+[node name="CameraRig" parent="Player" index="0"]
 max_zoom = 150.0
 zoom_distance = 40.0
 
@@ -132,21 +131,14 @@ script = ExtResource("12_orders")
 [node name="EnemyController" type="Node" parent="."]
 script = ExtResource("13_enemy")
 
-[node name="Selection" type="Node3D" parent="."]
-script = ExtResource("14_selection")
-
 [node name="GroupOrders" type="Node" parent="."]
 script = ExtResource("15_group_orders")
-
-[node name="MovementIndicator" parent="." instance=ExtResource("200_movement_indicator")]
 
 [node name="NavigationDebug" type="Node3D" parent="."]
 script = ExtResource("16_navigation_debug")
 
 [node name="AvoidanceDebug" type="Node3D" parent="."]
 script = ExtResource("17_avoidance_debug")
-
-[node name="NoticeUI" parent="." instance=ExtResource("notice_shared")]
 
 [node name="DebugUI" parent="." instance=ExtResource("18_debug")]
 navigation_debug_path = NodePath("../NavigationDebug")
@@ -158,5 +150,7 @@ script = ExtResource("19_thruster_view")
 [node name="CombatOverlay" type="Node3D" parent="."]
 script = ExtResource("20_overlay")
 
-[node name="CombatHUD" type="CanvasLayer" parent="."]
+[node name="CombatHUD" type="CanvasLayer" parent="Player"]
 script = ExtResource("21_hud")
+
+[editable path="Player"]

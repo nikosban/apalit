@@ -198,11 +198,11 @@ func _w5_destruction() -> void:
 	miner.get_node("Mining").assign(asteroid_id)
 	await _run(2.0)
 	CombatShip.of(raider).assign_target(miner)
-	scene.get_node("Selection").set_selection([miner])
+	scene.get_node("Player/Selection").set_selection([miner])
 	CombatShip.of(miner).destroy()
 	var stopped := ["Mining", "Extractor", "RouteFollower", "Docking", "Fuel"].all(func(n: String) -> bool: return not miner.get_node(n).is_physics_processing())
 	_check("destroyed Miner: weapons off, its mining, extraction, route, docking and fuel stop at once; deselected", stopped
-		and not CombatShip.of(miner).alive and not scene.get_node("Selection").selected.has(miner) and CombatShip.of(raider).manual_target == null)
+		and not CombatShip.of(miner).alive and not scene.get_node("Player/Selection").selected.has(miner) and CombatShip.of(raider).manual_target == null)
 	var gone: WeakRef = weakref(miner)
 	miner = null
 	var removed := await _run(4.0, func() -> bool: return gone.get_ref() == null)
@@ -215,7 +215,7 @@ func _w5_destruction() -> void:
 			stale = stale or (reference != null and not is_instance_valid(reference))
 	var raider_target = CombatShip.of(raider).target
 	_check("after the hulk delay the Miner is freed; no avoidance record or target refers to it (Raider now on %s)" % (raider_target.name if raider_target != null else "none"),
-		removed and not stale and scene.get_node("Selection").registered_count() == scene.get_node("Ships").get_child_count() - 1)
+		removed and not stale and scene.get_node("Player/Selection").registered_count() == scene.get_node("Ships").get_child_count() - 1)
 
 
 func _w6_resets() -> void:

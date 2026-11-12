@@ -1,9 +1,9 @@
 [gd_scene load_steps=5 format=3]
 
-[ext_resource type="Script" path="res://game/ui/overlays/overlay_preview.gd" id="1"]
-[ext_resource type="PackedScene" path="res://game/ui/overlays/combat_hud/combat_hud_view.tscn" id="2"]
-[ext_resource type="PackedScene" path="res://game/ui/overlays/hover_tooltip/hover_tooltip.tscn" id="3"]
-[ext_resource type="PackedScene" path="res://game/ui/overlays/notice/notice.tscn" id="4"]
+[ext_resource type="Script" path="res://game/player/ui/overlays/overlay_preview.gd" id="1"]
+[ext_resource type="PackedScene" path="res://game/player/ui/overlays/combat_hud/combat_hud_view.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://game/player/ui/overlays/hover_tooltip/hover_tooltip.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://game/player/ui/overlays/notice/notice.tscn" id="4"]
 
 [node name="OverlayPreview" type="Node"]
 script = ExtResource("1")

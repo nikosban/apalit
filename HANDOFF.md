@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-Last updated: 2026-10-31. Current state only. Development history is in `CHANGELOG.md` and Git; earlier versions of this file
+Last updated: 2026-11-12. Current state only. Development history is in `CHANGELOG.md` and Git; earlier versions of this file
 (per-task verification logs, measurements, prototype records) are in Git history.
 
 ## 1. Status
@@ -44,6 +44,9 @@ UI visual authoring (issue #5, section 4.9) and shared selection/marker styles
 Projectile/trail visual authoring and thruster relocation (issue #7, section 4.8)
 are accepted by the owner, including the reported verification limitations.
 
+The reusable Player scene and player folder layout (issue #1) are accepted by the
+owner on `codex/player-layer`.
+
 ## 2. Project layout and scenes
 
 ### Repository
@@ -52,7 +55,11 @@ are accepted by the owner, including the reported verification limitations.
   Base canvas 1920 × 1080, stretch `canvas_items` / `expand` (2D sizes are px at
   1080p and scale with the window height); window maximized. Template defaults, not
   owner decisions: Forward Plus, Jolt Physics (unused by movement), D3D12 on Windows.
-- `game/`: all production code, scenes and tests, one folder per system.
+- `game/`: production code, scenes and tests. `game/player/` holds the shared
+  Player scene and controller, with `camera/`, `selection/`, `movement_indicator/`
+  and `ui/` beneath it. Shared UI components, theme, resource icons and display
+  names live in `game/ui/`. World rendering and strategic markers live in
+  `game/presentation/`.
 - `assets/textures/skybox/multi_nebulae_2.png`: the owner's 10000 × 5000 panorama
   (imported lossless, no mipmaps), Combat Test's sky; tracked in Git (owner decision).
 - `assets/models/ships/whitebox/frigate_001.glb`: the owner's whitebox frigate mesh
@@ -78,7 +85,8 @@ are accepted by the owner, including the reported verification limitations.
   `/archive/` stays in `.gitignore` as a guard against recreating it.
 - `AGENTS.md`, `CHANGELOG.md`, `HANDOFF.md`, `.editorconfig`, `.gitattributes`
   (text stored with LF), `.gitignore` (`.godot/`, `/android/`, `/archive/`).
-- Git: branch `main` (all current work), remote `origin` = `git@github.com:nikosban/apalit.git`
+- Git: accepted Player work is on `codex/player-layer`, based on `main`.
+  Remote `origin` = `git@github.com:nikosban/apalit.git`
   (public on GitHub, checked 2026-10-30; whether it stays public is an open owner
   decision, section 10). No commit or push conventions are decided beyond the initial setup.
   `combat_adjustments` (`9edd0fb`, fully contained in `main`) was deleted locally and on
@@ -128,11 +136,11 @@ the lab era) and the layout contract in section 3.
   `combat_positioning_demo.tscn`, `turret_pitch_range.tscn`, test-only scripts. The
   combat lab and the E01–E04 / P01–P03 scenarios were removed with the legacy ships.
 - `game/presentation/markers/marker_preview.tscn`: selection/highlight/Object/Tactical marker authoring scene (section 4.8).
-- `game/ui/overlays/overlay_preview.tscn`: shared HUD, hover tooltip and notice authoring scene (section 4.9).
+- `game/player/ui/overlays/overlay_preview.tscn`: shared HUD, hover tooltip and notice authoring scene (section 4.9).
 - `game/presentation/effects/thrusters/thruster_fx_preview.tscn`: thruster authoring scene.
 - `game/presentation/effects/projectiles/projectile_trail_preview.tscn`: production-backed
   projectile/trail authoring scene (section 4.8).
-- `game/presentation/movement_indicator/movement_indicator_preview.tscn`: movement
+- `game/player/movement_indicator/movement_indicator_preview.tscn`: movement
   indicator authoring scene (section 4.7).
 - `game/presentation/effects/combat_flash/combat_flash_preview.tscn`: combat flash
   authoring scene (section 4.8).
@@ -217,7 +225,7 @@ archetype. Role components are found by node name (`Mining`, `Transport`, `Cargo
 The scenes and scripts work only under this layout:
 
 - Root children: `Ships`, `Stations`, `StaticNavigation`, `PlanarCollision`, `Survey`,
-  `Asteroids` (with `AsteroidField`), `Selection`; combat: `SimClock`, `Contacts`,
+  `Asteroids` (with `AsteroidField`), `Player`; combat: `SimClock`, `Contacts`,
   `Projectiles`, `Effects`, `OrdnanceTrails`; optional `CombatOrders` (turns on the
   combat layer of `movement_lab.gd`) and `Sensors` (turns on the fog of war).
 - Ships are direct children of `Ships`; stations direct children of `Stations`.
@@ -235,17 +243,32 @@ The scenes and scripts work only under this layout:
 - Obstacles are read once at start: stations added later are not obstacles.
 - Reuse is verified by `reuse_test` on `game/tests/reuse_arena.tscn`.
 
+### Player and arena interfaces
+
+- `game/player/player.tscn` provides `CameraRig`, `Selection`, `NoticeUI` and
+  `MovementIndicator` in all four arenas. Test Arena and Combat Test add the
+  panels, asteroid hover, command cursor and combat HUD under Player. The encounter
+  arena adds its fixture HUD. E05 and Tri Dock override `Player/CameraRig`.
+- Player tracks the pointer and targeting mode, resolves screen positions, and
+  routes input. Strategic View still owns handoff and marker picking. Target
+  selection and handoff can intercept input before GUI dispatch. Ordinary world
+  presses use unhandled input. Developer actions stay with the arena or fixture.
+- Temporary arena connections: replace `submit_intent()` and `can_submit_intent()`
+  when Command exposes equivalent interfaces and Player, cursor and tests use them.
+  Remove ship lifecycle forwarding when ship and world notifications cover
+  same-call deployment, destruction and removal. Replace world queries, including
+  held destinations and visibility, when the owning systems expose equivalents and
+  their callers migrate.
+
 ### Runtime ship registration
 
-A ship added under `Ships` at run time must be registered: `ShipSelection.register_ship()`
-(pick boxes, ring) and `movement_lab.register_ship()` (notices, movement indicator,
-command layer, Selection, Combat `destroyed` / `removing`); both idempotent. The
-Shipyard sets the transform before `add_child()` (Locomotion reads it in `_ready()`)
-and emits `ship_deployed`, which `movement_lab.gd` handles in the same call. An
-unregistered ship makes `ShipSelection.pick()` (called every frame by AsteroidHover)
-log a script error. A scene without `movement_lab.gd` must register produced ships
-itself (as `reuse_test` does). Ships are removed only by combat destruction
-(section 4.6), which unregisters them.
+The arena registers startup ships and handles `ship_deployed` in the same call.
+`movement_lab.register_ship()` connects notices and Combat lifecycle signals and
+forwards registration to Player for pick boxes and the selection ring. Destruction
+drops the ship from selection immediately. Removal clears its pick data. Shipyard
+sets the transform before `add_child()` so Locomotion reads it in `_ready()`.
+Standalone fixtures such as `reuse_test` register produced ships directly with
+ShipSelection.
 
 ## 4. Systems
 
@@ -355,7 +378,7 @@ first used them):
 | size class | 1 | 2 | 3 |
 | fuel tank / use per u | 100 / 0.25 | 200 / 0.5 | 400 / 1.0 |
 
-### 4.2 Selection, orders and commands (`selection/`, `orders/`, `scenes/movement_lab.gd`)
+### 4.2 Selection, orders and commands (`player/selection/`, `orders/`, `scenes/movement_lab.gd`)
 
 - `ship_selection.gd` (`Selection`): click (hull boxes + 0.3 u), Shift-click, box drag
   (centres), green rings; never touches movement. Only live player-faction ships are
@@ -376,10 +399,11 @@ first used them):
   the counters. `resolve_occupied()`: a single-ship MOVE inside a stationary ship's
   clearance goes to the nearest valid point within `resolve_margin` (5 u, provisional)
   beyond it.
-- Command flow (`movement_lab.gd`): a right-click is resolved once into a command
-  (Dock at a station, Mine an asteroid, target / Attack / Guard / Attack-Move /
-  Waypoint, or Move to a point) and given per ship through `_order()` / `_execute()`,
-  which return whether it was accepted (executed, or held).
+- Command flow: Player resolves ordinary right-clicks into a world point or
+  target and passes the recipients and intent to the arena's `submit_intent()`.
+  Modified combat clicks use CombatOrders with resolved targets or points.
+  The arena keeps acceptance, execution and held-order replay in `_order()`
+  and `_execute()`, with group assignment through GroupOrders.
   - Every command is checked before anything is cancelled. Refused (MOVE without a
 	route, Dock where `Docking.can_dock()` is false, Mine where
 	`MiningOperation.can_mine()` is false, Resume without a working point): notice
@@ -403,8 +427,8 @@ first used them):
   - Docked ship (any command but Dock at its own station): checked first from the
 	berth; refused: nothing changes; accepted: automation paused as by Undock, command
 	held, controlled exit started, then re-checked at release.
-  - `resolve_command()` / `command_available()`: read-only versions for the cursor
-	(same resolution and checks, notices muted).
+  - The cursor uses Player's `resolve_command()` and the arena's read-only
+    `can_submit_intent()` through Player. Preview checks suppress notices.
   - `autonomous_move()`: Behavior's positioning (one RouteFollower order, moved beside
 	an occupying ship, route checked; no assignment cancelled, no notice, not a
 	command; refused while docking owns the ship).
@@ -703,10 +727,10 @@ Combat behaviour is frozen as accepted (section 6).
 - Not migrated from the prototype (decision): heading lock, fixed forward cannon,
   v0.2 scenarios.
 
-### 4.7 Camera and views (`camera/`, `presentation/`)
+### 4.7 Camera and views (`player/camera/`, `presentation/`)
 
 - `camera_rig.gd` / `camera_rig.tscn`: pan W/A/S/D, rotate Q/E or middle drag; pan
-  bounds = the sector square, set at start by `movement_lab.gd` (rig default
+  bounds = the sector square, supplied by the arena to Player (rig default
   300 × 300). Zoom 5–40 by default, `max_zoom` 150 in `main.tscn`, `combat_test.tscn`
   and `encounter_arena`. The wheel sets `zoom_target` (× / ÷ 1.1 per notch,
   `InputEventMouseButton.factor` honoured, ≤ 10 notches per event); `zoom_distance`
@@ -726,11 +750,10 @@ Combat behaviour is frozen as accepted (section 6).
   ObjectMarkers ship icons fade with 1 − emphasis. Picking: an interactive ship marker
   (emphasis ≥ `interactive_emphasis` 0.5; nearest centre, ties by Ships order), else
   the hull; stations and asteroids keep model picks.
-- Movement indicator (issue #3; `presentation/movement_indicator/`): one
-  `movement_indicator.tscn` (`MovementIndicator`, CanvasLayer 0, mouse ignored, in
-  `ALWAYS_NODES`) per gameplay scene (Test Arena, Combat Test, Movement Test, encounter
-  arena) is the only drawing of selected ships' movement orders. Display only:
-  `movement_lab._process()` passes `set_entries()` per selected ship {ship, from,
+- Movement indicator (issue #3; `player/movement_indicator/`): one
+  `movement_indicator.tscn` (`MovementIndicator`, CanvasLayer 0, mouse ignored)
+  under Player in each gameplay scene draws selected ships' movement orders.
+  `player.gd` passes `set_entries()` per selected ship {ship, from,
   destination (held MOVE point, WAITING request or Locomotion destination), requested
   (connector), route (Strategic `order_lines()` route while the handoff runs)} and
   the handoff `progress` as `route_blend` (straight line cross-faded into the route, one
@@ -739,7 +762,7 @@ Combat behaviour is frozen as accepted (section 6).
   sizes are fixed physical screen px (`get_screen_transform()` scale), the symbol's
   width across the screen at the destination; drawn over the 3D view and under the
   ship markers and panels. Lines and connector stop `destination_gap_world` (export on
-  `movement_lab.gd`, 0.25 u) beyond the whole symbol; a line that does not clear it is
+  Player, 0.25 u) beyond the whole symbol; a line that does not clear it is
   omitted, the symbol stays. Shared look, edited once for every scene:
   `movement_indicator_style.tres` (`color` #838A91, line 2 px, circle 28 px, stroke 2
   px, arc 28 px, offset 8 px, sweep 90°; provisional, owner to tune). F6 preview: the
@@ -876,7 +899,7 @@ Combat behaviour is frozen as accepted (section 6).
   with a runtime copy of the material (shadow arrays written per frame; the shared file
   is never written). Presentation only.
 
-### 4.9 UI (`ui/`)
+### 4.9 UI (`player/ui/`, shared resources in `ui/`)
 
 - Foundation: `ui/theme/apalit_theme.tres` (HeaderLabel, SectionHeader, MutedLabel,
   WarningLabel, SegmentButton, HullLossLabel, ArmorLossLabel, ProductionRequirements),
@@ -907,7 +930,7 @@ Combat behaviour is frozen as accepted (section 6).
 - `transport_editor.tscn/.gd`: edits a draft of loading requirements (tabs Ore,
   Ingots (Ice shared with Ore), Components disabled); nothing is live until Apply
   (`Transport.apply_requirements()`, all or nothing); Cancel discards the draft.
-- Shared overlay visuals (`ui/overlays/`, issue #5): `combat_hud/combat_hud_view.tscn`
+- Shared overlay visuals (`player/ui/overlays/`, issue #5): `combat_hud/combat_hud_view.tscn`
   authors result, speed and target-inspection labels and draws all hull bars on one
   canvas surface. `combat_hud.gd` retains world projection, fog/target eligibility,
   tactical fade decisions, static text APIs and the fixture subclass's `_label()` helper;
@@ -918,7 +941,7 @@ Combat behaviour is frozen as accepted (section 6).
   and edge clamping; its panel/label are `overlays/hover_tooltip/hover_tooltip.tscn`
   (`cursor_offset` metadata on HoverTooltip). `overlays/notice/notice.tscn` is the single
   `NoticeUI/Notice` definition in Test Arena, Combat Test, Movement Test and the encounter
-  fixture; notification replacement and two-second real-time timing stay in `movement_lab.gd`.
+  fixture. Player replaces notifications and times them for two seconds in real time.
 - F6 authoring: `overlays/overlay_preview.tscn` instances all three production visuals;
   keys 1–4 isolate All / HUD / Hover / Notice. Sample states are Inspector exports on
   OverlayPreview. There is no additional panel preview; inspect production panels in Test Arena.
@@ -1280,6 +1303,13 @@ distribution, logistics balance, models and UI polish.
   `nikosban`, pushes use SSH.
 - Suites: 40 in `game/tests/`, 23 in `game/tests/combat/`, `game/tests/docking/tri_dock_test.gd`
   (64 total). Run: `<godot console> --headless --path . -s res://game/tests/<name>.gd`.
+- Current Player verification (Godot 4.7.2, fixed 60 FPS): 58 of 64 suites passed
+  after migration and relocation, with the same six baseline failures. All 14
+  scene smoke runs exited zero and matched baseline diagnostics. The standalone
+  encounter arena logs two existing errors when its scenario tries to place
+  ships present only in E05. Five rendered captures matched byte for byte.
+  `command_cursor_test` passed 20 checks, including input precedence, notice
+  timing, inherited camera overrides and an order submitted without Player or a camera.
 - `--fixed-fps 60` is required for every combat suite and for `shipyard_runtime_test`,
   `reuse_test` (uninterrupted loop as fast as possible), `camera_test`,
   `tactical_view_test`, `strategic_view_test` (fails its boundary-fade check without
@@ -1293,8 +1323,8 @@ distribution, logistics balance, models and UI polish.
   `shipyard_runtime_test` B10's asteroid and base), timing values, navigation map-ready
   frame, tri-dock warning order. Expected error lines: `guided_locomotion_test` check
   10 guard, `station_docking_test` deliberate `cancel()`, tri-dock navigation edge
-  warnings. Verification scope follows `AGENTS.md` steps C and D. No runner script is
-  kept.
+  warnings. Verification scope follows `AGENTS.md` steps C and D. Temporary Player
+  verification logs and runners are under `.godot/player-layer-verification/`.
 - Movement indicator (2026-10-30, `--fixed-fps 60`): the 12 affected suites, the new
   `movement_indicator_test` (33 checks) and five 600-frame scene runs (the four above
   plus `movement_test.tscn`) compared against two pre-change baselines: all pass, no
@@ -1464,7 +1494,7 @@ distribution, logistics balance, models and UI polish.
 
 ## 10. Next task and open items
 
-Issue #7 is accepted; no next task is selected. The earlier read-only architecture
+Issue #1 is accepted. No next task is selected. The earlier read-only architecture
 inventory brief remains unstarted. New work follows `AGENTS.md`.
 
 Open follow-ups (not started): the two intermittent PDC-exposed test failures and the

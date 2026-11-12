@@ -63,7 +63,7 @@ func _initialize() -> void:
 	_station2 = _main.get_node("Stations/Station2")
 	_field = _main.get_node("Asteroids")
 	_navigation = _main.get_node("StaticNavigation")
-	_camera = _main.get_node("CameraRig/Camera3D")
+	_camera = _main.get_node("Player/CameraRig/Camera3D")
 	_main.get_node("Survey").set_physics_process(false)
 	for station in [_station, _station2]:
 		station.set_physics_process(false)
@@ -323,7 +323,7 @@ func _nearest_asteroid(from: Vector2, except := -1) -> int:
 
 
 func _select(names: Array) -> void:
-	_main.get_node("Selection").set_selection(names.map(func(ship_name: String) -> Node3D: return _ship(ship_name)))
+	_main.get_node("Player/Selection").set_selection(names.map(func(ship_name: String) -> Node3D: return _ship(ship_name)))
 
 
 func _right_click_at(point: Vector2) -> void:
@@ -343,7 +343,7 @@ func _right_click_station(station: Station) -> void:
 
 
 func _frame(center: Vector2) -> void:
-	var rig := _main.get_node("CameraRig")
+	var rig := _main.get_node("Player/CameraRig")
 	rig.global_position = Vector3(center.x, 0, center.y)
 	rig.rotation = Vector3.ZERO
 	rig.zoom_distance = 30.0
@@ -362,12 +362,12 @@ func _right_click(position: Vector2) -> void:
 
 
 func _lab_notice() -> String:
-	return (_main.get_node("NoticeUI/Notice") as Label).text
+	return (_main.get_node("Player/NoticeUI/Notice") as Label).text
 
 
 func _reset() -> void:
 	_field.generate(SEED)
-	(_main.get_node("NoticeUI/Notice") as Label).text = ""
+	(_main.get_node("Player/NoticeUI/Notice") as Label).text = ""
 	for ship_name in SHIPS:
 		_docking(ship_name).phase = Docking.Phase.NONE # Stage 2b: cancel() is refused during station control.
 		_docking(ship_name).hold_command(Callable())

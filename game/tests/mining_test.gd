@@ -40,9 +40,9 @@ func _initialize() -> void:
 	_field = _main.get_node("Asteroids")
 	_survey = _main.get_node("Survey")
 	_navigation = _main.get_node("StaticNavigation")
-	_selection = _main.get_node("Selection")
-	_camera = _main.get_node("CameraRig/Camera3D")
-	_rig = _main.get_node("CameraRig")
+	_selection = _main.get_node("Player/Selection")
+	_camera = _main.get_node("Player/CameraRig/Camera3D")
+	_rig = _main.get_node("Player/CameraRig")
 	_survey.set_physics_process(false)
 	for ship_name in SHIPS:
 		for child in ["Locomotion", "RouteFollower", "Avoidance", "Scanner", "Mining", "Fuel"]:
@@ -205,11 +205,11 @@ func _test_right_click_mining() -> void:
 	_check("11./12. the cargo holds the asteroid's raw resources, each within 1 unit of its share (%s)" % cargo.describe(),
 		_proportional(cargo, deposit))
 	_check("5. an unscanned asteroid is mined and stays unscanned", _survey.level_of(NEAR) == Survey.Level.UNKNOWN
-		and _main.get_node("AsteroidHover").describe(NEAR) == "Asteroid\nNot scanned")
+		and _main.get_node("Player/AsteroidHover").describe(NEAR) == "Asteroid\nNot scanned")
 	_survey._levels[NEAR] = Survey.Level.ANALYZED
 	_steps(60)
 	_check("15. an analyzed survey shows the reduced reserves (%d)" % deposit.reserves,
-		_main.get_node("AsteroidHover").describe(NEAR).contains("Remaining reserves: %d units" % deposit.reserves))
+		_main.get_node("Player/AsteroidHover").describe(NEAR).contains("Remaining reserves: %d units" % deposit.reserves))
 	_survey._levels.erase(NEAR)
 
 
@@ -371,14 +371,14 @@ func _test_feedback() -> void:
 	_selection.set_selection([_ship("Miner1")])
 	await process_frame
 	await process_frame # process_frame is emitted before _process runs.
-	var panel := _main.get_node("ShipPanel/Panel/Layout/Scroll/Body/Actions/Mining")
+	var panel := _main.get_node("Player/ShipPanel/Panel/Layout/Scroll/Body/Actions/Mining")
 	var cargo := _cargo("Miner1")
 	# UX round P6: the Cargo section's tiles show the raw resources aboard (was the
 	# "Collected" line; Phase 3 before that: "Metal Chunks n").
-	var tiles := _tiles(_main.get_node("ShipPanel/Panel/Layout/Scroll/Body/Cargo/Tiles"))
+	var tiles := _tiles(_main.get_node("Player/ShipPanel/Panel/Layout/Scroll/Body/Cargo/Tiles"))
 	_check("panel: target, status, cargo and cargo tiles (%s; tiles %s)" % [cargo.describe(), str(tiles)], panel.visible
-		and panel.get_node("Target").text == "Target: Asteroid %d" % id and _main.get_node("ShipPanel/Panel/Layout/Scroll/Body/Status/Activity").text == "Status: Mining"
-		and _main.get_node("ShipPanel/Panel/Layout/Scroll/Body/Cargo/Summary").text == "Cargo: %d / 1000" % cargo.quantity()
+		and panel.get_node("Target").text == "Target: Asteroid %d" % id and _main.get_node("Player/ShipPanel/Panel/Layout/Scroll/Body/Status/Activity").text == "Status: Mining"
+		and _main.get_node("Player/ShipPanel/Panel/Layout/Scroll/Body/Cargo/Summary").text == "Cargo: %d / 1000" % cargo.quantity()
 		and tiles == cargo.amounts and cargo.quantity() > 0)
 	_check("extraction beam drawn while mining", _main.get_node("MiningView").beam_count == 1)
 	_selection.set_selection([_ship("FF01")])

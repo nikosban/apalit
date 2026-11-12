@@ -241,12 +241,12 @@ func _test_input_and_mining() -> void:
 	_run_until(func() -> bool: return _mining("Miner1").status == MiningOperation.Status.MINING, 60 * 120)
 	var between := (_station.global_position + _field.center(asteroid)) * 0.5
 	_frame(Vector2(between.x, between.z), 40.0)
-	_main.get_node("Selection").set_selection([_ship("Miner1")])
-	var camera: Camera3D = _main.get_node("CameraRig/Camera3D")
+	_main.get_node("Player/Selection").set_selection([_ship("Miner1")])
+	var camera: Camera3D = _main.get_node("Player/CameraRig/Camera3D")
 	var on_station := camera.unproject_position(_station.global_position)
 	var on_asteroid := camera.unproject_position(_field.center(asteroid))
 	var view := root.get_visible_rect()
-	var panel: Rect2 = _main.get_node("ShipPanel/Panel").get_global_rect()
+	var panel: Rect2 = _main.get_node("Player/ShipPanel/Panel").get_global_rect()
 	_check("layout: station and asteroid on screen, clear of the ship panel", view.has_point(on_station) and view.has_point(on_asteroid)
 		and not panel.has_point(on_station) and not panel.has_point(on_asteroid))
 	_right_click(on_station)
@@ -256,7 +256,7 @@ func _test_input_and_mining() -> void:
 	_right_click(on_asteroid)
 	_check("right-click asteroid (Miner): Mine, docking released", _mining("Miner1").status == MiningOperation.Status.TRAVELING
 		and _docking("Miner1").state == Docking.State.NONE and _station.slot_of(_ship("Miner1")) < 0 and _station.queue.is_empty())
-	_main.get_node("Selection").set_selection([_ship("FF01")])
+	_main.get_node("Player/Selection").set_selection([_ship("FF01")])
 	_place("FF01", STARTS[0])
 	_right_click(on_station)
 	_check("right-click station with a combat ship: Dock", _docking("FF01").station == _station and _docking("FF01").state == Docking.State.APPROACHING)
@@ -267,7 +267,7 @@ func _test_input_and_mining() -> void:
 	_place("Miner3", STARTS[1])
 	_place("Transporter", STARTS[2])
 	var ships := [_ship("Miner3"), _ship("Transporter")]
-	_main.get_node("Selection").set_selection(ships)
+	_main.get_node("Player/Selection").set_selection(ships)
 	var hit: Vector3 = Plane(Vector3.UP, 0.0).intersects_ray(camera.project_ray_origin(on_station), camera.project_ray_normal(on_station))
 	var expected: Dictionary = _main.get_node("GroupOrders").assign(ships, Vector2(hit.x, hit.z))
 	_right_click(on_station)
@@ -275,7 +275,7 @@ func _test_input_and_mining() -> void:
 	for ship: Node in expected:
 		same = same and ship.get_node("Locomotion").destination.distance_to(expected[ship]) < 0.01 and ship.get_node("Docking").state == Docking.State.NONE
 	_check("group right-click over the station: the usual group MOVE, no docking", same)
-	_main.get_node("Selection").set_selection([])
+	_main.get_node("Player/Selection").set_selection([])
 
 
 func _test_unreachable() -> void:
@@ -386,12 +386,12 @@ func _test_interruption() -> void:
 
 func _test_panel() -> void:
 	var cargo := _dock_miner_with_cargo([[0, 100]], 0)
-	var selection := _main.get_node("Selection")
+	var selection := _main.get_node("Player/Selection")
 	selection.set_selection([_ship("Miner1")])
 	await process_frame
 	await process_frame
-	var rows := _main.get_node("ShipPanel/Panel/Layout/Scroll/Body/Actions/Docking")
-	_check("panel: docked Miner shows Docked, Undock, storage, Unload and Load", rows.visible and _main.get_node("ShipPanel/Panel/Layout/Scroll/Body/Status/Dock").text.begins_with("Dock: Docked")
+	var rows := _main.get_node("Player/ShipPanel/Panel/Layout/Scroll/Body/Actions/Docking")
+	_check("panel: docked Miner shows Docked, Undock, storage, Unload and Load", rows.visible and _main.get_node("Player/ShipPanel/Panel/Layout/Scroll/Body/Status/Dock").text.begins_with("Dock: Docked")
 		and rows.get_node("Undock").visible and rows.get_node("Transfer").visible and not rows.get_node("Transfer/Unload").disabled)
 	_docking("Miner1").unload()
 	_steps(30)
@@ -545,7 +545,7 @@ func _composition(family: int, k: int) -> Dictionary:
 
 
 func _frame(center: Vector2, zoom: float) -> void:
-	var rig := _main.get_node("CameraRig")
+	var rig := _main.get_node("Player/CameraRig")
 	rig.global_position = Vector3(center.x, 0, center.y)
 	rig.rotation = Vector3.ZERO
 	rig.zoom_distance = zoom

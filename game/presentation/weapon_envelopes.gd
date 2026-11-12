@@ -34,7 +34,7 @@ var _used_labels := 0
 var _camera: Camera3D
 var _px := 0.05 # World units per screen pixel near the drawing (updated per ship).
 
-@onready var _arena := get_parent()
+var player: Node
 
 
 func _ready() -> void:
@@ -54,7 +54,7 @@ func _ready() -> void:
 
 ## Whether envelopes are requested now (Alt held, or target selection open).
 func requested() -> bool:
-	return force_visible or Input.is_key_pressed(KEY_ALT) or _arena.target_selection
+	return force_visible or Input.is_key_pressed(KEY_ALT) or player.target_selection
 
 
 func _process(_delta: float) -> void:
@@ -63,7 +63,7 @@ func _process(_delta: float) -> void:
 	visible_ships = []
 	drawn_weapons = 0
 	_camera = get_viewport().get_camera_3d()
-	var selected: Array = _arena.selection().selected
+	var selected: Array = player.selection.selected
 	if _camera != null and requested() and not selected.is_empty():
 		var quads := []
 		if selected.size() == 1:

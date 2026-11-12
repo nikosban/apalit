@@ -1,73 +1,17 @@
 extends Node3D
-## Lab input above the movement systems: mouse selection lives in Selection
-## (ship_selection.gd); right-click gives the one selected ship a MOVE to the
-## ground point under the cursor through its RouteFollower (also over another
-## ship); with several selected, GroupOrders assigns one destination per ship and
-## orders them all, or none (notice) if there is not enough space. Keys
-## 4-9, 0 and - set up the Stage 4 avoidance scenarios and select their moving
-## ships (test arena only: `scenario_keys`, off in the playable main scene). Shows each selected ship's destination (ring), a subtle line from the
-## ship to it, the line back to the clicked point when they differ, and notices.
-## Phase 2 Stage 2: with exactly one miner selected, right-click on an asteroid
-## assigns it as the mining target; every manual MOVE (single, or a group MOVE
-## that was given) cancels the ships' mining assignments, keeping their targets.
-## Phase 2 Stage 3: with exactly one ship selected, right-click on a station
-## docks there (cancelling mining); mining cancels docking; every manual MOVE
-## given also cancels docking (slot, queue entry and transfer released).
-## Phase 2 Stage 4: fuel warnings use the same notices. Stage 5: the same
-## right-clicks also cancel or replace an automated mining cycle (its saved
-## target and base stay). Stage 6: MOVE and Dock also pause a transport
-## assignment (its saved configuration stays). A single-ship MOVE onto a
-## stationary ship goes to the nearest valid point beside it (notice), or is
-## refused (notice; nothing cancelled). Phase 2.5: a command is checked before
-## anything is cancelled; a refused one (MOVE without a route, Dock without a
-## reachable docking position, mining without a reachable working position) only
-## shows a notice, and the ship's order and assignments stay as they were. Dock on
-## the station the ship is already docking at changes nothing. Phase 2.5 stage 2b:
-## while the station moves a ship (controlled entry or exit) its command is held
-## (newest wins) and given when control ends, checked then; a command for a docked
-## ship (other than Dock at its own station) is checked first (refused: notice,
-## nothing changes) and, accepted, follows the controlled exit; a group MOVE keeps
-## every ship's GroupOrders destination, ships under station control or docked
-## taking theirs afterwards. Phase 4: a ship deployed by a shipyard is registered
-## (selection, notices, movement indicator) in the call that adds it, and the
-## shipyards' notices use the same label. UX round (P2): a command given during
-## station control is checked for its intent at once (refused: the held one stays)
-## and for execution from the ship's actual position when control ends; a held MOVE
-## shows its destination marker.
-##
-## Combat migration (2026-10-19; active in scenes with a `CombatOrders` node, so not in
-## the test arena):
-##   - Player commands are announced with `command_given(ship, kind)` when they execute
-##     (right-click, group MOVE, CombatOrders.move(), a command held during station
-##     control when it is released); a ship's Behavior takes a MOVE as the player's Move.
-##     Behavior's own positioning goes through autonomous_move(), which never cancels
-##     assignments, shows notices or counts as a player command.
-##   - Combat commands: right-click a visible hostile = target it (CombatOrders);
-##     Ctrl + right-click a hostile = Attack, a friendly ship = Guard it, the ground =
-##     Attack-Move; Shift + right-click the ground = add a waypoint (ships with Behavior);
-##     F1 / F2 / F3 tactic Passive / Defensive / Aggressive; Backspace clear the manual
-##     target; X cancel the command; T attack-target
-##     selection (0.25x; left-click a hostile; Esc or right-click elsewhere cancels);
-##     hold Alt weapon ranges; G tactical grid (only with `tactical_grid_available`);
-##     F10 combat debug overlay; F8 cycles the skybox experiment (A / B / C); F7
-##     environment lighting, F6 Strategic depth, F9 god rays (development switches).
-##   - Time: Space pause, - / = speed 0.25x / 1x / 2x (TimeControl, the one authority).
-##     Input, camera, selection, panels and presentation always process; the simulation
-##     (ships, stations, survey, projectiles, the clock) pauses.
-##   - Fog of war (scenes with `Sensors`): player_sees() decides what of a hostile ship
-##     is shown, picked and inspected.
+## Assembles the arena's simulation, orders, and world presentation. Player owns
+## screen input and HUD. The resolved order API also serves callers without a Player.
 
 const DisplayName := preload("res://game/ui/display_name.gd")
 const AsteroidField := preload("res://game/resources/asteroid_field.gd")
 const MiningOperation := preload("res://game/mining/mining_operation.gd")
 const Docking := preload("res://game/stations/docking.gd")
-const Fuel := preload("res://game/fuel/fuel.gd")
 const TransportOperation := preload("res://game/transport/transport_operation.gd")
 const ShipLocomotion := preload("res://game/locomotion/ship_locomotion.gd")
 const RouteFollower := preload("res://game/navigation/route_follower.gd")
 const StaticNavigation := preload("res://game/navigation/static_navigation.gd")
 const ShipAvoidance := preload("res://game/avoidance/ship_avoidance.gd")
-const ShipSelection := preload("res://game/selection/ship_selection.gd")
+const PlayerController := preload("res://game/player/player.gd")
 const GroupOrders := preload("res://game/orders/group_orders.gd")
 const Shipyard := preload("res://game/shipyard/shipyard.gd")
 const Station := preload("res://game/stations/station.gd")
@@ -85,21 +29,18 @@ const SensorGridOverlay := preload("res://game/presentation/sensor_grid/sensor_g
 const PLAYER_FACTION := 0
 ## Children that keep processing while paused (input, camera, UI, presentation); every
 ## other child is simulation and pauses.
-const ALWAYS_NODES := ["CameraRig", "Selection", "NoticeUI", "DebugUI", "NavigationDebug", "AvoidanceDebug",
-	"MovementIndicator", "TimeControl", "WeaponEnvelopes", "TacticalMarkers",
-	"TacticalGrid", "FogView", "CombatOverlay", "BehaviorView", "CombatHUD", "ShipPanel", "StationPanel",
-	"AsteroidHover", "WorldHighlight", "ObjectMarkers", "CommandCursor", "StrategicView", "SectorEnvironment",
-	"SensorGridOverlay"]
+const ALWAYS_NODES := ["Player", "DebugUI", "NavigationDebug", "AvoidanceDebug",
+	"TimeControl", "WeaponEnvelopes", "TacticalMarkers", "TacticalGrid", "FogView",
+	"CombatOverlay", "BehaviorView", "WorldHighlight", "ObjectMarkers", "StrategicView",
+	"SectorEnvironment", "SensorGridOverlay"]
 const SCENARIO_KEYS := [KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS]
 const SCENARIO_ZOOM := 40.0
 const GROUND_HALF_SIZE := 150.0 # Sector half-size without a StaticNavigation (sector_half_size()).
-const NOTICE_TIME := 2.0 # s
-const GROUP_NOTICE := "Not enough space for the group - no orders given"
-
-enum CommandKind { DOCK, MINE, MOVE, GROUP_MOVE, GROUP, TARGET } # GROUP: a group MOVE before its assignment (resolve_command()). TARGET: a visible hostile ship (combat).
+const GROUP_NOTICE := PlayerController.GROUP_NOTICE
+const CommandKind := PlayerController.CommandKind
 
 signal command_given(ship: Node3D, kind: int) # A player command executed for this ship (combat migration).
-signal target_selection_changed
+signal notice_requested(text: String)
 
 @export var scenario_keys := true # Keys 4-9, 0, - set up the avoidance scenarios (test arena only).
 ## Prototype (Sector Showcase round, not a balance decision): share of each ship's fuel
@@ -118,17 +59,11 @@ signal target_selection_changed
 @export var lighting_experiment_d := false
 @export var strategic_experiment_e := false
 @export var god_rays_enabled := false
-## World distance (u) between the movement indicator's symbol (circle and arc) and the end
-## of the trajectory lines, routes and request connector (every view; provisional).
-@export var destination_gap_world := 0.25
-
-var _notice_left := 0.0
 var _registered := {} # ship -> true: registered ships (register_ship())
 var _pending := {} # ship -> {command, callable}: the command its Docking holds (shown by the marker while held)
 var _silent := false # command_available(): the checks run without their notices.
 # Combat layer (scenes with CombatOrders).
 var debug_visible := false # Combat debug overlay (F10).
-var target_selection := false # Attack-target selection open (T).
 var time_control: Node = null
 var envelopes: Node3D = null # Weapon envelopes (Alt, target selection).
 var markers: CanvasLayer = null # Tactical markers (Phase B).
@@ -139,16 +74,12 @@ var sensors: Node = null # The scene's Sensors, else null (no fog: every ship se
 var fog_view: MeshInstance3D = null
 var sensor_grid: MeshInstance3D = null # Sensor grid overlay of the first selected ship (with Sensors).
 var fog_reveal := false # DEBUG override: show every ship despite the fog (tests only).
-var pointer := Vector2(-1, -1) # Last mouse-motion position (hover readouts).
 
-@onready var _notice: Label = $NoticeUI/Notice
-@onready var _selection := $Selection as ShipSelection
+@onready var player := $Player as PlayerController
 @onready var _group_orders := $GroupOrders as GroupOrders
 @onready var _debug_ui := $DebugUI
 @onready var _navigation_debug := $NavigationDebug
 @onready var _avoidance_debug := $AvoidanceDebug
-@onready var _camera_rig := $CameraRig
-@onready var _indicator = $MovementIndicator # The scene's one movement indicator (movement_indicator.tscn).
 @onready var _asteroids := get_node_or_null("Asteroids") as AsteroidField # Absent in the test arena.
 @onready var orders = get_node_or_null("CombatOrders") # Combat layer; absent in the test arena.
 @onready var contacts = get_node_or_null("Contacts")
@@ -157,26 +88,25 @@ var pointer := Vector2(-1, -1) # Last mouse-motion position (hover readouts).
 
 
 func _ready() -> void:
-	var half := sector_half_size() # The camera pans over the sector (150: the Test Arena's default bounds).
-	$CameraRig.bounds = Rect2(-half, -half, 2.0 * half, 2.0 * half)
 	if orders != null:
 		_setup_combat_layer()
+	var stations := get_node_or_null("Stations")
+	# Temporary world queries and command adapters until their systems expose equivalents.
+	player.configure($Ships, stations, _asteroids, get_node_or_null("Survey"), orders,
+		time_control, strategic, markers, sector_half_size(), player_sees, submit_intent,
+		can_submit_intent, held_move, _development_key)
+	notice_requested.connect(player.show_notice)
 	for ship: Node3D in $Ships.get_children():
 		register_ship(ship)
-	# Phase 4: ships produced by a shipyard are registered in the call that adds them.
-	var stations := get_node_or_null("Stations")
 	if stations != null:
 		for station in stations.get_children():
 			var shipyard := station.get_node_or_null("Shipyard") as Shipyard
 			if shipyard != null:
 				shipyard.notice.connect(_show_notice)
 				shipyard.ship_deployed.connect(_on_ship_deployed)
-	_selection.selection_changed.connect(_on_selection_changed)
+	player.selection.selection_changed.connect(_on_selection_changed)
 	_on_selection_changed()
 	if orders != null:
-		_selection.selection_changed.connect(func() -> void:
-			if target_selection and _selection.selected.is_empty():
-				cancel_target_selection())
 		ensure_behavior_view()
 
 
@@ -210,19 +140,23 @@ func _setup_combat_layer() -> void:
 	add_child(time_control)
 	envelopes = WeaponEnvelopes.new()
 	envelopes.name = "WeaponEnvelopes"
+	envelopes.player = player
 	add_child(envelopes)
 	environment = SectorEnvironment.new()
 	environment.name = "SectorEnvironment"
 	add_child(environment)
 	strategic = StrategicView.new() # Before the markers: its under-layer draws beneath theirs.
 	strategic.name = "StrategicView"
+	strategic.configure_player(player.camera_rig, player.selection, player.cancel_presses, player.resolve_command)
 	add_child(strategic)
 	markers = TacticalMarkers.new()
 	markers.name = "TacticalMarkers"
+	markers.camera_rig = player.camera_rig
 	add_child(markers)
 	if tactical_grid_available:
 		grid = TacticalGrid.new()
 		grid.name = "TacticalGrid"
+		grid.camera_rig = player.camera_rig
 		add_child(grid)
 	sensors = get_node_or_null("Sensors")
 	if sensors != null:
@@ -238,13 +172,15 @@ func _setup_combat_layer() -> void:
 ## shows (while selected): for every ship at start, and (Phase 4) for a ship added under
 ## Ships during the game. A ship already registered is left as it is.
 func register_ship(ship: Node3D) -> void:
-	_selection.register_ship(ship) # Idempotent; one call registers a ship added at run time.
 	if _registered.has(ship):
 		return
 	for node in [ship.get_node("RouteFollower"), _mining_of(ship), _docking_of(ship), ship.get_node_or_null("Fuel"), _transport_of(ship)]:
 		if node != null and not node.notice.is_connected(_show_notice):
 			node.notice.connect(_show_notice)
 	_registered[ship] = true
+	# Forward synchronously until the ship and world lifecycle owns registration.
+	if is_instance_valid(player):
+		player.register_ship(ship)
 	# Combat migration: a destroyed ship leaves the selection at once; when its hulk is
 	# removed its pick boxes, ring and movement indicator go.
 	var combat = CombatShip.of(ship)
@@ -254,58 +190,35 @@ func register_ship(ship: Node3D) -> void:
 
 
 func _on_destroyed(destroyed_ship: Node3D) -> void:
-	_selection.drop(destroyed_ship)
+	if is_instance_valid(player):
+		player.ship_destroyed(destroyed_ship)
 	_pending.erase(destroyed_ship)
 	_show_notice("%s destroyed" % DisplayName.of(destroyed_ship))
 
 
 func _on_removing(removed_ship: Node3D) -> void:
-	_selection.unregister_ship(removed_ship)
+	if is_instance_valid(player):
+		player.ship_removed(removed_ship)
 	_registered.erase(removed_ship)
 
 
 # A shipyard deployed a ship: selection and commands know it before the next frame.
 func _on_ship_deployed(ship: Node3D) -> void:
-	_selection.register_ship(ship)
 	register_ship(ship)
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	var key_event := event as InputEventKey
-	if key_event != null and key_event.pressed and not key_event.echo:
-		if scenario_keys and SCENARIO_KEYS.has(key_event.physical_keycode):
-			_start_scenario(SCENARIO_KEYS.find(key_event.physical_keycode))
-		elif orders != null and _combat_key(key_event.physical_keycode, key_event.shift_pressed):
-			get_viewport().set_input_as_handled()
-		return
-	var mouse_event := event as InputEventMouseButton
-	if mouse_event != null and mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_RIGHT:
-		if orders != null and (mouse_event.ctrl_pressed or mouse_event.shift_pressed) and _behavior_selected():
-			_behavior_command(mouse_event.position, mouse_event.shift_pressed)
-			get_viewport().set_input_as_handled()
-			return
-		_command(mouse_event.position)
-
-
-# MOVE for the selected ships to the ground point under the cursor (Y = 0), inside
-# the ground. Replaces their previous orders; momentum is kept by Locomotion.
-# Phase 2.5 stage 2b: the click is resolved once into a command (Dock at a station,
-# Mine an asteroid, Move to a point; a group gets one GroupOrders destination per
-# ship) and given to each ship through _order(), which holds it while the station
-# moves the ship and starts the controlled exit first for a docked ship.
-func _command(screen_position: Vector2) -> void:
-	var command := resolve_command(screen_position)
-	if command.is_empty():
-		return
-	var ships := _selection.selected
+## Submit an already resolved point or target for the explicitly supplied recipients.
+func submit_intent(ships: Array, command: Dictionary) -> bool:
+	if ships.is_empty() or command.is_empty():
+		return false
 	if command.kind == CommandKind.TARGET:
+		if orders == null:
+			return false
 		var count: int = orders.assign_target(ships, command.ship)
 		_show_notice("Target: %s (%d ship%s)" % [DisplayName.of(command.ship), count, "" if count == 1 else "s"])
-		get_viewport().set_input_as_handled()
-		return
+		return count > 0
 	if command.kind != CommandKind.GROUP:
-		_order(ships[0], command)
-		return
+		return _order(ships[0], command)
 	var point: Vector2 = command.point
 	# Only the ships that get a destination are ordered; the others keep their orders,
 	# assignments and commands.
@@ -313,24 +226,24 @@ func _command(screen_position: Vector2) -> void:
 		var given := _group_orders.command(ships, point)
 		if given.is_empty():
 			_show_notice(GROUP_NOTICE)
-			return
+			return false
 		for ship: Node3D in given:
 			_release_assignments(ship)
 			command_given.emit(ship, CommandKind.GROUP_MOVE)
 		_notice_partial(given.size(), ships.size())
-		return
+		return true
 	# Some ships are under station control or docked: the same assignment; each such
 	# ship keeps its own destination (the others go now).
 	var destinations := _group_orders.assign(ships, point)
 	if destinations.is_empty():
 		_show_notice(GROUP_NOTICE)
-		return
+		return false
 	var accepted := 0
 	for ship: Node3D in destinations:
 		if _order(ship, {"kind": CommandKind.GROUP_MOVE, "point": destinations[ship]}):
 			accepted += 1
 	_notice_partial(accepted, ships.size())
-
+	return accepted > 0
 
 # A group MOVE accepted by only some of the ships says so (accepted: executed, or held
 # until station control or the controlled exit ends).
@@ -339,55 +252,16 @@ func _notice_partial(accepted: int, total: int) -> void:
 		_show_notice("%d of %d ships ordered; %d not ordered" % [accepted, total, total - accepted])
 
 
-## UX round (P8): the command a right-click at a screen point would give the selected
-## ships, read-only (the click and the command cursor use the same resolution): one
-## ship: {kind DOCK, station} over a station (ships with Docking), {kind MINE, asteroid}
-## over an asteroid (miners), else {kind MOVE, point} on the ground; several ships:
-## {kind GROUP, point}; {} for none (nothing selected, off the ground).
-func resolve_command(screen_position: Vector2) -> Dictionary:
-	var ships := _selection.selected
-	if ships.is_empty():
-		return {}
-	if orders != null:
-		var picked: Node3D = _selection.pick_any(screen_position)
-		var combat = CombatShip.of(picked)
-		if combat != null and combat.faction != PLAYER_FACTION and combat.alive:
-			return {"kind": CommandKind.TARGET, "ship": picked}
-	# Phase C: the active camera (Strategic or the rig's); in Strategic, stations and
-	# asteroids are reached through their markers, never through hidden geometry.
-	var camera := get_viewport().get_camera_3d()
-	var abstract: bool = strategic != null and strategic.in_strategic()
-	var origin := camera.project_ray_origin(screen_position)
-	var direction := camera.project_ray_normal(screen_position)
-	if ships.size() == 1:
-		var station: Node3D = strategic.station_at(screen_position) if abstract else _station_at(origin, direction)
-		if station != null and _docking_of(ships[0]) != null:
-			return {"kind": CommandKind.DOCK, "station": station}
-	if ships.size() == 1 and _mining_of(ships[0]) != null and _asteroids != null:
-		var asteroid: int = strategic.asteroid_at(screen_position) if abstract else _asteroids.pick(origin, direction)
-		if asteroid >= 0:
-			return {"kind": CommandKind.MINE, "asteroid": asteroid}
-	var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(origin, direction)
-	if hit == null:
-		return {}
-	var point := Vector2(hit.x, hit.z)
-	var half := sector_half_size()
-	if absf(point.x) > half or absf(point.y) > half:
-		return {}
-	return {"kind": CommandKind.MOVE if ships.size() == 1 else CommandKind.GROUP, "point": point}
-
-
 ## UX round (P8): whether the click would be accepted (read-only, no notices): the same
-## checks as _order() and _execute() for the selected ship (intent only under station
+## checks as _order() and _execute() for the recipient (intent only under station
 ## control; Dock at the station it is already docking at changes nothing: false); a
 ## GROUP: GroupOrders finds a destination for at least one ship (can_assign(), the
 ## same solver as the click; the caller caches).
-func command_available(command: Dictionary) -> bool:
-	if command.is_empty():
+func can_submit_intent(ships: Array, command: Dictionary) -> bool:
+	if ships.is_empty() or command.is_empty():
 		return false
-	var ships := _selection.selected
 	if command.kind == CommandKind.TARGET:
-		return true
+		return orders != null
 	if command.kind == CommandKind.GROUP:
 		return _group_orders.can_assign(ships, command.point)
 	var ship: Node3D = ships[0]
@@ -587,63 +461,9 @@ func _transport_of(ship: Node) -> TransportOperation:
 
 
 # The station nearest along a camera ray, or null (no stations in the test arena).
-func _station_at(origin: Vector3, direction: Vector3) -> Node3D:
-	var best: Node3D = null
-	var best_distance := INF
-	var stations := get_node_or_null("Stations")
-	if stations == null:
-		return null
-	for station in stations.get_children():
-		var distance: float = station.pick(origin, direction)
-		if distance < best_distance:
-			best_distance = distance
-			best = station
-	return best
-
-
-func _process(delta: float) -> void:
-	# Notices and markers are UI: real time at every simulation speed (the engine time
-	# scale divided out; paused it is 1).
-	if Engine.time_scale > 0.0:
-		delta /= Engine.time_scale
-	_notice_left -= delta
-	_notice.visible = _notice_left > 0.0
-	_indicator.destination_gap_world = destination_gap_world
-	var handoff: float = strategic.progress if strategic != null else 0.0
-	var entries := []
-	for ship: Node3D in _registered:
-		var held: Variant = _held_move(ship)
-		if not _selection.selected.has(ship):
-			continue
-		var follower := ship.get_node("RouteFollower") as RouteFollower
-		var locomotion := ship.get_node("Locomotion") as ShipLocomotion
-		var ship_point := Vector2(ship.global_position.x, ship.global_position.z)
-		if held != null:
-			# A held MOVE: the requested (group: assigned) point, resolved once control ends.
-			entries.append({"ship": ship, "from": ship_point, "destination": held})
-			continue
-		var destination: Vector2
-		if follower.status == RouteFollower.RouteStatus.WAITING:
-			destination = follower.requested
-		elif locomotion.has_destination:
-			destination = locomotion.destination
-		else:
-			continue
-		var entry := {"ship": ship, "from": ship_point, "destination": destination}
-		if follower.requested.distance_to(destination) > 0.0001:
-			entry.requested = follower.requested
-		if handoff > 0.0:
-			# Strategic View: the planned route still to fly, cross-faded in with the handoff.
-			for line: Dictionary in strategic.order_lines(ship):
-				if line.kind == "route" and (line.points[line.points.size() - 1] as Vector2).distance_to(destination) < 0.01:
-					entry.route = line.points
-		entries.append(entry)
-	_indicator.set_entries(entries, smoothstep(0.0, 1.0, handoff))
-
-
 # The point of the MOVE (or group MOVE) the ship's Docking still holds for it, or null;
 # an entry whose command is no longer the held one (replaced or given) is dropped.
-func _held_move(ship: Node3D) -> Variant:
+func held_move(ship: Node3D) -> Variant:
 	if not _pending.has(ship):
 		return null
 	var docking := _docking_of(ship)
@@ -658,7 +478,7 @@ func _held_move(ship: Node3D) -> Variant:
 
 # Debug panel and drawings follow the selection when exactly one ship is selected.
 func _on_selection_changed() -> void:
-	var ships := _selection.selected
+	var ships := player.selection.selected
 	var ship: Node3D = ships[0] if ships.size() == 1 else null
 	_debug_ui.selected_count = ships.size()
 	_debug_ui.target = ship.get_node("Locomotion") as ShipLocomotion if ship != null else null
@@ -702,18 +522,16 @@ func _start_scenario(index: int) -> void:
 		(ship.get_node("RouteFollower") as RouteFollower).order(entry.target)
 		movers.append(ship)
 	var center: Vector2 = scenario.center
-	_camera_rig.global_position = Vector3(center.x, 0.0, center.y)
-	_camera_rig.zoom_distance = SCENARIO_ZOOM
-	_camera_rig._apply_zoom()
-	_selection.set_selection(movers)
+	player.camera_rig.global_position = Vector3(center.x, 0.0, center.y)
+	player.camera_rig.zoom_distance = SCENARIO_ZOOM
+	player.camera_rig._apply_zoom()
+	player.selection.set_selection(movers)
 	_show_notice("Scenario %d: %s" % [index + 1, scenario.name])
 
 
 func _show_notice(text: String) -> void:
-	if _silent:
-		return
-	_notice.text = text
-	_notice_left = NOTICE_TIME
+	if not _silent:
+		notice_requested.emit(text)
 
 
 # --- Combat layer (combat migration) ---------------------------------------------------
@@ -723,7 +541,7 @@ func ship(ship_name: String) -> Node3D:
 
 
 func selection() -> Node:
-	return _selection
+	return player.selection
 
 
 ## Whether the player may see this ship now (its model, marker, bar, label, hover,
@@ -835,67 +653,14 @@ func group_destinations(ships: Array, point: Vector2) -> Dictionary:
 	return _group_orders.assign(ships, point)
 
 
-## While attack-target selection is open, mouse presses are read here, before Selection
-## (which would otherwise take the left click): a click on a hostile assigns it to the
-## selected ships; a right-click elsewhere cancels; a left click elsewhere changes nothing.
-func _input(event: InputEvent) -> void:
-	var motion := event as InputEventMouseMotion
-	if motion != null:
-		pointer = motion.position
-	if not target_selection:
-		return
-	var mouse := event as InputEventMouseButton
-	if mouse == null or not mouse.pressed or not mouse.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
-		return
-	var picked: Node3D = _selection.pick_any(mouse.position)
-	var combat = CombatShip.of(picked)
-	if combat != null and combat.faction != PLAYER_FACTION and combat.alive:
-		var count: int = orders.assign_target(_selection.selected, picked)
-		_show_notice("Target: %s (%d ship%s)" % [DisplayName.of(picked), count, "" if count == 1 else "s"])
-		_end_target_selection()
-	elif mouse.button_index == MOUSE_BUTTON_RIGHT:
-		cancel_target_selection()
-	get_viewport().set_input_as_handled()
-
-
-## Opens attack-target selection for the selected ships (0.25x unless paused). Returns
-## whether it is open; opening it again changes nothing.
-func begin_target_selection() -> bool:
-	if _selection.selected.is_empty():
-		_show_notice("Select ships before choosing a target")
+# Development bindings keep their arena-specific actions and precedence over player keys.
+func _development_key(code: Key, _shift: bool = false) -> bool:
+	if scenario_keys and SCENARIO_KEYS.has(code):
+		_start_scenario(SCENARIO_KEYS.find(code))
+		return true
+	if orders == null:
 		return false
-	if not target_selection:
-		target_selection = true
-		time_control.begin_targeting()
-		target_selection_changed.emit()
-	return true
-
-
-func cancel_target_selection() -> void:
-	if target_selection:
-		_show_notice("Target selection canceled")
-	_end_target_selection()
-
-
-func _end_target_selection() -> void:
-	if not target_selection:
-		return
-	target_selection = false
-	time_control.end_targeting()
-	target_selection_changed.emit()
-
-
-## Combat keys (scenes with CombatOrders). Returns whether the key was taken.
-func _combat_key(code: Key, _shift: bool = false) -> bool:
-	var selected: Array = _selection.selected
 	match code:
-		KEY_F1, KEY_F2, KEY_F3:
-			var stance := [KEY_F1, KEY_F2, KEY_F3].find(code)
-			if orders.set_stance(selected, stance) > 0:
-				_show_notice("Tactic: %s" % CombatShip.STANCE_NAMES[stance])
-		KEY_BACKSPACE:
-			if orders.clear_target(selected) > 0:
-				_show_notice("Target cleared")
 		KEY_F10:
 			debug_visible = not debug_visible
 		KEY_F8:
@@ -918,65 +683,12 @@ func _combat_key(code: Key, _shift: bool = false) -> bool:
 				return false
 			environment.set_god_rays(environment.god_rays == null)
 			_show_notice("God rays %s" % ("on" if environment.god_rays != null else "off"))
-		KEY_SPACE:
-			time_control.toggle_pause()
-		KEY_MINUS, KEY_KP_SUBTRACT:
-			time_control.step_speed(-1)
-		KEY_EQUAL, KEY_KP_ADD:
-			time_control.step_speed(1)
-		KEY_T:
-			begin_target_selection()
 		KEY_G:
 			if grid == null:
 				return false # Withdrawn: the key does nothing.
 			grid.visible = not grid.visible
 			_show_notice("Tactical grid %s" % ("on" if grid.visible else "off"))
-		KEY_ESCAPE:
-			if not target_selection:
-				return false
-			cancel_target_selection()
-		KEY_X:
-			if not _behavior_selected():
-				return false
-			if orders.cancel(selected) > 0:
-				_show_notice("Orders canceled")
 		_:
 			return false
+	get_viewport().set_input_as_handled()
 	return true
-
-
-## Whether every selected ship has a Behavior node (armed warships).
-func _behavior_selected() -> bool:
-	var selected: Array = _selection.selected
-	return not selected.is_empty() and selected.all(func(each: Node) -> bool: return is_instance_valid(each) and each.has_node("Behavior"))
-
-
-# Ctrl + right-click: a hostile under the cursor -> Attack; a friendly ship -> Guard it;
-# the ground -> Attack-Move. Shift + right-click on the ground: add a waypoint.
-func _behavior_command(screen_position: Vector2, waypoint: bool) -> void:
-	var picked: Node3D = _selection.pick_any(screen_position)
-	var combat = CombatShip.of(picked)
-	var selected: Array = _selection.selected
-	if waypoint or combat == null or not combat.alive or not player_sees(picked):
-		# The same resolution as a right-click (a station or, for a miner, an asteroid
-		# gives no point); over a hostile, the ground under it.
-		var command := resolve_command(screen_position)
-		if command.get("kind", -1) == CommandKind.TARGET:
-			var camera := get_viewport().get_camera_3d() # Strategic or the rig's (Phase C).
-			var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(camera.project_ray_origin(screen_position), camera.project_ray_normal(screen_position))
-			command = {} if hit == null else {"point": Vector2(hit.x, hit.z)}
-		if not command.has("point"):
-			return
-		var point: Vector2 = command.point
-		var count: int = orders.waypoint(selected, point, true) if waypoint else orders.attack_move(selected, point)
-		if count == 0:
-			_show_notice(GROUP_NOTICE if selected.size() > 1 else "No route found")
-		else:
-			_show_notice("%s (%.0f, %.0f) (%d ship%s)" % ["Waypoint" if waypoint else "Attack-Move", point.x, point.y, count, "" if count == 1 else "s"])
-		return
-	if combat.faction != PLAYER_FACTION:
-		var count: int = orders.attack(selected, picked)
-		_show_notice("Attack: %s (%d ship%s)" % [DisplayName.of(picked), count, "" if count == 1 else "s"])
-	else:
-		var count: int = orders.guard(selected, picked)
-		_show_notice("Guard: %s (%d ship%s)" % [DisplayName.of(picked), count, "" if count == 1 else "s"])

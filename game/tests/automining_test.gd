@@ -379,12 +379,12 @@ func _test_fuel() -> void:
 func _test_panel() -> void:
 	_reset(SMALL_HOLD)
 	var mining := _mining("Miner1")
-	var panel := _main.get_node("ShipPanel")
+	var panel := _main.get_node("Player/ShipPanel")
 	var rows := panel.get_node("Panel/Layout/Scroll/Body/Actions/Mining")
 	_place("Miner1", NEAR)
 	mining.assign(ASTEROID)
 	_manual_move("Miner1", Vector2(-60, 20))
-	_main.get_node("Selection").set_selection([_ship("Miner1")])
+	_main.get_node("Player/Selection").set_selection([_ship("Miner1")])
 	panel._process(0.0)
 	var base: OptionButton = rows.get_node("BaseRow/Base")
 	var resume: Button = rows.get_node("Resume")
@@ -399,7 +399,7 @@ func _test_panel() -> void:
 	_check("panel: choosing the station sets the base; Resume restarts (Traveling to Asteroid), Resume disabled", mining.base == _station
 		and mining.status == MiningOperation.Status.TRAVELING and panel.get_node("Panel/Layout/Scroll/Body/Status/Activity").text == "Status: Traveling to Asteroid" and resume.disabled)
 	mining.set_base(null)
-	_main.get_node("Selection").set_selection([])
+	_main.get_node("Player/Selection").set_selection([])
 
 
 func _reset(hold: int) -> void:

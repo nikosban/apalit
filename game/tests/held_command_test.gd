@@ -100,7 +100,7 @@ func _test_invalid_keeps_valid() -> void:
 		kept and _notices.all(func(t: String) -> bool: return t == "Miner1: order not possible - held order kept"))
 	_until(func() -> bool: return not _dk("Miner1").under_control(), 60 * 60)
 	_step()
-	_main._process(0.0)
+	_main.get_node("Player")._process(0.0)
 	_check("released: the held MOVE runs from the exit point (requested %s), marker now at the ordered destination" % str(_n("Miner1", "RouteFollower").requested),
 		_n("Miner1", "RouteFollower").requested.distance_to(first) < 0.5 and _lo("Miner1").has_destination and not _dk("Miner1").has_held_command()
 		and _marker_at("Miner1", _lo("Miner1").destination))
@@ -128,7 +128,7 @@ func _test_latest_valid_wins() -> void:
 func _test_entry_marker_and_own_station() -> void:
 	var first := _planar(_a) + Vector2(24, -12)
 	_reset()
-	_main.get_node("Selection").set_selection([_ship("Miner1")])
+	_main.get_node("Player/Selection").set_selection([_ship("Miner1")])
 	_a.slots[1].ship = _ship("Miner2") # Any other ship holds berth 1.
 	_place("Miner1", _planar(_a) + Vector2(55, 0))
 	_frame(_planar(_a) + Vector2(30, 0), 40.0) # UX round P6: targets left of the right-side panel
@@ -188,7 +188,7 @@ func _test_refused_at_release() -> void:
 	_notices.clear()
 	_until(func() -> bool: return not _dk("Miner1").under_control(), 60 * 60)
 	_step()
-	_main._process(0.0)
+	_main.get_node("Player")._process(0.0)
 	_nav.blocked_to = Vector2.INF
 	_check("no route when control ends: refused ('%s'), held command and marker gone, no order, nothing else changed" % _notice_text(),
 		shown and _notice_text() == "No route found" and not _dk("Miner1").has_held_command() and _marker("Miner1") == null
@@ -204,7 +204,7 @@ func _test_held_mine() -> void:
 	_steps(60)
 	var asteroid := _nearest_asteroid(_planar(_a) + Vector2(40, 0))
 	_main._order(_ship("Miner1"), {"kind": _main.CommandKind.MINE, "asteroid": asteroid})
-	_main._process(0.0)
+	_main.get_node("Player")._process(0.0)
 	var held := _dk("Miner1").has_held_command() and _marker("Miner1") == null
 	_until(func() -> bool: return not _dk("Miner1").under_control(), 60 * 60)
 	_step()
@@ -214,18 +214,18 @@ func _test_held_mine() -> void:
 
 # ------------------------------------------------------------------ helpers (as station_docking_test)
 func _notice_text() -> String:
-	return (_main.get_node("NoticeUI/Notice") as Label).text
+	return (_main.get_node("Player/NoticeUI/Notice") as Label).text
 
 
 func _marker_at(s: String, point: Vector2) -> bool:
-	_main._process(0.0)
+	_main.get_node("Player")._process(0.0)
 	var marker: Variant = _marker(s)
 	return marker != null and (marker as Vector2).distance_to(point) < 0.01
 
 
 # The destination the movement indicator shows for a ship, or null.
 func _marker(s: String) -> Variant:
-	for entry: Dictionary in _main.get_node("MovementIndicator").entries():
+	for entry: Dictionary in _main.get_node("Player/MovementIndicator").entries():
 		if entry.ship == _ship(s):
 			return entry.destination
 	return null
@@ -233,7 +233,7 @@ func _marker(s: String) -> Variant:
 
 func _dock_selected(s: String) -> void:
 	_reset()
-	_main.get_node("Selection").set_selection([_ship(s)])
+	_main.get_node("Player/Selection").set_selection([_ship(s)])
 	_a.slots[1].ship = _ship("Miner2") # Any other ship holds berth 1.
 	_place(s, _planar(_a) + Vector2(55, 0))
 	_dk(s).dock(_a)
@@ -306,7 +306,7 @@ func _reset() -> void:
 
 
 func _frame(center: Vector2, zoom: float) -> void:
-	var rig := _main.get_node("CameraRig")
+	var rig := _main.get_node("Player/CameraRig")
 	rig.global_position = Vector3(center.x, 0, center.y)
 	rig.rotation = Vector3.ZERO
 	rig.zoom_distance = zoom
@@ -314,7 +314,7 @@ func _frame(center: Vector2, zoom: float) -> void:
 
 
 func _right_click(point: Vector2) -> void:
-	var camera: Camera3D = _main.get_node("CameraRig/Camera3D")
+	var camera: Camera3D = _main.get_node("Player/CameraRig/Camera3D")
 	var screen := camera.unproject_position(Vector3(point.x, 0, point.y))
 	for pressed in [true, false]:
 		var event := InputEventMouseButton.new()

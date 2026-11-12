@@ -7,13 +7,8 @@ extends CanvasLayer
 
 const AsteroidField := preload("res://game/resources/asteroid_field.gd")
 const Survey := preload("res://game/survey/survey.gd")
-const ShipSelection := preload("res://game/selection/ship_selection.gd")
-const Tooltip := preload("res://game/ui/overlays/hover_tooltip/hover_tooltip.tscn")
-
-@export var field_path := NodePath("../Asteroids")
-@export var survey_path := NodePath("../Survey")
-@export var selection_path := NodePath("../Selection")
-@export var stations_path := NodePath("../Stations")
+const ShipSelection := preload("res://game/player/selection/ship_selection.gd")
+const Tooltip := preload("res://game/player/ui/overlays/hover_tooltip/hover_tooltip.tscn")
 
 var hovered := -1 # Asteroid id under the cursor, or -1.
 var hovered_station: Variant = null # Station under the cursor, or null.
@@ -21,9 +16,19 @@ var hovered_station: Variant = null # Station under the cursor, or null.
 var _panel: PanelContainer
 var _label: Label
 
-@onready var _field := get_node(field_path) as AsteroidField
-@onready var _survey := get_node(survey_path) as Survey
-@onready var _selection := get_node(selection_path) as ShipSelection
+var _field: AsteroidField
+var _survey: Survey
+var _selection: ShipSelection
+var _stations: Node
+var _strategic: Node
+
+
+func configure(field: AsteroidField, survey: Survey, selection: ShipSelection, stations: Node, strategic: Node) -> void:
+	_field = field
+	_survey = survey
+	_selection = selection
+	_stations = stations
+	_strategic = strategic
 
 
 func _ready() -> void:
@@ -51,9 +56,8 @@ func _process(_delta: float) -> void:
 ## Asteroid under a screen point, or -1 (also when a ship is under it). Phase C: in
 ## Strategic View, an expanded resource marker's asteroid (it comes first there).
 func asteroid_at(screen_position: Vector2) -> int:
-	var strategic = get_parent().get("strategic")
-	if strategic != null and strategic.in_strategic():
-		return strategic.asteroid_at(screen_position)
+	if _strategic != null and _strategic.in_strategic():
+		return _strategic.asteroid_at(screen_position)
 	var camera := get_viewport().get_camera_3d()
 	if camera == null or _selection.pick(screen_position) != null:
 		return -1
@@ -64,15 +68,13 @@ func asteroid_at(screen_position: Vector2) -> int:
 ## Strategic View, the station whose marker contains the point.
 func station_at(screen_position: Vector2) -> Node3D:
 	var camera := get_viewport().get_camera_3d()
-	var stations := get_node_or_null(stations_path)
-	if camera == null or stations == null or _selection.pick(screen_position) != null:
+	if camera == null or _stations == null or _selection.pick(screen_position) != null:
 		return null
-	var strategic = get_parent().get("strategic")
-	if strategic != null and strategic.in_strategic():
-		return strategic.station_at(screen_position)
+	if _strategic != null and _strategic.in_strategic():
+		return _strategic.station_at(screen_position)
 	var best: Node3D = null
 	var best_distance := INF
-	for station in stations.get_children():
+	for station in _stations.get_children():
 		var distance: float = station.pick(camera.project_ray_origin(screen_position), camera.project_ray_normal(screen_position))
 		if distance < best_distance:
 			best_distance = distance

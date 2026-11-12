@@ -17,7 +17,7 @@ rings = 12
 
 [node name="E05Fleet" instance=ExtResource("1_base")]
 
-[node name="CameraRig" parent="."]
+[node name="CameraRig" parent="Player" index="0"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -55, 0, 10)
 
 [node name="Asteroid1" type="MeshInstance3D" parent="Asteroids"]
@@ -82,3 +82,5 @@ script = ExtResource("5_sensors")
 sensor_range = 100.0
 update_interval = 0.2
 memory = 8.0
+
+[editable path="Player"]

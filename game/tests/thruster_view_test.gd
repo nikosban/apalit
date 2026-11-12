@@ -43,8 +43,8 @@ func _initialize() -> void:
 	_main.get_node("Ships").add_child(ff01)
 	root.add_child(_main)
 	_view = _main.get_node("ThrusterView")
-	_selection = _main.get_node("Selection")
-	_camera = _main.get_node("CameraRig/Camera3D")
+	_selection = _main.get_node("Player/Selection")
+	_camera = _main.get_node("Player/CameraRig/Camera3D")
 	for i in 10:
 		await physics_frame
 	_test_parts()
@@ -363,7 +363,7 @@ func _remove(ship: Node3D) -> void:
 
 
 func _frame(center: Vector2, zoom: float) -> void:
-	var rig := _main.get_node("CameraRig")
+	var rig := _main.get_node("Player/CameraRig")
 	rig.global_position = Vector3(center.x, 0, center.y)
 	rig.zoom_distance = zoom
 	rig._apply_zoom()

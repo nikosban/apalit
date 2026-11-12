@@ -92,7 +92,7 @@ func _launches() -> void:
 
 
 func _zoom(distance: float) -> void:
-	var rig = _arena.get_node("CameraRig")
+	var rig = _arena.get_node("Player/CameraRig")
 	rig.position = Vector3(SITE.x, 0, SITE.z)
 	rig.zoom_distance = distance
 	rig._apply_zoom()

@@ -195,7 +195,17 @@ var formation_texel := 6.0 # u: the coarse formation-density texture (E)
 var obscured_keep := 0.55 # E: share of the environment layer kept where obscured
 
 @onready var _arena := get_parent()
-@onready var _rig: Node3D = _arena.get_node("CameraRig")
+var _rig: Node3D
+var _selection: Node
+var _cancel_player_presses: Callable
+var _resolve_command: Callable
+
+
+func configure_player(rig: Node3D, selection: Node, cancel_presses: Callable, resolve: Callable) -> void:
+	_rig = rig
+	_selection = selection
+	_cancel_player_presses = cancel_presses
+	_resolve_command = resolve
 
 
 func _ready() -> void:
@@ -317,10 +327,7 @@ func _finish_exit() -> void:
 
 
 func _cancel_presses() -> void:
-	for node_name in ["Selection", "StationPanel"]:
-		var node := _arena.get_node_or_null(node_name)
-		if node != null and node.has_method("cancel_press"):
-			node.cancel_press()
+	_cancel_player_presses.call()
 
 
 ## The Strategic framing: top-down over the sector centre, at the rig's yaw, far enough
@@ -350,7 +357,7 @@ func _aspect() -> float:
 	return size.x / maxf(size.y, 1.0)
 
 
-func _input(event: InputEvent) -> void:
+func handle_input(event: InputEvent) -> void:
 	var button := event as InputEventMouseButton
 	if button == null:
 		return
@@ -373,7 +380,7 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled() # No click or command during a handoff.
 
 
-func _unhandled_input(event: InputEvent) -> void:
+func handle_world_input(event: InputEvent) -> void:
 	var button := event as InputEventMouseButton
 	if button == null or not button.pressed or not is_active():
 		return
@@ -382,20 +389,20 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif button.button_index == MOUSE_BUTTON_LEFT and not button.shift_pressed and _over_asteroid_marker(button.position):
 		# A click on an asteroid cluster / resource marker is not a click on empty space:
 		# it keeps the selection (ships and stations under the point still come first).
-		if _arena.selection().pick_any(button.position) == null and station_at(button.position) == null:
+		if _selection.pick_any(button.position) == null and station_at(button.position) == null:
 			get_viewport().set_input_as_handled()
 
 
 # A right-click whose ground point the command rules refuse as outside the sector: the
 # boundary is shown for a moment. Nothing about the command changes.
 func _check_boundary(screen: Vector2) -> void:
-	if _arena.selection().selected.is_empty():
+	if _selection.selected.is_empty():
 		return
 	var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(_camera.project_ray_origin(screen), _camera.project_ray_normal(screen))
 	if hit == null:
 		return
 	var half: float = _arena.sector_half_size()
-	if (absf(hit.x) > half or absf(hit.z) > half) and _arena.resolve_command(screen).is_empty():
+	if (absf(hit.x) > half or absf(hit.z) > half) and _resolve_command.call(screen, _selection.selected).is_empty():
 		_boundary_left = boundary_time
 
 
@@ -922,7 +929,7 @@ func _over_asteroid_marker(screen: Vector2) -> bool:
 
 func _update_text(mouse: Vector2) -> void:
 	var text := ""
-	if mouse != Vector2.INF and asteroid_at(mouse) < 0 and _arena.selection().pick_any(mouse) == null and station_at(mouse) == null:
+	if mouse != Vector2.INF and asteroid_at(mouse) < 0 and _selection.pick_any(mouse) == null and station_at(mouse) == null:
 		for c in _layout.size():
 			var entry: Dictionary = _layout[c]
 			for resource: Dictionary in entry.resources:
@@ -988,7 +995,7 @@ func _draw_under() -> void:
 		for corner in [Vector2(-half, -half), Vector2(half, -half), Vector2(half, half), Vector2(-half, half), Vector2(-half, -half)]:
 			corners.append(_project(corner))
 		_under.draw_polyline(corners, Color(BOUNDARY_COLOR, 0.8 * boundary_alpha()), 2.0)
-	for ship: Node3D in _arena.selection().selected:
+	for ship: Node3D in _selection.selected:
 		if not is_instance_valid(ship):
 			continue
 		for line: Dictionary in order_lines(ship):

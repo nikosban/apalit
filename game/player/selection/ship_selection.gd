@@ -42,8 +42,11 @@ var _dragging := false
 var _press_position := Vector2.ZERO
 var _press_shift := false
 var _box: Panel
+var _strategic: Node
+var _markers: CanvasLayer
+var _player_sees: Callable
 
-@onready var _ships := get_node(ships_path)
+@onready var _ships := get_node_or_null(ships_path) if not ships_path.is_empty() else null
 
 
 func _ready() -> void:
@@ -52,8 +55,9 @@ func _ready() -> void:
 	_ring_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_ring_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA # Fades with the Tactical emphasis.
 	_ring_material.albedo_color = _interaction.selection_indicator_color
-	for ship: Node3D in _ships.get_children():
-		register_ship(ship)
+	if _ships != null:
+		for ship: Node3D in _ships.get_children():
+			register_ship(ship)
 	var layer := CanvasLayer.new()
 	_box = Panel.new()
 	_box.add_theme_stylebox_override("panel", _interaction.drag_box)
@@ -61,6 +65,16 @@ func _ready() -> void:
 	_box.visible = false
 	layer.add_child(_box)
 	add_child(layer)
+
+
+## Player routes input and supplies world services. Standalone selection uses ships_path.
+func configure(ships: Node, strategic: Node, markers: CanvasLayer, player_sees: Callable) -> void:
+	_ships = ships
+	_strategic = strategic
+	_markers = markers
+	_player_sees = player_sees
+	set_process_input(false)
+	set_process_unhandled_input(false)
 
 
 ## Reads a ship's visible hull parts (pick boxes) and creates its selection ring: for
@@ -93,8 +107,7 @@ func register_ship(ship: Node3D) -> void:
 
 
 func _process(_delta: float) -> void:
-	var markers = get_parent().get("markers")
-	var ring_alpha: float = 1.0 if markers == null else 1.0 - markers.emphasis() # The markers' brackets take over.
+	var ring_alpha: float = 1.0 if _markers == null else 1.0 - _markers.emphasis() # The markers' brackets take over.
 	_ring_material.albedo_color = Color(_interaction.selection_indicator_color, ring_alpha)
 	for key: Variant in _rings.keys():
 		if not is_instance_valid(key): # Freed without being unregistered: its ring goes.
@@ -140,6 +153,10 @@ func registered_count() -> int:
 
 # A left press not taken by the GUI (debug panel) starts a click or drag.
 func _unhandled_input(event: InputEvent) -> void:
+	begin_press(event)
+
+
+func begin_press(event: InputEvent) -> void:
 	var button := event as InputEventMouseButton
 	if button != null and button.button_index == MOUSE_BUTTON_LEFT and button.pressed:
 		_pressing = true
@@ -152,6 +169,10 @@ func _unhandled_input(event: InputEvent) -> void:
 # Motion and release of a started press are read here, before the GUI, so a drag
 # released over the debug panel still completes. Events are not consumed.
 func _input(event: InputEvent) -> void:
+	continue_press(event)
+
+
+func continue_press(event: InputEvent) -> void:
 	if not _pressing:
 		return
 	var motion := event as InputEventMouseMotion
@@ -187,23 +208,22 @@ func pick(screen_position: Vector2) -> Node3D:
 ## tactical marker under the point (TacticalMarkers.marker_at()), else the nearest hull
 ## hit. A hidden ship never shadows a visible one.
 func pick_any(screen_position: Vector2) -> Node3D:
-	var arena := get_parent()
-	var strategic = arena.get("strategic")
-	var abstract: bool = strategic != null and strategic.in_strategic()
-	if abstract and strategic.transitioning():
+	var abstract: bool = _strategic != null and _strategic.in_strategic()
+	if abstract and _strategic.transitioning():
 		return null
-	var markers = arena.get("markers")
-	if markers != null:
-		var marked: Node3D = markers.marker_at(screen_position)
+	if _markers != null:
+		var marked: Node3D = _markers.marker_at(screen_position)
 		if marked != null or abstract:
 			return marked
 	var camera := get_viewport().get_camera_3d()
+	if camera == null or _ships == null:
+		return null
 	var origin := camera.project_ray_origin(screen_position)
 	var direction := camera.project_ray_normal(screen_position)
 	var best: Node3D = null
 	var best_distance := INF
 	for ship: Node3D in _ships.get_children():
-		if not _parts.has(ship) or (arena.has_method("player_sees") and not arena.player_sees(ship)):
+		if not _parts.has(ship) or (_player_sees.is_valid() and not _player_sees.call(ship)):
 			continue
 		var to_ship := ship.global_transform.affine_inverse()
 		var local_origin := to_ship * origin

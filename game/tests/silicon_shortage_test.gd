@@ -104,7 +104,7 @@ func _test_survey() -> int:
 		_check("survey: an analyzed mineral asteroid with a working position", false)
 		return -1
 	var deposit := _field.deposit(best)
-	var hover: String = _main.get_node("AsteroidHover").describe(best)
+	var hover: String = _main.get_node("Player/AsteroidHover").describe(best)
 	_check("survey: %d mineral asteroids analyzed; most Silicon: asteroid %d, Silicon %d%% of %d reserves (about %d units), shown in its hover" % [analyzed,
 		best, deposit.composition[SILICON], deposit.reserves, roundi(best_units)], hover.contains("Silicon %d%%" % deposit.composition[SILICON])
 		and hover.contains("Remaining reserves: %d units" % deposit.reserves) and best_units >= 600.0)

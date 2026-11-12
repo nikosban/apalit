@@ -15,8 +15,8 @@ extends SceneTree
 ## Every check is PASS/FAIL.
 
 const COMBAT_TEST := preload("res://game/scenes/combat_test.tscn")
-const INDICATOR := preload("res://game/presentation/movement_indicator/movement_indicator.tscn")
-const PREVIEW := preload("res://game/presentation/movement_indicator/movement_indicator_preview.tscn")
+const INDICATOR := preload("res://game/player/movement_indicator/movement_indicator.tscn")
+const PREVIEW := preload("res://game/player/movement_indicator/movement_indicator_preview.tscn")
 const StrategicView := preload("res://game/presentation/strategic_view.gd")
 
 var _failures := 0
@@ -37,7 +37,7 @@ func _initialize() -> void:
 	_view.add_child(_scene)
 	_scene.get_node("Ships/HostileFF01").process_mode = Node.PROCESS_MODE_DISABLED
 	await physics_frame
-	_indicator = _scene.get_node("MovementIndicator")
+	_indicator = _scene.get_node("Player/MovementIndicator")
 	_ship = _scene.ship("FF01")
 	_scene.selection().set_selection([_ship])
 	_check("the FF01's MOVE is given", _scene.issue_move([_ship], _destination))
@@ -73,7 +73,7 @@ func _initialize() -> void:
 
 
 func _rig() -> Node3D:
-	return _scene.get_node("CameraRig")
+	return _scene.get_node("Player/CameraRig")
 
 
 # One symbol at the destination, style px sizes, the line beyond the symbol plus the gap.
@@ -100,7 +100,7 @@ func _check_symbol(view: String, strategic: bool) -> void:
 	var end: Vector2 = line.points[line.points.size() - 1] if shown else item.anchor
 	var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(camera.project_ray_origin(end), camera.project_ray_normal(end))
 	var world: Vector2 = Vector2(hit.x, hit.z) if hit != null else _destination
-	var expected: float = item.silhouette + _scene.destination_gap_world
+	var expected: float = item.silhouette + _scene.get_node("Player").destination_gap_world
 	var arc_gap := INF
 	for point: Vector2 in item.arc:
 		arc_gap = minf(arc_gap, point.distance_to(end))

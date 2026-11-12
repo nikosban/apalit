@@ -189,7 +189,7 @@ func _case_process_modes() -> void:
 	await _load()
 	scene.time_control.set_paused(true)
 	await process_frame
-	var always := ["CameraRig", "Selection", "CombatHUD", "CombatOverlay", "TimeControl"]
+	var always := ["Player/CameraRig", "Player/Selection", "Player/CombatHUD", "CombatOverlay", "TimeControl"]
 	var running := always.filter(func(name: String) -> bool: return scene.get_node(name).can_process())
 	var stopped := []
 	var leaking := []
@@ -220,7 +220,7 @@ func _case_pause_orders() -> void:
 	for placed: Array in [[ff01a, Vector2(-60, 25), -PI * 0.5], [ff01b, Vector2(-45, 35), -PI * 0.5], [hostile, Vector2(-20, 25), PI * 0.5]]:
 		placed[0].get_node("Locomotion").place(placed[1], placed[2])
 		placed[0].get_node("Avoidance").reset()
-	var rig: Node3D = scene.get_node("CameraRig")
+	var rig: Node3D = scene.get_node("Player/CameraRig")
 	rig.global_position = Vector3(-45, 0, 22)
 	rig.rotation = Vector3.ZERO
 	rig.zoom_distance = 50.0 # frames both FF-01s, the hostile and both goals
@@ -248,7 +248,7 @@ func _case_pause_orders() -> void:
 	await _click(_screen(ff01b.global_position))
 	await _click(_screen(ff01a.global_position), MOUSE_BUTTON_LEFT, true)
 	await _key(KEY_T)
-	var held_targeting: bool = scene.target_selection and paused
+	var held_targeting: bool = scene.get_node("Player").target_selection and paused
 	await _click(_screen(hostile.global_position))
 	await _key(KEY_F2) # stance change while paused
 	var fg = ff01b.get_node("RouteFollower")
@@ -259,7 +259,7 @@ func _case_pause_orders() -> void:
 	_check("paused: each ship's MOVE is planned at once (status %s / %s, %d / %d route points)" % [RouteFollower.RouteStatus.keys()[fg.status], RouteFollower.RouteStatus.keys()[fd.status], fg.route.size(), fd.route.size()],
 		routed.call(fg, goal_g) and routed.call(fd, goal_d))
 	_check("paused: T opens target selection and stays paused; a click on the hostile assigns it to both ships",
-		held_targeting and paused and not scene.target_selection and CombatShip.of(ff01b).manual_target == hostile and CombatShip.of(ff01a).manual_target == hostile)
+		held_targeting and paused and not scene.get_node("Player").target_selection and CombatShip.of(ff01b).manual_target == hostile and CombatShip.of(ff01a).manual_target == hostile)
 	_check("paused: F2 sets Defensive on both selected ships", CombatShip.of(ff01b).stance == CombatShip.Stance.DEFENSIVE and CombatShip.of(ff01a).stance == CombatShip.Stance.DEFENSIVE)
 
 	# Camera in real time while paused: wheel zoom and a W pan. The wheel sets the requested
@@ -327,7 +327,7 @@ func _case_targeting() -> void:
 	for placed: Array in [[ff01b, Vector2(-60, 25), -PI * 0.5], [hostile, Vector2(-20, 25), PI * 0.5]]:
 		placed[0].get_node("Locomotion").place(placed[1], placed[2])
 		placed[0].get_node("Avoidance").reset()
-	var rig: Node3D = scene.get_node("CameraRig")
+	var rig: Node3D = scene.get_node("Player/CameraRig")
 	rig.global_position = Vector3(-40, 0, 22)
 	rig.rotation = Vector3.ZERO
 	rig.zoom_distance = 50.0
@@ -339,17 +339,17 @@ func _case_targeting() -> void:
 	await _key(KEY_T)
 	var slowed: bool = Engine.time_scale == 0.25 and tc.scale() == 0.25
 	await _key(KEY_T) # repeated: no stacking
-	var once: bool = Engine.time_scale == 0.25 and scene.target_selection
+	var once: bool = Engine.time_scale == 0.25 and scene.get_node("Player").target_selection
 	await _click(_screen(hostile.global_position))
 	_check("from 2x: T slows to 0.25x, T again changes nothing, the click assigns the target and 2x returns",
-		fast and slowed and once and Engine.time_scale == 2.0 and not scene.target_selection and CombatShip.of(ff01b).manual_target == hostile)
+		fast and slowed and once and Engine.time_scale == 2.0 and not scene.get_node("Player").target_selection and CombatShip.of(ff01b).manual_target == hostile)
 	await _key(KEY_T)
 	await _key(KEY_ESCAPE)
-	_check("from 2x: Esc cancels target selection and 2x returns", Engine.time_scale == 2.0 and not scene.target_selection)
+	_check("from 2x: Esc cancels target selection and 2x returns", Engine.time_scale == 2.0 and not scene.get_node("Player").target_selection)
 	await _key(KEY_T)
 	await _click(_screen(Vector3(-40, 0, 40)), MOUSE_BUTTON_RIGHT)
 	var moved: bool = ff01b.get_node("Locomotion").has_destination
-	_check("a right-click on empty space cancels target selection without a MOVE; 2x returns", Engine.time_scale == 2.0 and not scene.target_selection and not moved)
+	_check("a right-click on empty space cancels target selection without a MOVE; 2x returns", Engine.time_scale == 2.0 and not scene.get_node("Player").target_selection and not moved)
 	await _key(KEY_T)
 	await _key(KEY_MINUS)
 	var during := Engine.time_scale == 0.25
@@ -357,12 +357,12 @@ func _case_targeting() -> void:
 	_check("speed changed during target selection (2x -> 1x): still 0.25x while open, the new 1x after", during and Engine.time_scale == 1.0 and tc.speed == 1.0)
 	await _key(KEY_SPACE)
 	await _key(KEY_T)
-	var held: bool = paused and scene.target_selection
+	var held: bool = paused and scene.get_node("Player").target_selection
 	await _click(_screen(hostile.global_position))
 	var after_assign := paused
 	await _key(KEY_T)
 	await _key(KEY_ESCAPE)
-	_check("paused: target selection stays paused, assigning or canceling leaves it paused", held and after_assign and paused and not scene.target_selection and Engine.time_scale == 1.0)
+	_check("paused: target selection stays paused, assigning or canceling leaves it paused", held and after_assign and paused and not scene.get_node("Player").target_selection and Engine.time_scale == 1.0)
 	await _key(KEY_SPACE)
 	await _key(KEY_MINUS)
 	await _key(KEY_MINUS)
@@ -373,7 +373,7 @@ func _case_targeting() -> void:
 	_check("- / = and keypad step 0.25x / 1x / 2x and stop at the ends", floor_speed and Engine.time_scale == 2.0 and tc.label() == "2x")
 	await _click(_screen(Vector3(60, 0, 60))) # clears the selection
 	await _key(KEY_T)
-	_check("T without a selection does not open target selection (no slowdown)", not scene.target_selection and Engine.time_scale == 2.0)
+	_check("T without a selection does not open target selection (no slowdown)", not scene.get_node("Player").target_selection and Engine.time_scale == 2.0)
 
 
 ## Replacing the scene (a reset) clears temporary time state (brief 3.3).
@@ -382,17 +382,17 @@ func _case_reset() -> void:
 	await _load()
 	scene.selection().set_selection([scene.ship("FF01B")])
 	scene.time_control.step_speed(1)
-	scene.begin_target_selection()
+	scene.get_node("Player").begin_target_selection()
 	scene.time_control.set_paused(true)
-	var set_up: bool = paused and scene.target_selection
+	var set_up: bool = paused and scene.get_node("Player").target_selection
 	await _replace_scene()
-	var normal: bool = not paused and Engine.time_scale == 1.0 and scene.time_control.scale() == 1.0 and not scene.target_selection
+	var normal: bool = not paused and Engine.time_scale == 1.0 and scene.time_control.scale() == 1.0 and not scene.get_node("Player").target_selection
 	scene.selection().set_selection([scene.ship("FF01B")])
 	scene.time_control.step_speed(1)
-	var slowed: bool = scene.begin_target_selection() and Engine.time_scale == 0.25
+	var slowed: bool = scene.get_node("Player").begin_target_selection() and Engine.time_scale == 0.25
 	await _replace_scene()
 	_check("paused 2x target selection, then a fresh scene: 1x, unpaused, no selection; a reset from 0.25x likewise",
-		set_up and normal and slowed and not paused and Engine.time_scale == 1.0 and not scene.target_selection)
+		set_up and normal and slowed and not paused and Engine.time_scale == 1.0 and not scene.get_node("Player").target_selection)
 
 
 ## Frees the scene and adds a fresh E05 in its place, as a reset does (no time state
@@ -436,7 +436,7 @@ func _case_paused_route() -> void:
 			scene.time_control.step_speed(-1)
 		elif mode == "1x":
 			scene.time_control.step_speed(1)
-		var rig: Node3D = scene.get_node("CameraRig")
+		var rig: Node3D = scene.get_node("Player/CameraRig")
 		if mode == "paused":
 			rig.zoom_distance = 40.0 # every mode pans and zooms from the same distance
 			rig._apply_zoom()

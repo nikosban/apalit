@@ -1,6 +1,6 @@
 [gd_scene format=3]
 
-[ext_resource type="PackedScene" path="res://game/camera/camera_rig.tscn" id="1_rig"]
+[ext_resource type="PackedScene" path="res://game/player/player.tscn" id="player_shared"]
 [ext_resource type="Shader" path="res://game/scenes/lab_grid.gdshader" id="2_grid"]
 [ext_resource type="PackedScene" path="res://game/ships/miner.tscn" id="3_miner"]
 [ext_resource type="PackedScene" path="res://game/ships/transporter.tscn" id="4_transporter"]
@@ -13,13 +13,10 @@
 [ext_resource type="Script" path="res://game/debug/navigation_debug.gd" id="11_navigation_debug"]
 [ext_resource type="Script" path="res://game/avoidance/ship_avoidance.gd" id="12_avoidance"]
 [ext_resource type="Script" path="res://game/debug/avoidance_debug.gd" id="13_avoidance_debug"]
-[ext_resource type="Script" path="res://game/selection/ship_selection.gd" id="14_selection"]
 [ext_resource type="Script" path="res://game/orders/group_orders.gd" id="15_group_orders"]
 [ext_resource type="Script" path="res://game/collision/planar_collision.gd" id="16_collision"]
 [ext_resource type="Script" path="res://game/time/sim_clock.gd" id="90_clock"]
-[ext_resource type="PackedScene" path="res://game/presentation/movement_indicator/movement_indicator.tscn" id="200_movement_indicator"]
 
-[ext_resource type="PackedScene" path="res://game/ui/overlays/notice/notice.tscn" id="notice_shared"]
 
 [sub_resource type="Environment" id="Environment_lab"]
 background_mode = 1
@@ -107,7 +104,9 @@ environment = SubResource("Environment_lab")
 transform = Transform3D(0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, -0.75, 0.433013, 0, 10, 0)
 shadow_enabled = true
 
-[node name="CameraRig" parent="." instance=ExtResource("1_rig")]
+[node name="Player" parent="." instance=ExtResource("player_shared")]
+
+[node name="CameraRig" parent="Player" index="0"]
 transform = Transform3D(0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, 0.707107, 0, 0, 0)
 zoom_distance = 20.0
 
@@ -272,13 +271,8 @@ script = ExtResource("12_avoidance")
 size_class = 3
 separation_margin = 1.0
 
-[node name="Selection" type="Node3D" parent="."]
-script = ExtResource("14_selection")
-
 [node name="GroupOrders" type="Node" parent="."]
 script = ExtResource("15_group_orders")
-
-[node name="MovementIndicator" parent="." instance=ExtResource("200_movement_indicator")]
 
 [node name="NavigationDebug" type="Node3D" parent="."]
 script = ExtResource("11_navigation_debug")
@@ -286,8 +280,8 @@ script = ExtResource("11_navigation_debug")
 [node name="AvoidanceDebug" type="Node3D" parent="."]
 script = ExtResource("13_avoidance_debug")
 
-[node name="NoticeUI" parent="." instance=ExtResource("notice_shared")]
-
 [node name="DebugUI" parent="." instance=ExtResource("8_debug")]
 navigation_debug_path = NodePath("../NavigationDebug")
 avoidance_debug_path = NodePath("../AvoidanceDebug")
+
+[editable path="Player"]

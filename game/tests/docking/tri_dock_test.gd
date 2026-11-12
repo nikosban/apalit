@@ -329,7 +329,7 @@ func _test_handovers() -> void:
 
 # ------------------------------------------------------------------ deferred Move
 func _test_deferred() -> void:
-	var selection := _main.get_node("Selection")
+	var selection := _main.get_node("Player/Selection")
 	_reset()
 	var bay := 2
 	_reserve_only(bay)
@@ -537,7 +537,7 @@ func _until(condition: Callable, limit: int) -> int:
 
 
 func _frame(center: Vector2, zoom: float) -> void:
-	var rig := _main.get_node("CameraRig")
+	var rig := _main.get_node("Player/CameraRig")
 	rig.global_position = Vector3(center.x, 0, center.y)
 	rig.rotation = Vector3.ZERO
 	rig.zoom_distance = zoom
@@ -545,7 +545,7 @@ func _frame(center: Vector2, zoom: float) -> void:
 
 
 func _right_click(point: Vector2) -> void:
-	var camera: Camera3D = _main.get_node("CameraRig/Camera3D")
+	var camera: Camera3D = _main.get_node("Player/CameraRig/Camera3D")
 	var screen := camera.unproject_position(Vector3(point.x, 0, point.y))
 	for pressed in [true, false]:
 		var event := InputEventMouseButton.new()

@@ -43,8 +43,8 @@ func _initialize() -> void:
 	for station in _main.get_node("Stations").get_children():
 		station.set_physics_process(false)
 	_main.get_node("Stations/Station2/Refinery").set_physics_process(false)
-	_selection = _main.get_node("Selection")
-	_panel = _main.get_node("ShipPanel")
+	_selection = _main.get_node("Player/Selection")
+	_panel = _main.get_node("Player/ShipPanel")
 	_rows = _panel.get_node("Panel/Layout/Scroll/Body/Actions/Transport")
 	_transport = _main.get_node("Ships/Transporter/Transport")
 
@@ -139,7 +139,7 @@ func _test_refinery_display() -> void:
 	var station: Station = _main.get_node("Stations/Station2")
 	var refinery: Refinery = station.get_node("Refinery")
 	var storage: Inventory = station.storage
-	var layer := _main.get_node("StationPanel")
+	var layer := _main.get_node("Player/StationPanel")
 	storage.amounts.clear()
 	storage.add(IRON, 200)
 	storage.add(NICKEL, 100)
@@ -201,11 +201,11 @@ func _select_row(_resource: StringName) -> void:
 func _open_editor() -> Node:
 	_select_row(IRON)
 	(_rows.get_node("Configure") as Button).pressed.emit()
-	return _main.get_node("ShipPanel/TransportEditor")
+	return _main.get_node("Player/ShipPanel/TransportEditor")
 
 
 func _clear() -> void:
-	_main.get_node("ShipPanel/TransportEditor").close()
+	_main.get_node("Player/ShipPanel/TransportEditor").close()
 	_selection.set_selection([])
 	_transport.cancel()
 	_transport.status = TransportOperation.Status.NONE
@@ -224,8 +224,8 @@ func _check(label: String, ok: bool) -> void:
 # Scoped theme consumption: production output, static compatibility and isolation.
 func _test_visual_authoring() -> void:
 	var shared: Theme = preload("res://game/ui/theme/apalit_theme.tres")
-	var station_script = preload("res://game/ui/station_panel.gd")
-	var station_panel = _main.get_node("StationPanel")
+	var station_script = preload("res://game/player/ui/station_panel.gd")
+	var station_panel = _main.get_node("Player/StationPanel")
 	var details: RichTextLabel = station_panel.get_node("Panel/Layout/Scroll/Body/Production/Details")
 	var yard_station = _main.get_node("Stations/Shipyard")
 	var storage: Inventory = yard_station.storage

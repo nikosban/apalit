@@ -1,6 +1,6 @@
 [gd_scene load_steps=4 format=3]
 
-[ext_resource type="Script" path="res://game/ui/transport_editor.gd" id="1_editor"]
+[ext_resource type="Script" path="res://game/player/ui/transport_editor.gd" id="1_editor"]
 [ext_resource type="PackedScene" path="res://game/ui/components/panel_shell.tscn" id="2_shell"]
 [ext_resource type="PackedScene" path="res://game/ui/components/segmented_control.tscn" id="3_segmented"]
 

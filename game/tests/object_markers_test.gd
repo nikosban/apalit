@@ -41,8 +41,8 @@ func _initialize() -> void:
 	_markers = _main.get_node("ObjectMarkers")
 	_highlight = _main.get_node("WorldHighlight")
 	_highlight.set_process(false)
-	_selection = _main.get_node("Selection")
-	_camera = _main.get_node("CameraRig/Camera3D")
+	_selection = _main.get_node("Player/Selection")
+	_camera = _main.get_node("Player/CameraRig/Camera3D")
 	_main.get_node("Ships/Transporter/Locomotion").place(Vector2(-22, 6), 0.0) # In view with the others (it starts far west).
 	_frame(Vector2(0, 6), 34.0)
 	await process_frame
@@ -78,10 +78,10 @@ func _initialize() -> void:
 	var hovered := _markers.entries()
 	_check("hovered station: one square, hover colour", hovered.size() == 1 and hovered[0].target == station
 		and hovered[0].shape == ObjectMarkers.Shape.SQUARE and hovered[0].color == Color(0.85, 0.90, 0.95))
-	_main.get_node("StationPanel").select(station)
+	_main.get_node("Player/StationPanel").select(station)
 	_highlight.update(_away, true)
 	_check("selected station: square in the selected colour", _markers.entries().size() == 1 and _markers.entries()[0].color == Color(0.30, 0.75, 0.90))
-	_main.get_node("StationPanel").select(null)
+	_main.get_node("Player/StationPanel").select(null)
 
 	var field := _main.get_node("Asteroids")
 	var asteroid: MeshInstance3D = field.node_of(5)
@@ -128,7 +128,7 @@ func _shapes() -> Dictionary:
 
 
 func _frame(center: Vector2, zoom: float) -> void:
-	var rig := _main.get_node("CameraRig")
+	var rig := _main.get_node("Player/CameraRig")
 	rig.global_position = Vector3(center.x, 0, center.y)
 	rig.zoom_distance = zoom
 	rig._apply_zoom()

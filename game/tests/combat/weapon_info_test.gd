@@ -11,7 +11,7 @@ extends SceneTree
 
 const E05 := preload("res://game/tests/combat/fixtures/e05_fleet.tscn")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
-const CombatHud := preload("res://game/ui/combat_hud.gd")
+const CombatHud := preload("res://game/player/ui/combat_hud.gd")
 const TS := CombatShip.TargetState
 const EAST := -PI * 0.5
 const WEST := PI * 0.5
@@ -218,7 +218,7 @@ func _case_display() -> void:
 	var envelopes: Node = scene.envelopes
 	var ff01a: Node3D = scene.ship("FF01A")
 	var ff01b: Node3D = scene.ship("FF01B")
-	var rig: Node3D = scene.get_node("CameraRig")
+	var rig: Node3D = scene.get_node("Player/CameraRig")
 	rig.global_position = Vector3(ff01a.global_position.x + 10, 0, ff01a.global_position.z)
 	rig.rotation = Vector3.ZERO
 	await process_frame
@@ -253,7 +253,7 @@ func _case_display() -> void:
 	_place("HostileFF01B", Vector2(ff01a.global_position.x + 40, ff01a.global_position.z), WEST)
 	await physics_frame
 	await process_frame
-	scene.begin_target_selection()
+	scene.get_node("Player").begin_target_selection()
 	await process_frame
 	var during: int = envelopes.drawn_weapons
 	_press_alt(true)
@@ -261,7 +261,7 @@ func _case_display() -> void:
 	await process_frame
 	_press_alt(false)
 	_check("target selection shows the envelopes without Alt (%d); an Alt-click on the hostile assigns it and closes selection" % during,
-		during == weapons and CombatShip.of(ff01a).manual_target == hostile and not scene.target_selection)
+		during == weapons and CombatShip.of(ff01a).manual_target == hostile and not scene.get_node("Player").target_selection)
 
 
 func _press_alt(down: bool) -> void:

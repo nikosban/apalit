@@ -15,10 +15,12 @@ obstacles_path = NodePath("../TriObstacles")
 [node name="PlanarCollision" parent="."]
 obstacles_path = NodePath("../TriObstacles")
 
-[node name="CameraRig" parent="."]
+[node name="CameraRig" parent="Player" index="0"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50, 0, 40)
 
 [node name="TriStation" parent="Stations" instance=ExtResource("2_tri")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 70, 1.5, 60)
 
 [node name="TriObstacles" type="Node3D" parent="."]
+
+[editable path="Player"]

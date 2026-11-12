@@ -27,9 +27,9 @@ extends CanvasLayer
 ## ship): the tactic as a selector issuing CombatOrders, the current command, the target
 ## and its state, and every weapon's state and ammunition.
 
-const ShipSelection := preload("res://game/selection/ship_selection.gd")
+const ShipSelection := preload("res://game/player/selection/ship_selection.gd")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
-const CombatHud := preload("res://game/ui/combat_hud.gd")
+const CombatHud := preload("res://game/player/ui/combat_hud.gd")
 const Scanner := preload("res://game/survey/scanner.gd")
 const MiningOperation := preload("res://game/mining/mining_operation.gd")
 const Cargo := preload("res://game/cargo/cargo.gd")
@@ -102,7 +102,13 @@ var _named: Node3D = null # The ship the name field was filled for.
 @onready var _command: Label = $Panel/Layout/Scroll/Body/Combat/Command
 @onready var _combat_target: Label = $Panel/Layout/Scroll/Body/Combat/Target
 @onready var _weapons: Label = $Panel/Layout/Scroll/Body/Combat/Weapons
-@onready var _orders = get_parent().get_node_or_null("CombatOrders")
+var _orders: Node
+
+
+func configure_orders(orders: Node) -> void:
+	_orders = orders
+	_on_selection_changed()
+
 
 func _ready() -> void:
 	# Phase 3: every resource, in Inventory's order (the item id is its index).

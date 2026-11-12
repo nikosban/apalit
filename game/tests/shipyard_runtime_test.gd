@@ -72,7 +72,7 @@ func _load_main() -> void:
 	_yard_station = _main.get_node("Stations/Shipyard")
 	_yard = _yard_station.get_node("Shipyard")
 	_deployment = _yard_station.get_node("Deployment")
-	_camera = _main.get_node("CameraRig/Camera3D")
+	_camera = _main.get_node("Player/CameraRig/Camera3D")
 	_deployed.clear()
 	_deployed_snapshots.clear()
 	_deployed_frames.clear()
@@ -147,7 +147,7 @@ func _part_api() -> void:
 	_check("A7. Transport Ship completed while Miner3 holds the deployment point: Awaiting Deployment for 10 s, no second ship",
 		awaiting >= 0 and _yard.state == Shipyard.State.AWAITING_DEPLOYMENT and _deployed.size() == 1 and _main.get_node("Ships").get_child_count() == 4)
 	# Miner3 moved away with a right-click (existing command path), as a player would.
-	_main.get_node("Selection").set_selection([miner])
+	_main.get_node("Player/Selection").set_selection([miner])
 	var away: Vector2 = _main.get_node("StaticNavigation").closest_point(2.6, Vector2(-75, -128))
 	await _right_click_at(away)
 	_check("A8. right-click MOVE for Miner3 through the command path: order taken", loco.has_destination
@@ -166,20 +166,20 @@ func _part_api() -> void:
 	var arrived := await _until(func() -> bool: return not loco.has_destination, 60 * 90)
 	_check("A10. Miner3 arrives (%.0f s): %.3f u from its destination, 0 contacts" % [arrived / 60.0, loco.planar_position.distance_to(away)],
 		arrived >= 0 and loco.planar_position.distance_to(away) < 0.25 and loco.collision_count == 0)
-	_main.get_node("Selection").set_selection([transporter])
+	_main.get_node("Player/Selection").set_selection([transporter])
 	var t_loco := transporter.get_node("Locomotion") as ShipLocomotion
 	var target: Vector2 = _main.get_node("StaticNavigation").closest_point(5.1, Vector2(0, -70))
 	await _right_click_at(target)
 	var t_arrived := await _until(func() -> bool: return not t_loco.has_destination, 60 * 90)
 	_check("A11. Transporter2 commanded by right-click arrives (%.0f s): %.3f u from its destination, 0 contacts" % [t_arrived / 60.0, t_loco.planar_position.distance_to(target)],
 		t_arrived >= 0 and t_loco.planar_position.distance_to(target) < 0.25 and t_loco.collision_count == 0)
-	_main.get_node("Selection").set_selection([])
+	_main.get_node("Player/Selection").set_selection([])
 
 
 # --- Part B: player controls, uninterrupted loop --------------------------------------
 
 func _part_ui() -> void:
-	var panel := _main.get_node("StationPanel")
+	var panel := _main.get_node("Player/StationPanel")
 	var production: Control = panel.get_node("Panel/Layout/Scroll/Body/Production")
 	var status: Label = production.get_node("Status")
 	var details: RichTextLabel = production.get_node("Details")
@@ -216,7 +216,7 @@ func _part_ui() -> void:
 	station2.storage.add(SILICON, 50)
 	var transporter: Node3D = _main.get_node("Ships/Transporter")
 	await _left_click_world(transporter.global_position)
-	var selected_transporter: bool = _main.get_node("Selection").selected == [transporter]
+	var selected_transporter: bool = _main.get_node("Player/Selection").selected == [transporter]
 	await _configure_transport(transporter, station2, _yard_station, {IRON: 200, NICKEL: 100, SILICON: 50})
 	var transport := transporter.get_node("Transport") as TransportOperation
 	_check("B4. Transporter selected with a left-click; ship panel: Load at Station2, Unload at Shipyard, three ingot requirements, Start",
@@ -232,7 +232,7 @@ func _part_ui() -> void:
 	await _until(func() -> bool: return not _deployed.is_empty(), 60 * 60)
 	await _frames(2)
 	var miner: Node3D = _deployed[0] if not _deployed.is_empty() else null
-	var notice_label: Label = _main.get_node("NoticeUI/Notice")
+	var notice_label: Label = _main.get_node("Player/NoticeUI/Notice")
 	_check("B6. Miner3 completed: notice \"%s\", panel Idle with \"%s\"" % [notice_label.text, production.get_node("LastCompleted").text],
 		miner != null and miner.name == "Miner3" and notice_label.text == "Shipyard: Miner3 completed"
 		and production.get_node("LastCompleted").text == "Last completed: Miner3" and status.text == "Status: Idle" and order_transport.visible)
@@ -252,7 +252,7 @@ func _part_ui() -> void:
 		and details.get_parsed_text().contains("deployment area is obstructed") and not order_mining.visible and not cancel.visible
 		and _deployed.size() == 1)
 	await _left_click_world(miner.global_position)
-	var selected_miner: bool = _main.get_node("Selection").selected == [miner]
+	var selected_miner: bool = _main.get_node("Player/Selection").selected == [miner]
 	var away: Vector2 = _main.get_node("StaticNavigation").closest_point(2.6, Vector2(-75, -128))
 	await _right_click_at(away)
 	await _until(func() -> bool: return _deployed.size() >= 2, 60 * 60)
@@ -271,7 +271,7 @@ func _part_ui() -> void:
 	var docked := await _until(func() -> bool: return m_docking.state == Docking.State.DOCKED, 60 * 120)
 	var off := _bow_offset(miner, m_docking)
 	await _frames(2)
-	var undock: Button = _main.get_node("ShipPanel/Panel/Layout/Scroll/Body/Actions/Docking/Undock")
+	var undock: Button = _main.get_node("Player/ShipPanel/Panel/Layout/Scroll/Body/Actions/Docking/Undock")
 	await _click_control(undock)
 	var left := await _until(func() -> bool: return m_docking.state == Docking.State.NONE, 60 * 90)
 	_check("B9. Miner3 docks at the Shipyard by right-click (%.0f s, bow %.2f deg off the berth axis) and leaves with Undock (panel button)" % [docked / 60.0, off],
@@ -294,7 +294,7 @@ func _part_ui() -> void:
 	base.storage.add(IRON, 100)
 	var yard_iron := _yard_station.storage.quantity_of(IRON)
 	await _left_click_world(transporter2.global_position)
-	var selected_t2: bool = _main.get_node("Selection").selected == [transporter2]
+	var selected_t2: bool = _main.get_node("Player/Selection").selected == [transporter2]
 	await _configure_transport(transporter2, base, _yard_station, {IRON: 100})
 	var t2_transport := transporter2.get_node("Transport") as TransportOperation
 	var t2_docking := transporter2.get_node("Docking") as Docking
@@ -315,7 +315,7 @@ func _part_ui() -> void:
 # Sets up a transport assignment in the ship panel's Transport section (the ship is selected).
 func _configure_transport(ship: Node3D, from: Node3D, to: Node3D, required: Dictionary) -> void:
 	await _frames(2)
-	var rows := _main.get_node("ShipPanel/Panel/Layout/Scroll/Body/Actions/Transport")
+	var rows := _main.get_node("Player/ShipPanel/Panel/Layout/Scroll/Body/Actions/Transport")
 	for pair in [["LoadRow/Station", from], ["UnloadRow/Station", to]]:
 		var choice: OptionButton = rows.get_node(pair[0])
 		for i in choice.item_count:
@@ -324,7 +324,7 @@ func _configure_transport(ship: Node3D, from: Node3D, to: Node3D, required: Dict
 				choice.item_selected.emit(i)
 	# UX round P7: the requirements through Configure Cargo, the editor rows and Apply
 	# (before: the single requirement row).
-	var editor := _main.get_node("ShipPanel/TransportEditor")
+	var editor := _main.get_node("Player/ShipPanel/TransportEditor")
 	await _click_control(rows.get_node("Configure"))
 	for resource: StringName in required:
 		(editor.row(0 if Inventory.RAW.has(resource) else 1, resource).get_node("Amount") as SpinBox).value = required[resource]
@@ -365,7 +365,7 @@ func _bow_offset(ship: Node3D, docking: Docking) -> float:
 
 
 func _check_registration(ship: Node3D) -> void:
-	var selection := _main.get_node("Selection")
+	var selection := _main.get_node("Player/Selection")
 	var connected := 0
 	var expected := 0
 	for node_name in ["RouteFollower", "Mining", "Docking", "Fuel", "Transport"]:
@@ -445,7 +445,7 @@ func _frames(count: int) -> void:
 
 
 func _frame_camera(center: Vector2) -> void:
-	var rig := _main.get_node("CameraRig")
+	var rig := _main.get_node("Player/CameraRig")
 	rig.global_position = Vector3(center.x, 0, center.y)
 	rig.rotation = Vector3.ZERO
 	rig.zoom_distance = 30.0

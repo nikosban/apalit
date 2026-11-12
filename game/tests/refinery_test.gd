@@ -213,10 +213,10 @@ func _test_game_loop() -> void:
 # Stage 4: station selection by click and the station panel's refinery controls.
 func _test_panel() -> void:
 	_reset()
-	var rig: Node3D = _main.get_node("CameraRig")
-	var camera: Camera3D = _main.get_node("CameraRig/Camera3D")
-	var selection := _main.get_node("Selection")
-	var layer := _main.get_node("StationPanel")
+	var rig: Node3D = _main.get_node("Player/CameraRig")
+	var camera: Camera3D = _main.get_node("Player/CameraRig/Camera3D")
+	var selection := _main.get_node("Player/Selection")
+	var layer := _main.get_node("Player/StationPanel")
 	var panel: Control = layer.get_node("Panel")
 	rig.global_position = Vector3(_station.global_position.x, 0, _station.global_position.z)
 	rig.rotation = Vector3.ZERO
@@ -226,8 +226,8 @@ func _test_panel() -> void:
 	var on_station := camera.unproject_position(_station.global_position)
 	var ground := camera.unproject_position(_station.global_position + Vector3(0, -1.5, 22))
 	selection.set_selection([_main.get_node("Ships/Transporter")])
-	_check("layout: Station2 under its screen point, open ground below it", _main.get_node("AsteroidHover").station_at(on_station) == _station
-		and _main.get_node("AsteroidHover").station_at(ground) == null and not panel.visible)
+	_check("layout: Station2 under its screen point, open ground below it", _main.get_node("Player/AsteroidHover").station_at(on_station) == _station
+		and _main.get_node("Player/AsteroidHover").station_at(ground) == null and not panel.visible)
 	_storage.add(SILICON, 100)
 	_storage.add(INGOT, 5)
 	_click(on_station)
@@ -235,7 +235,7 @@ func _test_panel() -> void:
 	await process_frame
 	var rows := panel.get_node("Layout/Scroll/Body")
 	_check("click on Station2: selected, panel shown (name, storage, storage tiles Silicon 100 / Silicon Ingots 5, refinery); ships deselected, ship panel hidden",
-		layer.station == _station and panel.visible and selection.selected.is_empty() and not _main.get_node("ShipPanel/Panel").visible
+		layer.station == _station and panel.visible and selection.selected.is_empty() and not _main.get_node("Player/ShipPanel/Panel").visible
 		and panel.get_node("Layout/Header/StationName").text == "Station2" and rows.get_node("Storage/Summary").text == "Storage: 105 / 5000"
 		and _tiles(rows.get_node("Storage/Tiles")) == {SILICON: 100, INGOT: 5}
 		and rows.get_node("Refinery").visible)

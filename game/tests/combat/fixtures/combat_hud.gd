@@ -1,4 +1,4 @@
-extends "res://game/ui/combat_hud.gd"
+extends "res://game/player/ui/combat_hud.gd"
 ## Combat test fixture HUD: the production combat HUD plus, for watching the encounters,
 ## the scenario name and conditions (top centre), the selected ship's combat text
 ## (bottom left; production shows it in the ship panel) and the fixture's controls.
@@ -8,6 +8,11 @@ const CONTROLS := "Left-click select  |  Right-click ground: move  |  Right-clic
 var _info: Label
 var _controls: Label
 var _title: Label
+var _scenario_title: Callable
+
+
+func configure_scenario(read_title: Callable) -> void:
+	_scenario_title = read_title
 
 
 func _ready() -> void:
@@ -26,6 +31,6 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	super._process(delta)
-	_title.text = _arena.scenario_name + ("\nScenario conditions:\n" + "\n".join(_arena.conditions) if not _arena.conditions.is_empty() else "")
-	var selected: Array = _arena.selection().selected
+	_title.text = _scenario_title.call()
+	var selected: Array = _player.selection.selected
 	_info.text = describe(selected[0]) if selected.size() == 1 else ("%d ships selected" % selected.size() if selected.size() > 1 else "")

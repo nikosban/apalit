@@ -17,8 +17,8 @@ const MAIN := preload("res://main.tscn")
 const TRANSPORTER := preload("res://game/ships/transporter_unit.tscn")
 const Inventory := preload("res://game/cargo/inventory.gd")
 const TransportOperation := preload("res://game/transport/transport_operation.gd")
-const EDITOR := "ShipPanel/TransportEditor"
-const TRANSPORT := "ShipPanel/Panel/Layout/Scroll/Body/Actions/Transport"
+const EDITOR := "Player/ShipPanel/TransportEditor"
+const TRANSPORT := "Player/ShipPanel/Panel/Layout/Scroll/Body/Actions/Transport"
 const ORE := 0
 const INGOTS := 1
 
@@ -38,7 +38,7 @@ func _initialize() -> void:
 	other.name = "TransporterB"
 	other.position = Vector3(70, 1.5, 60)
 	_main.get_node("Ships").add_child(other)
-	_main.get_node("Selection").register_ship(other)
+	_main.get_node("Player/Selection").register_ship(other)
 	_main.register_ship(other)
 	_main.get_node("Survey").set_physics_process(false)
 	for station in _main.get_node("Stations").get_children():
@@ -85,7 +85,7 @@ func _test_open() -> void:
 	(_main.get_node(TRANSPORT + "/Configure") as Button).pressed.emit()
 	await _frames(2)
 	var panel: Control = _editor.get_node("Panel")
-	var ship_panel: Control = _main.get_node("ShipPanel/Panel")
+	var ship_panel: Control = _main.get_node("Player/ShipPanel/Panel")
 	var ore := _resources(ORE)
 	var ingots := _resources(INGOTS)
 	var tabs = _editor.get_node("Panel/Layout/Header/Tabs")
@@ -124,7 +124,7 @@ func _test_tabs_and_ice() -> void:
 
 # Selection changes neither apply nor discard the draft.
 func _test_selection_changes() -> void:
-	_main.get_node("Selection").set_selection([])
+	_main.get_node("Player/Selection").set_selection([])
 	await _frames(2)
 	var kept_deselected: bool = _editor.is_open() and _editor.draft[&"iron"] == 200
 	_select("Miner1")
@@ -243,7 +243,7 @@ func _resources(tab: int) -> Array:
 
 
 func _select(ship_name: String) -> void:
-	_main.get_node("Selection").set_selection([_ship(ship_name)])
+	_main.get_node("Player/Selection").set_selection([_ship(ship_name)])
 
 
 func _ship(ship_name: String) -> Node3D:

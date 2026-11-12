@@ -61,7 +61,7 @@ func _initialize() -> void:
 	# Tactical emphasis reduces the environment.
 	env = scene.environment
 	field = scene.get_node("Asteroids")
-	var rig := scene.get_node("CameraRig")
+	var rig := scene.get_node("Player/CameraRig")
 	var close_alpha: float = env._dust_material.albedo_color.a
 	rig.zoom_target = 150.0
 	rig.zoom_distance = 150.0
@@ -129,8 +129,8 @@ func _case_combat_sector() -> void:
 	var field := scene.get_node("Asteroids")
 	_check("Combat Test: sector half-size %.0f shared by navigation, camera bounds and Strategic framing; no tactical grid" % half,
 		half > 150.0 and is_equal_approx(scene.get_node("StaticNavigation").map_half_size, half)
-		and scene.get_node("CameraRig").bounds == Rect2(-half, -half, 2.0 * half, 2.0 * half)
-		and scene.grid == null and not scene.has_node("TacticalGrid") and scene.strategic.sector_rect() == scene.get_node("CameraRig").bounds)
+		and scene.get_node("Player/CameraRig").bounds == Rect2(-half, -half, 2.0 * half, 2.0 * half)
+		and scene.grid == null and not scene.has_node("TacticalGrid") and scene.strategic.sector_rect() == scene.get_node("Player/CameraRig").bounds)
 	var transporter: Node3D = scene.ship("FF01")
 	var inside: bool = scene._intent_valid(transporter, {"kind": scene.CommandKind.MOVE, "point": Vector2(half - 5.0, 0.0)})
 	var outside: bool = scene._intent_valid(transporter, {"kind": scene.CommandKind.MOVE, "point": Vector2(half + 5.0, 0.0)})

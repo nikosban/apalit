@@ -18,7 +18,7 @@ extends SceneTree
 
 const E05 := preload("res://game/tests/combat/fixtures/e05_fleet.tscn")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
-const CombatHud := preload("res://game/ui/combat_hud.gd")
+const CombatHud := preload("res://game/player/ui/combat_hud.gd")
 const RouteFollower := preload("res://game/navigation/route_follower.gd")
 const DT := 1.0 / 60.0
 const EPS := 0.0001

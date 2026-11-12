@@ -201,13 +201,13 @@ func _load() -> void:
 		and CombatShip.of(subject).contacts == scene.contacts and CombatShip.of(subject).projectiles == scene.projectiles)
 	var rect := Rect2(-380, -380, 760, 760)
 	_check("camera and Strategic View follow +/-380; FF-01 positioning also follows the new sector",
-		scene.get_node("CameraRig").bounds == rect and scene.strategic.sector_rect() == rect
+		scene.get_node("Player/CameraRig").bounds == rect and scene.strategic.sector_rect() == rect
 		and subject.get_node("Behavior")._position_ok(Vector2(200, -200))
 		and not subject.get_node("Behavior")._position_ok(Vector2(381, -200)))
 
 
 func _look_at(point: Vector3) -> void:
-	scene.get_node("CameraRig").global_position = Vector3(point.x, 0, point.z)
+	scene.get_node("Player/CameraRig").global_position = Vector3(point.x, 0, point.z)
 	await process_frame
 	await process_frame
 
@@ -231,7 +231,7 @@ func _selection_and_movement() -> void:
 	await _click(MOUSE_BUTTON_LEFT, subject.global_position)
 	_check("a real left-click selects FF-01 through existing hull picking and registration", scene.selection().selected == [subject]
 		and scene.selection()._parts.has(subject) and scene._registered.has(subject))
-	var panel := scene.get_node("ShipPanel")
+	var panel := scene.get_node("Player/ShipPanel")
 	await process_frame
 	_check("FF-01 panel: hull 160, command controls, two NC-90 and four PDC-20 weapon rows",
 		panel.ship == subject and panel._hull.visible and panel._hull_amount.text == "Hull: 160 / 160" and panel._combat.visible

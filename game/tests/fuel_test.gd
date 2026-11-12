@@ -232,9 +232,9 @@ func _test_orders_when_empty() -> void:
 	_place("Miner3", Vector2(0, 0))
 	fuel._set_fuel(0.0)
 	_frame(Vector2(0, 0), 30.0)
-	_main.get_node("Selection").set_selection([_ship("Miner3")])
+	_main.get_node("Player/Selection").set_selection([_ship("Miner3")])
 	await process_frame
-	var camera: Camera3D = _main.get_node("CameraRig/Camera3D")
+	var camera: Camera3D = _main.get_node("Player/CameraRig/Camera3D")
 	var target := Vector3(12, 0, 10)
 	var follower := _node("Miner3", "RouteFollower")
 	var plans: int = follower.plans
@@ -247,7 +247,7 @@ func _test_orders_when_empty() -> void:
 	_run_until(func() -> bool: return not locomotion.has_destination, 60 * 60)
 	_check("refueled: turns (heading %.2f rad) and flies to the order given while empty" % locomotion.heading,
 		absf(locomotion.heading) > 1.5 and _position("Miner3").distance_to(Vector2(target.x, target.z)) < 0.1)
-	_main.get_node("Selection").set_selection([])
+	_main.get_node("Player/Selection").set_selection([])
 
 
 # A stranded ship (empty, order kept) reports no available speed, so avoidance
@@ -416,10 +416,10 @@ func _test_docking_and_cargo() -> void:
 
 func _test_panel_and_hover() -> void:
 	_reset()
-	var panel := _main.get_node("ShipPanel")
+	var panel := _main.get_node("Player/ShipPanel")
 	var rows := panel.get_node("Panel/Layout/Scroll/Body/Status/Fuel")
 	_fuel("Miner3")._set_fuel(12.0)
-	_main.get_node("Selection").set_selection([_ship("Miner3")])
+	_main.get_node("Player/Selection").set_selection([_ship("Miner3")])
 	panel._process(0.0)
 	_check("panel: fuel quantity, capacity, percentage, bar and warning", rows.visible and rows.get_node("Amount").text == "Fuel: 12.0 / 100 (12%)"
 		and is_equal_approx(rows.get_node("Bar").value, 0.12) and rows.get_node("Status").text == "Low Fuel")
@@ -434,11 +434,11 @@ func _test_panel_and_hover() -> void:
 	panel._process(0.0)
 	_check("panel: refueling status while docked (\"%s\", then \"%s\")" % [refueling, rows.get_node("Status").text],
 		refueling.ends_with("Refueling") and rows.get_node("Status").text.ends_with("Station out of fuel"))
-	_main.get_node("Selection").set_selection([_ship("FF01")])
+	_main.get_node("Player/Selection").set_selection([_ship("FF01")])
 	panel._process(0.0)
 	_check("panel: combat ships show fuel too", rows.visible and rows.get_node("Amount").text.begins_with("Fuel: 400.0 / 400") and not rows.get_node("Status").visible)
 	_check("station hover shows its fuel stock", _station.describe().contains("Fuel: 0 / 2000"))
-	_main.get_node("Selection").set_selection([])
+	_main.get_node("Player/Selection").set_selection([])
 
 
 func _reset() -> void:
@@ -501,7 +501,7 @@ func _steps(count: int, with_fuel := true) -> void:
 
 
 func _frame(center: Vector2, zoom: float) -> void:
-	var rig := _main.get_node("CameraRig")
+	var rig := _main.get_node("Player/CameraRig")
 	rig.global_position = Vector3(center.x, 0, center.y)
 	rig.rotation = Vector3.ZERO
 	rig.zoom_distance = zoom

@@ -1,6 +1,6 @@
 [gd_scene load_steps=5 format=3]
 
-[ext_resource type="Script" path="res://game/ui/station_panel.gd" id="1_panel"]
+[ext_resource type="Script" path="res://game/player/ui/station_panel.gd" id="1_panel"]
 [ext_resource type="PackedScene" path="res://game/ui/components/panel_shell.tscn" id="2_shell"]
 [ext_resource type="PackedScene" path="res://game/ui/components/section.tscn" id="3_section"]
 [ext_resource type="PackedScene" path="res://game/ui/components/refinery_slot.tscn" id="4_slot"]

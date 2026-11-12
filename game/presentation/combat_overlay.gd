@@ -8,7 +8,7 @@ extends Node3D
 ## state, reason, tracking and cooldown.
 
 const CombatShip := preload("res://game/combat/combat_ship.gd")
-const CombatHud := preload("res://game/ui/combat_hud.gd")
+const CombatHud := preload("res://game/player/ui/combat_hud.gd")
 const HEIGHT := 0.06
 const SEGMENTS := 48
 const COLORS := {"ok": Color(0.35, 0.95, 0.45), "wait": Color(1.0, 0.75, 0.25), "off": Color(0.55, 0.55, 0.6),

@@ -1,11 +1,11 @@
 [gd_scene format=3]
 
-[ext_resource type="PackedScene" path="res://game/camera/camera_rig.tscn" id="1_rig"]
+[ext_resource type="PackedScene" path="res://game/player/camera/camera_rig.tscn" id="1_rig"]
 [ext_resource type="Script" path="res://game/resources/asteroid_field.gd" id="2_field"]
 [ext_resource type="Script" path="res://game/navigation/static_navigation.gd" id="3_navigation"]
 [ext_resource type="Script" path="res://game/collision/planar_collision.gd" id="4_collision"]
 [ext_resource type="Script" path="res://game/survey/survey.gd" id="5_survey"]
-[ext_resource type="Script" path="res://game/selection/ship_selection.gd" id="6_selection"]
+[ext_resource type="Script" path="res://game/player/selection/ship_selection.gd" id="6_selection"]
 [ext_resource type="PackedScene" path="res://game/stations/refinery_station.tscn" id="7_refinery_station"]
 [ext_resource type="PackedScene" path="res://game/stations/shipyard_station.tscn" id="8_shipyard_station"]
 [ext_resource type="PackedScene" path="res://game/tests/docking/tri_station.tscn" id="9_tri_station"]

@@ -25,7 +25,7 @@ const ARC_POINTS := 24
 const NEAR_MARGIN := 0.001 # A line point behind the camera is moved this far in front of its near plane.
 
 ## The shared look (movement_indicator_style.gd); edit movement_indicator_style.tres.
-@export var style: Resource = preload("res://game/presentation/movement_indicator/movement_indicator_style.tres"):
+@export var style: Resource = preload("res://game/player/movement_indicator/movement_indicator_style.tres"):
 	set(value):
 		if style != null and style.changed.is_connected(redraw):
 			style.changed.disconnect(redraw)

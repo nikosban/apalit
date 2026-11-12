@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/player/player.gd" id="1_player"]
+[ext_resource type="PackedScene" path="res://game/player/camera/camera_rig.tscn" id="2_camera"]
+[ext_resource type="Script" path="res://game/player/selection/ship_selection.gd" id="3_selection"]
+[ext_resource type="PackedScene" path="res://game/player/ui/overlays/notice/notice.tscn" id="4_notice"]
+[ext_resource type="PackedScene" path="res://game/player/movement_indicator/movement_indicator.tscn" id="5_indicator"]
+
+[node name="Player" type="Node3D"]
+script = ExtResource("1_player")
+
+[node name="CameraRig" parent="." instance=ExtResource("2_camera")]
+
+[node name="Selection" type="Node3D" parent="."]
+script = ExtResource("3_selection")
+ships_path = NodePath("")
+
+[node name="MovementIndicator" parent="." instance=ExtResource("5_indicator")]
+
+[node name="NoticeUI" parent="." instance=ExtResource("4_notice")]

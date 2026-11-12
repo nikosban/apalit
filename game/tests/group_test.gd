@@ -258,16 +258,16 @@ func _insufficient() -> void:
 	_orders.search_radius = 40.0
 	_check(label, "command refused", not ok)
 	_check(label, "existing orders kept (same destinations, no new route)", _kept(ships, before))
-	var notice := _lab.get_node("NoticeUI/Notice") as Label
-	_lab.get_node("Selection").set_selection(ships)
-	var camera := _lab.get_node("CameraRig/Camera3D") as Camera3D
-	_lab.get_node("CameraRig").global_position = Vector3(click.x, 0, click.y)
+	var notice := _lab.get_node("Player/NoticeUI/Notice") as Label
+	_lab.get_node("Player/Selection").set_selection(ships)
+	var camera := _lab.get_node("Player/CameraRig/Camera3D") as Camera3D
+	_lab.get_node("Player/CameraRig").global_position = Vector3(click.x, 0, click.y)
 	_orders.search_radius = 4.0
-	_lab._command(camera.unproject_position(Vector3(click.x, 0, click.y)))
+	_lab.get_node("Player")._command(camera.unproject_position(Vector3(click.x, 0, click.y)))
 	_orders.search_radius = 40.0
-	_check(label, "lab shows the notice", notice.text == _lab.GROUP_NOTICE and _lab._notice_left > 0.0)
+	_check(label, "lab shows the notice", notice.text == _lab.GROUP_NOTICE and _lab.get_node("Player")._notice_left > 0.0)
 	_check(label, "existing orders still kept after the right-click", _kept(ships, before))
-	_lab.get_node("Selection").set_selection([])
+	_lab.get_node("Player/Selection").set_selection([])
 
 
 # 10: one ship's translated target is unreachable (the closed box): only the others get
@@ -298,13 +298,13 @@ func _partial() -> void:
 	_check(label, "the others at their translated targets (centroid of all three)", exact)
 	_check(label, "their destinations clear of the FF01's kept destination", clear_of_kept)
 	_check_destinations(label, destinations, click)
-	var notice := _lab.get_node("NoticeUI/Notice") as Label
-	_lab.get_node("Selection").set_selection(ships)
-	var camera := _lab.get_node("CameraRig/Camera3D") as Camera3D
-	_lab.get_node("CameraRig").global_position = Vector3(click.x, 0, click.y)
-	_lab._command(camera.unproject_position(Vector3(click.x, 0, click.y)))
+	var notice := _lab.get_node("Player/NoticeUI/Notice") as Label
+	_lab.get_node("Player/Selection").set_selection(ships)
+	var camera := _lab.get_node("Player/CameraRig/Camera3D") as Camera3D
+	_lab.get_node("Player/CameraRig").global_position = Vector3(click.x, 0, click.y)
+	_lab.get_node("Player")._command(camera.unproject_position(Vector3(click.x, 0, click.y)))
 	_orders.search_radius = 40.0
-	_lab.get_node("Selection").set_selection([])
+	_lab.get_node("Player/Selection").set_selection([])
 	var others_ordered := true
 	for ship: Node in destinations:
 		others_ordered = others_ordered and ship.get_node("Locomotion").destination.distance_to(destinations[ship]) < 0.01 \
@@ -370,14 +370,14 @@ func _selection_change() -> void:
 	var label := "8 selection change during a group move"
 	var starts := {"Miner": Vector2(100, 40), "Transporter": Vector2(115, 45), "FF01": Vector2(132, 40)}
 	_setup(starts, Vector2(115, -40))
-	var selection := _lab.get_node("Selection")
+	var selection := _lab.get_node("Player/Selection")
 	var ships := _ships(SHIPS)
 	selection.set_selection(ships)
-	var rig := _lab.get_node("CameraRig") as Node3D
+	var rig := _lab.get_node("Player/CameraRig") as Node3D
 	rig.global_position = Vector3(115, 0, 0)
 	rig.zoom_distance = 40.0
 	rig._apply_zoom()
-	var camera := _lab.get_node("CameraRig/Camera3D") as Camera3D
+	var camera := _lab.get_node("Player/CameraRig/Camera3D") as Camera3D
 	var press := InputEventMouseButton.new()
 	press.button_index = MOUSE_BUTTON_RIGHT
 	press.pressed = true

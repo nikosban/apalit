@@ -33,7 +33,7 @@ extends CanvasLayer
 ## is drawn for hostile ships. Lost-contact memory is drawn at every zoom.
 
 const CombatShip := preload("res://game/combat/combat_ship.gd")
-const CameraRig := preload("res://game/camera/camera_rig.gd")
+const CameraRig := preload("res://game/player/camera/camera_rig.gd")
 const ObjectMarkers := preload("res://game/presentation/object_markers.gd")
 const SurveyView := preload("res://game/survey/survey_view.gd")
 # Sector Showcase round: the canvas is 1080 lines tall (project base size), so these are
@@ -63,6 +63,8 @@ var _marker: MarkerStyle
 
 var _canvas: Control
 
+var camera_rig: Node3D
+
 @onready var _arena := get_parent()
 
 
@@ -81,7 +83,7 @@ func _ready() -> void:
 ## Tactical emphasis now, 0 (Local) to 1 (Tactical): continuous in the rendered zoom, so
 ## it follows the camera while the zoom is still interpolating.
 func emphasis() -> float:
-	return emphasis_at(_arena.get_node("CameraRig").zoom_level(), level_of(emphasis_start_distance), level_of(emphasis_end_distance))
+	return emphasis_at(camera_rig.zoom_level(), level_of(emphasis_start_distance), level_of(emphasis_end_distance))
 
 
 ## Smoothstep of a zoom level (CameraRig.zoom_level()) between two levels.

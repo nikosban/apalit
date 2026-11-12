@@ -120,7 +120,7 @@ func _key(code: Key) -> void:
 
 
 func _look_at(point: Vector3) -> void:
-	scene.get_node("CameraRig").global_position = Vector3(point.x, 0.0, point.z)
+	scene.get_node("Player/CameraRig").global_position = Vector3(point.x, 0.0, point.z)
 	await process_frame
 	await process_frame
 
@@ -205,10 +205,10 @@ func _s5_controls() -> void:
 	await _look_at(hostile.global_position)
 	var destination_before: bool = ff01_ship.get_node("Locomotion").has_destination
 	await _click(MOUSE_BUTTON_RIGHT, _screen(hostile.global_position))
-	_check("right-click on a visible hostile: it becomes the selected ship's manual target; no MOVE given ('%s')" % scene._notice.text,
-		CombatShip.of(ff01_ship).manual_target == hostile and ff01_ship.get_node("Locomotion").has_destination == destination_before and scene._notice.text.begins_with("Target: "))
+	_check("right-click on a visible hostile: it becomes the selected ship's manual target; no MOVE given ('%s')" % scene.get_node("Player/NoticeUI/Notice").text,
+		CombatShip.of(ff01_ship).manual_target == hostile and ff01_ship.get_node("Locomotion").has_destination == destination_before and scene.get_node("Player/NoticeUI/Notice").text.begins_with("Target: "))
 	# Tactical zoom (Phase B): the markers are drawn over the visible models and pick them.
-	var rig := scene.get_node("CameraRig")
+	var rig := scene.get_node("Player/CameraRig")
 	rig.zoom_distance = 120.0
 	rig._apply_zoom()
 	await _look_at(ff01_ship.global_position)
@@ -224,7 +224,7 @@ func _s5_controls() -> void:
 	rig._apply_zoom()
 	await process_frame
 	# Armed ship panels remain covered on the combat arena itself.
-	var panel: Node = scene.get_node("ShipPanel")
+	var panel: Node = scene.get_node("Player/ShipPanel")
 	scene.selection().set_selection([ff01_ship])
 	await process_frame
 	var row := [panel._hull.visible, panel._hull_amount.text, panel._combat.visible]
@@ -243,7 +243,7 @@ func _s5_unarmed_panel() -> void:
 	await _load(MAIN)
 	scene.selection().set_selection([_ship("Miner1")])
 	await process_frame
-	var panel: Node = scene.get_node("ShipPanel")
+	var panel: Node = scene.get_node("Player/ShipPanel")
 	_check("unarmed Miner1 panel: hull 150, no Combat section",
 		panel._hull.visible and panel._hull_amount.text == "Hull: 150 / 150" and not panel._combat.visible)
 
@@ -310,7 +310,7 @@ func _s3_pause() -> void:
 	await _click(MOUSE_BUTTON_RIGHT, _screen(Vector3(20, 0, 20)))
 	var position: Vector2 = ff01_ship.get_node("Locomotion").planar_position
 	var taken: bool = Behavior.of(ff01_ship).command == Behavior.Command.MOVE and ff01_ship.get_node("Locomotion").has_destination
-	var rig: Node3D = scene.get_node("CameraRig")
+	var rig: Node3D = scene.get_node("Player/CameraRig")
 	var rig_before := rig.global_position
 	var press := InputEventKey.new()
 	press.physical_keycode = KEY_W

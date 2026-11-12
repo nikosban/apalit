@@ -81,7 +81,7 @@ func _load_main() -> void:
 
 
 func _rig() -> Node3D:
-	return scene.get_node("CameraRig")
+	return scene.get_node("Player/CameraRig")
 
 
 func _camera() -> Camera3D:
@@ -352,7 +352,7 @@ func _extra_resource(min_count: int, max_count: int) -> Dictionary:
 func _case_expansion() -> void:
 	print("\n=== C6 radial expansion")
 	var big := _extra_resource(view.subgroup_size + 1, 999)
-	var hover = scene.get_node("AsteroidHover")
+	var hover = scene.get_node("Player/AsteroidHover")
 	if big.is_empty():
 		_check("a resource group larger than six exists in the added cluster", false)
 		return
@@ -395,18 +395,18 @@ func _case_commands() -> void:
 	if entries[0].kind == "subgroup":
 		view.update_hover(entries[0].at)
 	var member: Dictionary = view.expansion().filter(func(e: Dictionary) -> bool: return e.kind == "member")[0]
-	var mine: Dictionary = scene.resolve_command(member.at)
+	var mine: Dictionary = scene.get_node("Player").resolve_command(member.at, scene.selection().selected)
 	var real_point := _screen(field.center(member.id))
 	view.update_hover(Vector2(-500, -500))
-	var hidden: Dictionary = scene.resolve_command(real_point)
+	var hidden: Dictionary = scene.get_node("Player").resolve_command(real_point, scene.selection().selected)
 	_check("with a miner selected: a right-click on an expanded member resolves to MINE that asteroid; on the asteroid's own (hidden) position, collapsed, it does not (%s)" % str(hidden.get("kind")),
 		mine.get("kind") == scene.CommandKind.MINE and mine.get("asteroid") == member.id and hidden.get("kind") != scene.CommandKind.MINE)
 	var station: Node3D = scene.get_node("Stations").get_child(0)
-	var dock: Dictionary = scene.resolve_command(_screen(station.global_position))
+	var dock: Dictionary = scene.get_node("Player").resolve_command(_screen(station.global_position), scene.selection().selected)
 	scene.selection().set_selection([])
 	await _click(_screen(station.global_position))
-	_check("station marker: DOCK for the miner; a click selects that station (panel: %s)" % str(scene.get_node("StationPanel").station),
-		dock.get("kind") == scene.CommandKind.DOCK and dock.get("station") == station and scene.get_node("StationPanel").station == station)
+	_check("station marker: DOCK for the miner; a click selects that station (panel: %s)" % str(scene.get_node("Player/StationPanel").station),
+		dock.get("kind") == scene.CommandKind.DOCK and dock.get("station") == station and scene.get_node("Player/StationPanel").station == station)
 	var transporter: Node3D = scene.ship("Transporter2")
 	var ff01: Node3D = scene.ship("FF01")
 	await _click(_screen(transporter.global_position))

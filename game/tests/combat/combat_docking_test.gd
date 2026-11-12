@@ -84,7 +84,7 @@ func _run(seconds: float, until: Callable = Callable()) -> bool:
 
 ## A real right-click at a world point (the camera centred on it first).
 func _right_click(point: Vector3) -> void:
-	scene.get_node("CameraRig").global_position = Vector3(point.x, 0.0, point.z)
+	scene.get_node("Player/CameraRig").global_position = Vector3(point.x, 0.0, point.z)
 	await process_frame
 	var screen := root.get_camera_3d().unproject_position(point)
 	for pressed in [true, false]:

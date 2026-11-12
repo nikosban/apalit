@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://game/presentation/effects/combat_flash/combat_flash_preview.gd" id="1_preview"]
 [ext_resource type="Script" path="res://game/combat/combat_effects.gd" id="2_effects"]
-[ext_resource type="PackedScene" path="res://game/camera/camera_rig.tscn" id="3_rig"]
+[ext_resource type="PackedScene" path="res://game/player/camera/camera_rig.tscn" id="3_rig"]
 
 [sub_resource type="Environment" id="Environment_preview"]
 background_mode = 1

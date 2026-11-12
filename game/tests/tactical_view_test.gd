@@ -69,7 +69,7 @@ func _load_e05() -> void:
 
 
 func _rig() -> Node3D:
-	return scene.get_node("CameraRig")
+	return scene.get_node("Player/CameraRig")
 
 
 func _camera() -> Camera3D:
@@ -448,8 +448,8 @@ func _case_object_alignment() -> void:
 ## station (existing station selection) and a right-click docks there (existing command).
 func _case_station_interaction() -> void:
 	print("\n=== B2-3 station markers and the existing station interactions")
-	var hover = scene.get_node("AsteroidHover")
-	var panel = scene.get_node("StationPanel")
+	var hover = scene.get_node("Player/AsteroidHover")
+	var panel = scene.get_node("Player/StationPanel")
 	var markers = scene.markers
 	var report := []
 	for station: Node3D in scene.get_node("Stations").get_children():
@@ -471,7 +471,7 @@ func _case_station_interaction() -> void:
 	_check("a click on the station's marker selects that station (station panel: %s)" % str(panel.station), panel.station == station)
 	var miner: Node3D = scene.ship("Miner1")
 	scene.selection().set_selection([miner])
-	var command: Dictionary = scene.resolve_command(_screen(station.global_position))
+	var command: Dictionary = scene.get_node("Player").resolve_command(_screen(station.global_position), scene.selection().selected)
 	scene.selection().set_selection([])
 	_check("a right-click on the station's marker with a miner selected resolves to DOCK at that station",
 		command.get("kind") == scene.CommandKind.DOCK and command.get("station") == station)
@@ -500,7 +500,7 @@ func _case_asteroid_interaction() -> void:
 	var asteroid: Node3D = field.node_of(id)
 	await _look_at(asteroid.global_position, 150.0)
 	scene.selection().set_selection([scene.ship("Miner1")])
-	var command: Dictionary = scene.resolve_command(_screen(asteroid.global_position))
+	var command: Dictionary = scene.get_node("Player").resolve_command(_screen(asteroid.global_position), scene.selection().selected)
 	_check("a right-click on an asteroid's marker with a miner selected resolves to MINE that asteroid (id %d)" % id,
 		command.get("kind") == scene.CommandKind.MINE and command.get("asteroid") == id)
 	var transporter: Node3D = scene.ship("Transporter")
@@ -549,7 +549,7 @@ func _case_removal() -> void:
 	var back: bool = _entries_by_target().has(asteroid)
 	var station: Node3D = scene.get_node("Stations").get_child(0)
 	await _look_at(station.global_position, 150.0)
-	scene.get_node("StationPanel").select(null)
+	scene.get_node("Player/StationPanel").select(null)
 	scene.get_node("Stations").remove_child(station)
 	await process_frame
 	var station_gone: bool = scene.markers.object_entries().all(func(e: Dictionary) -> bool: return e.target != station)
@@ -567,6 +567,7 @@ func _case_style_snapshot() -> void:
 	interaction.selection_indicator_color = Color(0.7, 0.2, 0.8)
 	source.line_width = 3.0
 	var fresh = load("res://game/presentation/tactical_markers.gd").new()
+	fresh.camera_rig = _rig()
 	scene.add_child(fresh)
 	_check("style: active Tactical snapshot stays stable; restart consumes updated sources",
 		markers._interaction.selection_indicator_color == selected and is_equal_approx(markers._marker.line_width, stroke)

@@ -14,7 +14,7 @@ extends CanvasLayer
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const RouteFollower := preload("res://game/navigation/route_follower.gd")
 const DisplayName := preload("res://game/ui/display_name.gd")
-const HudView := preload("res://game/ui/overlays/combat_hud/combat_hud_view.tscn")
+const HudView := preload("res://game/player/ui/overlays/combat_hud/combat_hud_view.tscn")
 const TARGET_HINT := "Choose a target: click a hostile ship  |  Esc or right-click elsewhere cancels"
 
 var _view: Control
@@ -22,7 +22,16 @@ var _result: Label
 var _speed: Label # Simulation speed (TimeControl) and the target-selection hint.
 var _inspect: Label # Target eligibility at the cursor during target selection.
 
-@onready var _arena := get_parent()
+var _player: Node
+var _result_text: Callable
+
+
+func configure(player: Node) -> void:
+	_player = player
+
+
+func configure_result(read_result: Callable) -> void:
+	_result_text = read_result
 
 
 func _ready() -> void:
@@ -47,30 +56,29 @@ func _label(preset: Control.LayoutPreset, offset: Vector2, size: int) -> Label:
 
 func _process(_delta: float) -> void:
 	_draw_bars()
-	var result: Variant = _arena.get("result_text")
-	_result.text = result if result is String else ""
-	var time_control = _arena.get("time_control")
+	_result.text = _result_text.call() if _result_text.is_valid() else ""
+	var time_control = _player.time_control
 	if time_control != null:
-		_speed.text = "Speed: %s%s" % [time_control.label(), "\n" + TARGET_HINT if _arena.target_selection else ""]
-	_update_inspection(_arena.selection().selected)
+		_speed.text = "Speed: %s%s" % [time_control.label(), "\n" + TARGET_HINT if _player.target_selection else ""]
+	_update_inspection(_player.selection.selected)
 
 
 # Target selection: the hostile under the cursor, with each selected ship's weapons that
 # can and cannot engage it and why (Weapon.assess(), the firing authorization's checks).
 func _update_inspection(selected: Array) -> void:
 	_inspect.visible = false
-	if not _arena.get("target_selection") or selected.is_empty():
+	if not _player.target_selection or selected.is_empty():
 		return
-	var mouse: Vector2 = _arena.pointer if _arena.pointer.x >= 0.0 else _arena.get_viewport().get_mouse_position()
-	var picked: Node3D = _arena.selection().pick_any(mouse)
+	var mouse: Vector2 = _player.pointer if _player.pointer.x >= 0.0 else get_viewport().get_mouse_position()
+	var picked: Node3D = _player.selection.pick_any(mouse)
 	var target = CombatShip.of(picked)
 	if target == null or not target.alive or target.faction == CombatShip.of(selected[0]).faction:
 		return
-	if _arena.has_method("player_sees") and not _arena.player_sees(picked):
+	if not _player.player_sees.call(picked):
 		return
 	_inspect.text = inspect_text(selected, picked)
 	_inspect.reset_size()
-	var area := _arena.get_viewport().get_visible_rect().size
+	var area := get_viewport().get_visible_rect().size
 	var at: Vector2 = mouse + _view.cursor_offset
 	if at.x + _inspect.size.x > area.x - _view.edge_margin:
 		at.x = mouse.x - _view.cursor_offset.x - _inspect.size.x # flip to the cursor's left near the edge
@@ -177,15 +185,15 @@ static func ammunition_text(weapon: Node) -> String:
 # Controller owns all world queries and eligibility; view receives screen data only.
 func _draw_bars() -> void:
 	var entries: Array[Dictionary] = []
-	var camera := _arena.get_viewport().get_camera_3d()
-	var markers = _arena.get("markers")
+	var camera := get_viewport().get_camera_3d()
+	var markers = _player.markers
 	var alpha: float = 1.0 if markers == null else 1.0 - markers.emphasis()
 	if camera != null and alpha > 0.0:
-		for ship: Node3D in _arena.get_node("Ships").get_children():
+		for ship: Node3D in _player.ships.get_children():
 			var combat = CombatShip.of(ship)
 			if combat == null or combat.removed_from_play:
 				continue
-			if _arena.has_method("player_sees") and not _arena.player_sees(ship):
+			if not _player.player_sees.call(ship):
 				continue
 			var point: Vector3 = ship.global_position + _view.bar_style.world_offset
 			if camera.is_position_behind(point):

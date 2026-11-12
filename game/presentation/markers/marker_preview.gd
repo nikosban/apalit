@@ -23,7 +23,7 @@ func _ready() -> void:
 	add_child(_arena)
 	_arena.get_node("Ships/Transporter/Locomotion").place(Vector2(12, -8), 0.0)
 	_freeze_physics(_arena)
-	_arena.get_node("Selection").set_selection([_arena.get_node("Ships/Miner1"), ship])
+	_arena.get_node("Player/Selection").set_selection([_arena.get_node("Ships/Miner1"), ship])
 	_zoom(zoom_distance)
 
 
@@ -34,14 +34,14 @@ func _freeze_physics(node: Node) -> void:
 
 
 func _zoom(distance: float) -> void:
-	var rig = _arena.get_node("CameraRig")
+	var rig = _arena.get_node("Player/CameraRig")
 	rig.global_position = Vector3.ZERO
 	rig.zoom_distance = distance
 	rig._apply_zoom()
 
 
 func _process(_delta: float) -> void:
-	var selection = _arena.get_node("Selection")
+	var selection = _arena.get_node("Player/Selection")
 	selection.visible = family == 0 or family == 1
 	selection._box.self_modulate.a = 1.0 if family == 0 or family == 1 else 0.0
 	var highlight = _arena.get_node("WorldHighlight")

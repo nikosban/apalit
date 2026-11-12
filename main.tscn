@@ -1,29 +1,28 @@
 [gd_scene format=3]
 
-[ext_resource type="PackedScene" path="res://game/camera/camera_rig.tscn" id="1_rig"]
+[ext_resource type="PackedScene" path="res://game/player/player.tscn" id="player_shared"]
 [ext_resource type="Script" path="res://game/scenes/movement_lab.gd" id="6_lab"]
 [ext_resource type="PackedScene" path="res://game/debug/debug_ui.tscn" id="8_debug"]
 [ext_resource type="Script" path="res://game/navigation/static_navigation.gd" id="9_navigation"]
 [ext_resource type="Script" path="res://game/debug/navigation_debug.gd" id="11_navigation_debug"]
 [ext_resource type="Script" path="res://game/debug/avoidance_debug.gd" id="13_avoidance_debug"]
-[ext_resource type="Script" path="res://game/selection/ship_selection.gd" id="14_selection"]
 [ext_resource type="Script" path="res://game/orders/group_orders.gd" id="15_group_orders"]
 [ext_resource type="Script" path="res://game/collision/planar_collision.gd" id="16_collision"]
 [ext_resource type="Script" path="res://game/resources/asteroid_field.gd" id="17_field"]
 [ext_resource type="Script" path="res://game/survey/survey.gd" id="18_survey"]
 [ext_resource type="Script" path="res://game/survey/survey_view.gd" id="20_survey_view"]
-[ext_resource type="PackedScene" path="res://game/ui/ship_panel.tscn" id="21_ship_panel"]
-[ext_resource type="Script" path="res://game/ui/asteroid_hover.gd" id="22_hover"]
+[ext_resource type="PackedScene" path="res://game/player/ui/ship_panel.tscn" id="21_ship_panel"]
+[ext_resource type="Script" path="res://game/player/ui/asteroid_hover.gd" id="22_hover"]
 [ext_resource type="PackedScene" path="res://game/ships/miner_unit.tscn" id="23_miner_unit"]
 [ext_resource type="Script" path="res://game/mining/mining_view.gd" id="27_mining_view"]
 [ext_resource type="PackedScene" path="res://game/stations/station.tscn" id="28_station"]
 [ext_resource type="PackedScene" path="res://game/ships/transporter_unit.tscn" id="31_transporter_unit"]
 [ext_resource type="PackedScene" path="res://game/stations/refinery_station.tscn" id="33_refinery_station"]
-[ext_resource type="PackedScene" path="res://game/ui/station_panel.tscn" id="34_station_panel"]
+[ext_resource type="PackedScene" path="res://game/player/ui/station_panel.tscn" id="34_station_panel"]
 [ext_resource type="PackedScene" path="res://game/stations/shipyard_station.tscn" id="35_shipyard_station"]
 [ext_resource type="Script" path="res://game/presentation/world_highlight.gd" id="36_world_highlight"]
 [ext_resource type="Script" path="res://game/presentation/object_markers.gd" id="37_object_markers"]
-[ext_resource type="Script" path="res://game/presentation/command_cursor.gd" id="38_command_cursor"]
+[ext_resource type="Script" path="res://game/player/ui/command_cursor.gd" id="38_command_cursor"]
 [ext_resource type="Script" path="res://game/presentation/thruster_view.gd" id="39_thruster_view"]
 [ext_resource type="Script" path="res://game/time/sim_clock.gd" id="90_clock"]
 [ext_resource type="Script" path="res://game/sensors/contact_board.gd" id="91_contacts"]
@@ -33,10 +32,8 @@
 [ext_resource type="Script" path="res://game/combat/combat_orders.gd" id="95_orders"]
 [ext_resource type="Script" path="res://game/sensors/sensors.gd" id="96_sensors"]
 [ext_resource type="Script" path="res://game/presentation/combat_overlay.gd" id="97_overlay"]
-[ext_resource type="Script" path="res://game/ui/combat_hud.gd" id="98_hud"]
-[ext_resource type="PackedScene" path="res://game/presentation/movement_indicator/movement_indicator.tscn" id="200_movement_indicator"]
+[ext_resource type="Script" path="res://game/player/ui/combat_hud.gd" id="98_hud"]
 
-[ext_resource type="PackedScene" path="res://game/ui/overlays/notice/notice.tscn" id="notice_shared"]
 
 [sub_resource type="Environment" id="Environment_lab"]
 background_mode = 1
@@ -77,7 +74,9 @@ environment = SubResource("Environment_lab")
 transform = Transform3D(0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, -0.75, 0.433013, 0, 10, 0)
 shadow_enabled = true
 
-[node name="CameraRig" parent="." instance=ExtResource("1_rig")]
+[node name="Player" parent="." instance=ExtResource("player_shared")]
+
+[node name="CameraRig" parent="Player" index="0"]
 transform = Transform3D(0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, 0.707107, 0, 0, 0)
 zoom_distance = 20.0
 max_zoom = 150.0
@@ -322,13 +321,8 @@ sensor_range = 100.0
 update_interval = 0.2
 memory = 8.0
 
-[node name="Selection" type="Node3D" parent="."]
-script = ExtResource("14_selection")
-
 [node name="GroupOrders" type="Node" parent="."]
 script = ExtResource("15_group_orders")
-
-[node name="MovementIndicator" parent="." instance=ExtResource("200_movement_indicator")]
 
 [node name="NavigationDebug" type="Node3D" parent="."]
 script = ExtResource("11_navigation_debug")
@@ -336,20 +330,18 @@ script = ExtResource("11_navigation_debug")
 [node name="AvoidanceDebug" type="Node3D" parent="."]
 script = ExtResource("13_avoidance_debug")
 
-[node name="NoticeUI" parent="." instance=ExtResource("notice_shared")]
-
 [node name="SurveyView" type="Node3D" parent="."]
 script = ExtResource("20_survey_view")
 
 [node name="MiningView" type="Node3D" parent="."]
 script = ExtResource("27_mining_view")
 
-[node name="AsteroidHover" type="CanvasLayer" parent="."]
+[node name="AsteroidHover" type="CanvasLayer" parent="Player"]
 script = ExtResource("22_hover")
 
-[node name="ShipPanel" parent="." instance=ExtResource("21_ship_panel")]
+[node name="ShipPanel" parent="Player" instance=ExtResource("21_ship_panel")]
 
-[node name="StationPanel" parent="." instance=ExtResource("34_station_panel")]
+[node name="StationPanel" parent="Player" instance=ExtResource("34_station_panel")]
 
 [node name="DebugUI" parent="." instance=ExtResource("8_debug")]
 navigation_debug_path = NodePath("../NavigationDebug")
@@ -361,7 +353,7 @@ script = ExtResource("36_world_highlight")
 [node name="ObjectMarkers" type="Node" parent="."]
 script = ExtResource("37_object_markers")
 
-[node name="CommandCursor" type="Node" parent="."]
+[node name="CommandCursor" type="Node" parent="Player"]
 script = ExtResource("38_command_cursor")
 
 [node name="ThrusterView" type="Node3D" parent="."]
@@ -370,5 +362,7 @@ script = ExtResource("39_thruster_view")
 [node name="CombatOverlay" type="Node3D" parent="."]
 script = ExtResource("97_overlay")
 
-[node name="CombatHUD" type="CanvasLayer" parent="."]
+[node name="CombatHUD" type="CanvasLayer" parent="Player"]
 script = ExtResource("98_hud")
+
+[editable path="Player"]

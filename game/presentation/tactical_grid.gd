@@ -42,6 +42,8 @@ void fragment() {
 
 var _material := ShaderMaterial.new()
 
+var camera_rig: Node3D
+
 @onready var _arena := get_parent()
 
 
@@ -73,6 +75,6 @@ static func strengths(zoom: float, emphasis: float) -> Vector2:
 func _process(_delta: float) -> void:
 	if not visible:
 		return
-	var s := strengths(_arena.get_node("CameraRig").zoom_distance, _arena.markers.emphasis())
+	var s := strengths(camera_rig.zoom_distance, _arena.markers.emphasis())
 	_material.set_shader_parameter("minor_alpha", s.x)
 	_material.set_shader_parameter("major_alpha", s.y)

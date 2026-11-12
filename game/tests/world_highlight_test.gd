@@ -39,8 +39,8 @@ func _initialize() -> void:
 			child.set_physics_process(false)
 	_highlight = _main.get_node("WorldHighlight")
 	_highlight.set_process(false) # Driven by update() with a chosen cursor position.
-	_selection = _main.get_node("Selection")
-	_camera = _main.get_node("CameraRig/Camera3D")
+	_selection = _main.get_node("Player/Selection")
+	_camera = _main.get_node("Player/CameraRig/Camera3D")
 	var before := _measure()
 	_frame(Vector2(0, 6), 34.0)
 	await process_frame
@@ -78,11 +78,11 @@ func _initialize() -> void:
 	var over_station := _screen(station.global_position)
 	_highlight.update(over_station, true)
 	var hover_station: bool = _highlight.hovered == station and _styled("Stations/Station", WorldHighlight.Style.HOVER)
-	_main.get_node("StationPanel").select(station)
+	_main.get_node("Player/StationPanel").select(station)
 	_highlight.update(away, true)
 	_check("stations: hovered -> hover overlay on every station mesh; selected (station panel) -> selected overlay (%s)" % hover_station,
 		hover_station and _styled("Stations/Station", WorldHighlight.Style.SELECTED))
-	_main.get_node("StationPanel").select(null)
+	_main.get_node("Player/StationPanel").select(null)
 	_highlight.update(away, true)
 	_check("deselected station: its overlay is removed, nothing highlighted", _cleared("Stations/Station") and _count() == 0)
 
@@ -116,7 +116,7 @@ func _initialize() -> void:
 
 	# Overlays never change picking or the selection feedback: compare with the start.
 	_selection.set_selection([_ship("FF01"), _ship("Miner1"), _ship("Miner2"), _ship("Transporter")])
-	_main.get_node("StationPanel").select(station)
+	_main.get_node("Player/StationPanel").select(station)
 	_highlight.update(away, true)
 	var during := _measure()
 	_check("with overlays on four ships and the station: pick boxes, ring radii, mesh counts and station picks identical to the start (%d values)" % before.size(),
@@ -213,7 +213,7 @@ func _screen(point: Vector3) -> Vector2:
 
 
 func _frame(center: Vector2, zoom: float) -> void:
-	var rig := _main.get_node("CameraRig")
+	var rig := _main.get_node("Player/CameraRig")
 	rig.global_position = Vector3(center.x, 0, center.y)
 	rig.zoom_distance = zoom
 	rig._apply_zoom()

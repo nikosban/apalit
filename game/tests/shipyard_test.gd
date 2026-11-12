@@ -456,7 +456,7 @@ func _test_construction_and_deployment() -> void:
 	var fuel_stock := _yard_station.fuel_stock
 	var ships_before := _main.get_node("Ships").get_child_count()
 	var children_before := _main.get_child_count()
-	var rings_before: int = _main.get_node("Selection")._rings.size()
+	var rings_before: int = _main.get_node("Player/Selection")._rings.size()
 	_deployed.clear()
 	_notices.clear()
 	_yard.order(&"mining_ship")
@@ -484,7 +484,7 @@ func _test_construction_and_deployment() -> void:
 		and (ship.get_node("Scanner") as Scanner).kind == Scanner.Kind.MINING)
 	_check("6. notice once: \"%s\"" % (_notices[0] if not _notices.is_empty() else ""), _notices == ["Shipyard: Miner4 completed"])
 	# Registration (selection and the scene's command layer), idempotent.
-	var selection := _main.get_node("Selection")
+	var selection := _main.get_node("Player/Selection")
 	var connected := 0
 	for node_name in ["RouteFollower", "Mining", "Docking", "Fuel"]:
 		for connection: Dictionary in ship.get_node(node_name).notice.get_connections():

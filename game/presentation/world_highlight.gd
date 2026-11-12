@@ -23,9 +23,9 @@ const InteractionStyle := preload("res://game/presentation/markers/interaction_s
 @export var interaction_style: InteractionStyle = preload("res://game/presentation/markers/interaction_style.tres")
 var _interaction: InteractionStyle
 
-@export var selection_path := NodePath("../Selection")
+@export var selection_path := NodePath("../Player/Selection")
 @export var stations_path := NodePath("../Stations")
-@export var station_panel_path := NodePath("../StationPanel")
+@export var station_panel_path := NodePath("../Player/StationPanel")
 @export var field_path := NodePath("../Asteroids")
 
 var hovered: Node3D = null # The ship or station under the cursor, or null.

@@ -1,9 +1,9 @@
 [gd_scene format=3]
 
-[ext_resource type="Script" path="res://game/ui/ship_panel.gd" id="1_panel"]
+[ext_resource type="Script" path="res://game/player/ui/ship_panel.gd" id="1_panel"]
 [ext_resource type="PackedScene" path="res://game/ui/components/panel_shell.tscn" id="2_shell"]
 [ext_resource type="PackedScene" path="res://game/ui/components/section.tscn" id="3_section"]
-[ext_resource type="PackedScene" path="res://game/ui/transport_editor.tscn" id="4_editor"]
+[ext_resource type="PackedScene" path="res://game/player/ui/transport_editor.tscn" id="4_editor"]
 
 [node name="ShipPanel" type="CanvasLayer"]
 script = ExtResource("1_panel")

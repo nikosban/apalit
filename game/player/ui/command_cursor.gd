@@ -1,7 +1,7 @@
 extends Node
 ## UX round (P8) command cursor: the mouse cursor shows what a right-click would do with
 ## the current selection, from the scene's own command resolution and refusal checks
-## (movement_lab.gd resolve_command() / command_available(), the code the click runs):
+## (Player resolves the click and the arena checks whether the recipients can take it):
 ## Move, Mine, Dock, or Unavailable when that command would be refused (no route, no
 ## working or docking position, no free position beside a stationary ship, Dock at the
 ## station the ship is already docking at, ...); the normal arrow with nothing selected,
@@ -22,7 +22,7 @@ const CELL := 2.0 # u: ground cells sharing one MOVE check
 const REFRESH := 0.5 # s between checks of the same target
 const GROUP_REST := 0.25 # s the cursor rests on a cell before a group's assignment is checked
 
-@export var lab_path := NodePath("..")
+const CommandKind := preload("res://game/player/player.gd").CommandKind
 
 var cursor := Cursor.NONE
 var checks := 0 # Validations run (for checks of the caching).
@@ -33,7 +33,11 @@ var _checked := false
 var _age := 0.0
 var _shape := -1
 
-@onready var _lab := get_node(lab_path)
+var _player: Node
+
+
+func configure(player: Node) -> void:
+	_player = player
 
 
 func _process(delta: float) -> void:
@@ -49,21 +53,22 @@ func _process(delta: float) -> void:
 
 ## The cursor for a screen point (free: not over the GUI), `delta` s after the last call.
 func update(mouse: Vector2, free: bool, delta: float) -> Cursor:
-	var command: Dictionary = _lab.resolve_command(mouse) if free else {}
+	var recipients: Array = _player.selection.selected
+	var command: Dictionary = _player.resolve_command(mouse, recipients) if free else {}
 	if command.is_empty():
 		_key = null
 		cursor = Cursor.NONE
 		return cursor
-	var key := _key_of(command)
+	var key := _key_of(recipients, command)
 	if key != _key:
 		_key = key
 		_checked = false
 		_age = 0.0
 	else:
 		_age += delta
-	var group: bool = command.kind == _lab.CommandKind.GROUP
+	var group: bool = command.kind == CommandKind.GROUP
 	if (not _checked and (not group or _age >= GROUP_REST)) or (_checked and _age >= REFRESH):
-		_available = _lab.command_available(command)
+		_available = _player.command_available(recipients, command)
 		_checked = true
 		_age = 0.0
 		checks += 1
@@ -73,11 +78,11 @@ func update(mouse: Vector2, free: bool, delta: float) -> Cursor:
 		cursor = Cursor.UNAVAILABLE
 	else:
 		match command.kind:
-			_lab.CommandKind.DOCK:
+			CommandKind.DOCK:
 				cursor = Cursor.DOCK
-			_lab.CommandKind.MINE:
+			CommandKind.MINE:
 				cursor = Cursor.MINE
-			_lab.CommandKind.TARGET:
+			CommandKind.TARGET:
 				cursor = Cursor.TARGET
 			_:
 				cursor = Cursor.MOVE
@@ -86,8 +91,8 @@ func update(mouse: Vector2, free: bool, delta: float) -> Cursor:
 
 # The selection, the command and its target (stations and asteroids by identity, ground
 # points by 2 u cell).
-func _key_of(command: Dictionary) -> Array:
-	var key: Array = [_lab._selection.selected.map(func(ship: Node3D) -> int: return ship.get_instance_id()), command.kind]
+func _key_of(recipients: Array, command: Dictionary) -> Array:
+	var key: Array = [recipients.map(func(ship: Node3D) -> int: return ship.get_instance_id()), command.kind]
 	if command.has("ship"):
 		key.append(command.ship.get_instance_id())
 	elif command.has("station"):

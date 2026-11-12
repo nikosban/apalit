@@ -4,7 +4,7 @@ extends SceneTree
 ## in main.tscn); screen points are fractions of the visible rect. Run with a fixed step:
 ##   <godot console> --headless --path . --fixed-fps 60 -s res://game/tests/camera_test.gd
 
-const RIG := preload("res://game/camera/camera_rig.tscn")
+const RIG := preload("res://game/player/camera/camera_rig.tscn")
 var CENTER := Vector2.ZERO # set from the visible rect (1152 × 648 with the project stretch)
 var OFF_CENTER := Vector2.ZERO
 const MAX_DRIFT := 5.0 # px

@@ -467,14 +467,14 @@ func _test_miners_at_either_station() -> void:
 func _test_panel() -> void:
 	_reset()
 	var transport := _transport()
-	var panel := _main.get_node("ShipPanel")
+	var panel := _main.get_node("Player/ShipPanel")
 	var rows := panel.get_node("Panel/Layout/Scroll/Body/Actions/Transport")
 	transport.set_load_station(null) # Unconfigured, as at the start of a game.
 	transport.set_unload_station(null)
 	transport.set_requirement(METAL, 0)
 	transport.set_requirement(ICE, 0)
 	_place("Transporter", NEAR_A)
-	_main.get_node("Selection").set_selection([_ship("Transporter")])
+	_main.get_node("Player/Selection").set_selection([_ship("Transporter")])
 	await process_frame
 	var load_at: OptionButton = rows.get_node("LoadRow/Station")
 	var unload_at: OptionButton = rows.get_node("UnloadRow/Station")
@@ -498,13 +498,13 @@ func _test_panel() -> void:
 		transport.status == TransportOperation.Status.LOADING and transport.required[ICE] == 0
 		and (panel.get_node("Panel/Layout/Scroll/Body/Status/Activity") as Label).text == "Status: Traveling to Loading Base"
 		and (panel.get_node("Panel/Layout/Scroll/Body/Cargo/Summary") as Label).text == "Cargo: 0 / 1000 (empty)")
-	_main.get_node("Selection").set_selection([])
+	_main.get_node("Player/Selection").set_selection([])
 
 
 # Sets one requirement through the panel (UX round P7: Configure Cargo, the resource's
 # row in the transport editor, Apply; before, the single requirement row).
 func _requirement(rows: Node, resource: StringName, amount: int) -> void:
-	var editor := _main.get_node("ShipPanel/TransportEditor")
+	var editor := _main.get_node("Player/ShipPanel/TransportEditor")
 	(rows.get_node("Configure") as Button).pressed.emit()
 	(editor.row(0 if Inventory.RAW.has(resource) else 1, resource).get_node("Amount") as SpinBox).value = amount
 	editor.apply()

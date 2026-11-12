@@ -42,7 +42,7 @@ func _initialize() -> void:
 	_field = _main.get_node("Asteroids")
 	_survey = _main.get_node("Survey")
 	_view = _main.get_node("SurveyView")
-	_hover = _main.get_node("AsteroidHover")
+	_hover = _main.get_node("Player/AsteroidHover")
 	_survey.set_physics_process(false)
 	for ship_name in SHIPS:
 		for child in ["Locomotion", "RouteFollower", "Avoidance", "Scanner", "Fuel"]:
@@ -273,9 +273,9 @@ func _test_shared() -> void:
 	var id: int = _within(SCAN_POINT, _scanner("Transporter").radius)[0]
 	var texts := []
 	for ship_name in SHIPS:
-		_main.get_node("Selection").set_selection([_ship(ship_name)])
+		_main.get_node("Player/Selection").set_selection([_ship(ship_name)])
 		texts.append(_hover.describe(id))
-	_main.get_node("Selection").set_selection([])
+	_main.get_node("Player/Selection").set_selection([])
 	_check("8. one fleet survey: both scanners report to it", _scanner("Transporter")._survey == _survey and _scanner("Miner1")._survey == _survey)
 	_check("8. a Transporter survey reads the same whichever ship is selected", texts[0] == texts[1] and texts[1] == texts[2] and _survey.level_of(id) == Survey.Level.IDENTIFIED)
 
@@ -402,10 +402,10 @@ func _test_hover() -> void:
 # them first, as in the game).
 func _test_ui() -> void:
 	_reset()
-	var selection := _main.get_node("Selection")
-	var panel := _main.get_node("ShipPanel")
-	var rig := _main.get_node("CameraRig")
-	var camera: Camera3D = _main.get_node("CameraRig/Camera3D")
+	var selection := _main.get_node("Player/Selection")
+	var panel := _main.get_node("Player/ShipPanel")
+	var rig := _main.get_node("Player/CameraRig")
+	var camera: Camera3D = _main.get_node("Player/CameraRig/Camera3D")
 	_place("Miner1", SCAN_POINT)
 	_place("Transporter", SCAN_POINT + Vector2(-8, 4))
 	rig.global_position = Vector3(SCAN_POINT.x, 0, SCAN_POINT.y)

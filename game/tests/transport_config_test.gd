@@ -474,12 +474,12 @@ func _test_percent_panel() -> void:
 	_reset()
 	_clear_requirements()
 	var transport := _transport()
-	var panel := _main.get_node("ShipPanel")
+	var panel := _main.get_node("Player/ShipPanel")
 	var rows := panel.get_node("Panel/Layout/Scroll/Body/Actions/Transport")
 	# UX round P7: through the transport editor (the requirement row was replaced); edits
 	# go to the editor's draft, Apply saves the whole draft or nothing.
 	var editor := panel.get_node("TransportEditor")
-	_main.get_node("Selection").set_selection([_ship()])
+	_main.get_node("Player/Selection").set_selection([_ship()])
 	await process_frame
 	(rows.get_node("Configure") as Button).pressed.emit()
 	var silicon: Node = editor.row(0, SILICON)
@@ -505,24 +505,24 @@ func _test_percent_panel() -> void:
 	amount.get_line_edit().text = "250"
 	amount.get_line_edit().text_changed.emit("250")
 	await process_frame
-	_main.get_node("Selection").set_selection([])
+	_main.get_node("Player/Selection").set_selection([])
 	await process_frame
 	var unchanged: bool = transport.required[METAL] == 700
 	editor.apply()
 	_check("editor: Iron 250 typed, the ship deselected (nothing saved by that: %s), then Apply: saved to that Transporter (Iron %d)" % [unchanged, transport.required[METAL]],
 		unchanged and transport.required[METAL] == 250)
-	_main.get_node("Selection").set_selection([_ship()])
+	_main.get_node("Player/Selection").set_selection([_ship()])
 	amount.get_line_edit().text = "300"
 	amount.get_line_edit().text_changed.emit("300")
 	await process_frame
-	_main.get_node("Selection").set_selection([_main.get_node("Ships/Miner1")])
+	_main.get_node("Player/Selection").set_selection([_main.get_node("Ships/Miner1")])
 	await process_frame
 	unchanged = transport.required[METAL] == 250
 	editor.apply()
 	_check("editor: ... also when another ship (no transport) was selected meanwhile (nothing saved by that: %s; Iron %d)" % [unchanged, transport.required[METAL]],
 		unchanged and transport.required[METAL] == 300)
 	editor.close()
-	_main.get_node("Selection").set_selection([])
+	_main.get_node("Player/Selection").set_selection([])
 	_clear_requirements()
 
 

@@ -142,7 +142,7 @@ func _camera() -> Camera3D:
 
 
 func _frame(point: Vector2, zoom: float) -> void:
-	var rig: Node3D = scene.get_node("CameraRig")
+	var rig: Node3D = scene.get_node("Player/CameraRig")
 	rig.global_position = Vector3(point.x, 0, point.y)
 	rig.rotation = Vector3.ZERO
 	rig.zoom_distance = zoom
@@ -193,12 +193,12 @@ func _case_occlusion() -> void:
 	_check("the hidden ship moves: the marker stays where it was last seen", lost.size() == 1 and Vector2(lost[0].position.x, lost[0].position.z).distance_to(seen_at) < 0.01)
 	scene.selection().set_selection([ff01a])
 	var screen := _camera().unproject_position(hostile.global_position)
-	scene.begin_target_selection()
+	scene.get_node("Player").begin_target_selection()
 	await _click(screen)
 	var picked: Node3D = scene.selection().pick_any(screen)
 	_check("the hidden ship cannot be picked or chosen as a target (selection stays open, no manual target)",
-		picked == null and CombatShip.of(ff01a).manual_target == null and scene.target_selection)
-	scene.cancel_target_selection()
+		picked == null and CombatShip.of(ff01a).manual_target == null and scene.get_node("Player").target_selection)
+	scene.get_node("Player").cancel_target_selection()
 	var last_screen := _camera().unproject_position(Vector3(seen_at.x, 1.5, seen_at.y))
 	_check("nothing is picked at the last-known marker either", scene.selection().pick_any(last_screen) == null)
 

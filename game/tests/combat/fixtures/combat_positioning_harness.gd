@@ -45,7 +45,7 @@ func _ready() -> void:
 		arena.orders.attack([subject], enemy)
 		if demo_moving_target and not OS.get_cmdline_user_args().has("stationary"):
 			move_enemy(Vector2(-160, -140), 0.6)
-		var rig: Node = arena.get_node("CameraRig")
+		var rig: Node = arena.get_node("Player/CameraRig")
 		rig.position = Vector3(-200, 0, -220)
 		rig.zoom_distance = 115.0
 		rig.zoom_target = 115.0

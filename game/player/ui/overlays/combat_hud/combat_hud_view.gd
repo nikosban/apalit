@@ -3,8 +3,8 @@ extends Control
 ## Presentation only: projected screen positions, fractions, colors and alpha.
 ## No ship, camera or arena references; one drawing surface for every entry.
 
-const HullBarStyle := preload("res://game/ui/overlays/combat_hud/hull_bar_style.gd")
-@export var bar_style: HullBarStyle = preload("res://game/ui/overlays/combat_hud/hull_bar_style.tres")
+const HullBarStyle := preload("res://game/player/ui/overlays/combat_hud/hull_bar_style.gd")
+@export var bar_style: HullBarStyle = preload("res://game/player/ui/overlays/combat_hud/hull_bar_style.tres")
 @export var cursor_offset := Vector2(18, 18)
 @export var edge_margin := 8.0
 

@@ -52,7 +52,7 @@ func _load() -> void:
 
 
 func _rig() -> Node3D:
-	return scene.get_node("CameraRig")
+	return scene.get_node("Player/CameraRig")
 
 
 func _camera() -> Camera3D:
@@ -144,7 +144,7 @@ func _case_zoom() -> void:
 	scene.selection().set_selection([ff01b])
 	var at: Vector2 = scene.get_viewport().get_visible_rect().size * Vector2(0.3, 0.6)
 	var ground: Vector3 = Plane(Vector3.UP, 0.0).intersects_ray(_camera().project_ray_origin(at), _camera().project_ray_normal(at))
-	var command: Dictionary = scene.resolve_command(at)
+	var command: Dictionary = scene.get_node("Player").resolve_command(at, scene.selection().selected)
 	scene.selection().set_selection([])
 	_check("interaction at the maximum: full emphasis, the FF01B's marker is picked under it; a right-click resolves to a MOVE at the ground point under the cursor (%s)" % str(command.get("point")),
 		scene.markers.emphasis() == 1.0 and picked == ff01b and command.get("kind") == scene.CommandKind.MOVE and (command.point as Vector2).distance_to(Vector2(ground.x, ground.z)) < 0.01)
@@ -228,9 +228,9 @@ func _case_markers() -> void:
 	_check("markers: a right-click on the hostile FF01A's marker assigns it to both selected ships",
 		CombatShip.of(ff01b).manual_target == hostile and CombatShip.of(ff01a).manual_target == hostile)
 	await _click(_screen(ff01b.global_position))
-	scene.begin_target_selection()
+	scene.get_node("Player").begin_target_selection()
 	await _click(_screen(scene.ship("HostileFF01B").global_position))
-	_check("markers: target selection and a click on a hostile marker assign it", CombatShip.of(ff01b).manual_target == scene.ship("HostileFF01B") and not scene.target_selection)
+	_check("markers: target selection and a click on a hostile marker assign it", CombatShip.of(ff01b).manual_target == scene.ship("HostileFF01B") and not scene.get_node("Player").target_selection)
 	for i in 240:
 		await physics_frame
 	await process_frame

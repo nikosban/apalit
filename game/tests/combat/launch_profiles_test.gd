@@ -128,7 +128,7 @@ func _load(distance: float, side := 1.0, seed_value := 1) -> void:
 		release_momentum = release_momentum and n.inherited_velocity.is_equal_approx(owner_velocity) and n.velocity.is_equal_approx(Vector3.UP * n.config.eject_speed + owner_velocity)
 		releases.append({"id": n.id, "kind": String(n.kind), "origin": n.launch_point, "momentum": n.inherited_velocity, "point": n.locked_point, "spread": n.dispersion, "time": scene.get_node("SimClock").time}))
 	if visual:
-		var rig := scene.get_node("CameraRig")
+		var rig := scene.get_node("Player/CameraRig")
 		rig.position = Vector3(SITE.x + distance * side * 0.35, 0, SITE.y)
 		rig.rotation.y = 0.0
 		rig.zoom_distance = 65.0

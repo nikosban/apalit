@@ -18,8 +18,8 @@ extends CanvasLayer
 ## display name, station type) and the sections Status (fuel stock, health placeholder),
 ## Storage (n / capacity and a tile per resource held), Refinery and Ship Production.
 
-const ShipSelection := preload("res://game/selection/ship_selection.gd")
-const AsteroidHover := preload("res://game/ui/asteroid_hover.gd")
+const ShipSelection := preload("res://game/player/selection/ship_selection.gd")
+const AsteroidHover := preload("res://game/player/ui/asteroid_hover.gd")
 const Inventory := preload("res://game/cargo/inventory.gd")
 const Refinery := preload("res://game/refining/refinery.gd")
 const Shipyard := preload("res://game/shipyard/shipyard.gd")
@@ -113,7 +113,7 @@ func shipyard() -> Shipyard:
 
 # A left press not taken by the GUI starts a possible click (seen before ShipSelection,
 # which handles it; not consumed here).
-func _unhandled_input(event: InputEvent) -> void:
+func begin_press(event: InputEvent) -> void:
 	var button := event as InputEventMouseButton
 	if button != null and button.button_index == MOUSE_BUTTON_LEFT and button.pressed:
 		_pressing = not button.shift_pressed
@@ -125,7 +125,7 @@ func cancel_press() -> void:
 	_pressing = false
 
 
-func _input(event: InputEvent) -> void:
+func finish_press(event: InputEvent) -> void:
 	var button := event as InputEventMouseButton
 	if not _pressing or button == null or button.button_index != MOUSE_BUTTON_LEFT or button.pressed:
 		return
