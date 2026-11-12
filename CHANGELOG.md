@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-11-12 — Combat movement ownership
+
+ShipBehavior now owns autonomous route requests, and CombatOrders gets Attack-Move and Waypoint destinations directly from GroupOrders. All 64 headless suites, both positioning modes, and nine scene smoke runs reproduced the baseline outcomes.
+
 ## 2026-11-12 — Reusable Command component
 
 Each arena now uses a shared Command component for MOVE, group MOVE, DOCK and MINE, including availability checks and held-order replay. The full 64-suite comparison and nine scene smoke runs matched the baseline, and a new docking check verifies the scripted group MOVE path.

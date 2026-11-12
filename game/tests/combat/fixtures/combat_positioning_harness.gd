@@ -19,7 +19,7 @@ var samples: Array[Dictionary] = []
 var shots: Array[Dictionary] = []
 var elapsed := 0.0
 var active := false
-var arena_override: Script
+var subject_behavior_override: Script
 var with_station := false
 var reverse_factions := false
 var _demo_change := 0
@@ -56,8 +56,6 @@ func _ready() -> void:
 func setup(parent: Node, start: Vector2, target_at: Vector2, side := 1, sustained := true) -> void:
 	arena = ARENA.instantiate()
 	arena.get_node("Asteroids").session_seed = 20261026
-	if arena_override != null:
-		arena.set_script(arena_override)
 	if with_station:
 		var station := preload("res://game/stations/station.tscn").instantiate()
 		station.name = "Station"
@@ -69,6 +67,8 @@ func setup(parent: Node, start: Vector2, target_at: Vector2, side := 1, sustaine
 			ship.free()
 	subject = arena.get_node("Ships/FF01")
 	enemy = arena.get_node("Ships/HostileFF01")
+	if subject_behavior_override != null:
+		subject.get_node("Behavior").set_script(subject_behavior_override)
 	if reverse_factions:
 		subject.get_node("Combat").faction = 1
 		enemy.get_node("Combat").faction = 0

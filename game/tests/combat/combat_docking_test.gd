@@ -140,7 +140,7 @@ func _k1_k3() -> void:
 		if (refused[phase] as Array).size() < 3:
 			var plans: int = follower.plans
 			var state: int = docking.state
-			(refused[phase] as Array).append(scene.autonomous_move(ff01, Vector2(-20, 12)))
+			(refused[phase] as Array).append(b.autonomous_move(Vector2(-20, 12)))
 			plans_ok = plans_ok and follower.plans == plans and docking.state == state
 		return docking.state == Docking.State.DOCKED)
 	_check("Guard then a right-click on the Station: Guard ends for good, the command is Dock, the station has the ship (%s)" % str(states),
@@ -162,7 +162,7 @@ func _k1_k3() -> void:
 	scene.register_ship(raider) # As a ship added at run time (picking, notices, removal).
 	docking.undock()
 	await _run(1.0)
-	var exit_refused: bool = docking.under_control() and not scene.autonomous_move(ff01, Vector2(-20, 12))
+	var exit_refused: bool = docking.under_control() and not b.autonomous_move(Vector2(-20, 12))
 	var click := Vector3(-20, 0, 12)
 	await _right_click(click)
 	var held: bool = docking.under_control() and docking.has_held_command() and b.command == Behavior.Command.DOCK

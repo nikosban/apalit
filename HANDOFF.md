@@ -717,11 +717,12 @@ Combat behaviour is frozen as accepted (section 6).
   through the RouteFollower's configured `navigation_path` (required dependency, no
   fallback). Ship footprint, optional margin, asteroid and station clearance are
   unchanged; the independent E05 fixture controller keeps its own 135 u limit.
-- Movement ownership: Locomotion is the only executor. Behavior requests movement
-  through `movement_lab.autonomous_move()` and listens to `Command.command_given`
-  for manual MOVE and DOCK. Command emits the signal when it dispatches an order,
-  including after a held order is released. While Docking owns the ship, Behavior
-  holds the Dock command and requests nothing.
+- Movement ownership: Locomotion executes movement. ShipBehavior owns autonomous
+  route requests and uses GroupOrders and StaticNavigation supplied during arena
+  registration. CombatOrders uses the same GroupOrders service for Attack-Move and
+  Waypoint destinations. Behavior listens to `Command.command_given` for manual
+  MOVE and DOCK, including held orders on dispatch. While Docking owns the ship,
+  Behavior holds the Dock command and requests nothing.
 - `hostile_commander.gd` (`HostileCommander`): gives its faction's armed ships a
   tactic, Guard and Attack-Move objectives through CombatOrders once their map is
   ready. No strategic AI. Kept as shared code; no scene instances it since the
@@ -1305,15 +1306,13 @@ distribution, logistics balance, models and UI polish.
   `nikosban`, pushes use SSH.
 - Suites: 40 in `game/tests/`, 23 in `game/tests/combat/`, `game/tests/docking/tri_dock_test.gd`
   (64 total). Run: `<godot console> --headless --path . -s res://game/tests/<name>.gd`.
-- Current Command verification (Godot 4.7.2, fixed 60 FPS): 58 of 64 suites passed,
-  with the same six failing suites as both baselines. All nine 600-frame smoke
-  runs exited zero and matched baseline diagnostics, including two errors in the
-  standalone encounter arena when its scenario tries to place ships present only
-  in E05. `command_cursor_test` passed 20 checks, including direct submission
-  without Player or a camera. `station_docking_test` passed 23 checks, including
-  the scripted group MOVE regression. Positioning redirect passed 23 checks
+- Current combat movement verification (Godot 4.7.2, headless, fixed 60 FPS):
+  58 of 64 suites passed, with the same six failing suites as both baselines.
+  All nine 600-frame smoke runs exited zero and matched baseline diagnostics,
+  including two errors in the standalone encounter arena when its scenario
+  tries to place ships present only in E05. Positioning redirect passed 23 checks
   and movement reproduced the baseline detour failure (17 of 18 checks passed).
-  This pass used headless verification.
+  Logs are in `.godot/combat-movement-verification/`.
 - `--fixed-fps 60` is required for every combat suite and for `shipyard_runtime_test`,
   `reuse_test` (uninterrupted loop as fast as possible), `camera_test`,
   `tactical_view_test`, `strategic_view_test` (fails its boundary-fade check without
@@ -1498,7 +1497,7 @@ distribution, logistics balance, models and UI polish.
 
 ## 10. Next task and open items
 
-The Player and Command migrations are accepted. No next task is selected.
+The Player, Command, and combat movement migrations are accepted. No next task is selected.
 New work follows `AGENTS.md`.
 
 Open follow-ups (not started): the two intermittent PDC-exposed test failures and the

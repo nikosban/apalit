@@ -6,11 +6,11 @@ const CombatShip := preload("res://game/combat/combat_ship.gd")
 const Behavior := preload("res://game/behavior/ship_behavior.gd")
 const DT := 1.0 / 60.0
 
-class RefusalArena:
-	extends "res://game/scenes/movement_lab.gd"
+class RefusalBehavior:
+	extends "res://game/behavior/ship_behavior.gd"
 	var refuse_autonomous := false
-	func autonomous_move(ship: Node3D, point: Vector2, through := PackedVector2Array()) -> bool:
-		return false if refuse_autonomous else super.autonomous_move(ship, point, through)
+	func autonomous_move(point: Vector2, through := PackedVector2Array()) -> bool:
+		return false if refuse_autonomous else super.autonomous_move(point, through)
 
 var harness: Node
 var checks := 0
@@ -281,7 +281,7 @@ func _availability_and_refusal() -> void:
 	_check("cannon unavailability cannot interrupt explicit movement", lo.has_destination and lo.destination == explicit_destination and not lo.combat_control)
 	_free()
 	harness = Harness.new()
-	harness.arena_override = RefusalArena
+	harness.subject_behavior_override = RefusalBehavior
 	root.add_child(harness)
 	await harness.setup(root, Vector2(-240, -240), Vector2(-202, -240))
 	ship = harness.subject
@@ -290,7 +290,7 @@ func _availability_and_refusal() -> void:
 	await _run(2.0)
 	var before: int = b.move_requests
 	var old_station: Vector2 = b.station
-	harness.arena.refuse_autonomous = true
+	b.refuse_autonomous = true
 	var accepted: bool = b._request_move(Vector2(-270, -210), "forced refusal")
 	_check("refused autonomous request cannot count the older active leg as success", not accepted and b.move_requests == before and b.station == old_station
 		and ship.get_node("Locomotion").has_destination)

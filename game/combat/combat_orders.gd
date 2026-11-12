@@ -14,18 +14,19 @@ extends Node
 
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const Behavior := preload("res://game/behavior/ship_behavior.gd")
+const GroupOrders := preload("res://game/orders/group_orders.gd")
 
 signal issued(channel: String, ships: Array, detail: String)
 
 var history: Array[Dictionary] = [] # {time, channel, ships, detail}
 
 var _issue_move: Callable
+var _group_orders: GroupOrders
 
-@onready var _arena := get_parent()
 
-
-func configure_move(issue_move: Callable) -> void:
+func configure_move(issue_move: Callable, group_orders: GroupOrders) -> void:
 	_issue_move = issue_move
+	_group_orders = group_orders
 
 
 func move(ships: Array, point: Vector2) -> bool:
@@ -78,7 +79,7 @@ func guard(ships: Array, protected: Node3D) -> int:
 ## Attack-Move; a group gets one destination per ship around the point (GroupOrders, as a
 ## group MOVE; none for any ship: no order).
 func attack_move(ships: Array, point: Vector2) -> int:
-	var spots: Dictionary = _arena.group_destinations(_with_behavior(ships), point)
+	var spots := _group_destinations(_with_behavior(ships), point)
 	return _behavior("attack-move to (%.1f, %.1f)" % [point.x, point.y], ships, func(b: Node) -> bool: return spots.has(b.ship) and b.order_attack_move(spots[b.ship]))
 
 
@@ -97,7 +98,7 @@ func waypoint(ships: Array, point: Vector2, append: bool) -> int:
 			break
 		spots[ship] = spot
 	if not keep:
-		spots = _arena.group_destinations(group, point)
+		spots = _group_destinations(group, point)
 	return _behavior("waypoint (%.1f, %.1f)%s" % [point.x, point.y, " added" if append else ""], ships, func(b: Node) -> bool:
 		if not spots.has(b.ship) or not b.order_waypoint(spots[b.ship], append):
 			return false
@@ -117,6 +118,14 @@ func cancel(ships: Array) -> int:
 
 func _with_behavior(ships: Array) -> Array:
 	return _live(ships).filter(func(ship: Node3D) -> bool: return ship.has_node("Behavior"))
+
+
+func _group_destinations(ships: Array, point: Vector2) -> Dictionary:
+	if ships.is_empty():
+		return {}
+	if ships.size() == 1:
+		return {ships[0]: point}
+	return _group_orders.assign(ships, point)
 
 
 func _behavior(detail: String, ships: Array, call: Callable) -> int:
