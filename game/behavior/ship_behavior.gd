@@ -4,7 +4,7 @@ extends Node
 ## P01–P03 and E05). Friendly and hostile ships run the same code; a hostile ship's
 ## commands come from its commander. It never moves, turns or fires the ship itself: it
 ## decides movement intentions and hands them to the existing systems — a point through
-## the scene's autonomous_move() (one RouteFollower order: Avoidance, Locomotion and
+## autonomous_move() (one RouteFollower order: Avoidance, Locomotion and
 ## PlanarCollision execute it; no assignment is cancelled and it is not a player command)
 ## or an idle turn through Locomotion.face() — and it sets the Attack authorization on the
 ## ship's Combat. Weapons keep their own full firing authorization.
@@ -39,6 +39,7 @@ const CombatShip := preload("res://game/combat/combat_ship.gd")
 const RouteFollower := preload("res://game/navigation/route_follower.gd")
 const StaticNavigation := preload("res://game/navigation/static_navigation.gd")
 const Docking := preload("res://game/stations/docking.gd")
+const GroupOrders := preload("res://game/orders/group_orders.gd")
 const CombatObstacles := preload("res://game/combat/combat_obstacles.gd")
 const TS := CombatShip.TargetState
 
@@ -151,6 +152,8 @@ var _last_heading := INF
 var _last_threat := -INF
 var _slot_blocked := 0.0
 var _last_stance := -1
+var _group_orders: GroupOrders
+var _sector_navigation: StaticNavigation
 
 @onready var ship := get_parent() as Node3D
 @onready var combat = ship.get_node("Combat")
@@ -487,13 +490,46 @@ func _stop() -> void:
 
 # --- Movement requests -----------------------------------------------------------------
 
-## The one way this layer moves the ship: the scene's autonomous_move() (not a command).
-## `through`: Waypoint Move's further waypoints to fly through (Stage 6B.2).
+func configure_movement(group_orders: GroupOrders, sector_navigation: StaticNavigation) -> void:
+	_group_orders = group_orders
+	_sector_navigation = sector_navigation
+
+
+## Requests a RouteFollower order for this ship's own positioning. Station control
+## takes precedence. The follower handles startup queuing, and the sector map is
+## used for preflight when ready.
+## `through` contains the remaining waypoints. An occupied final stop is adjusted,
+## or left for a later leg request if no free point is available.
+func autonomous_move(point: Vector2, through := PackedVector2Array()) -> bool:
+	if _group_orders == null:
+		return false
+	var docking := ship.get_node_or_null("Docking") as Docking
+	if docking != null and (docking.under_control() or not (docking.state in [Docking.State.NONE, Docking.State.UNABLE])):
+		return false
+	if not _sector_navigation.is_ready(follower.planning_radius()):
+		return follower.order(point, through)
+	var occupied := _group_orders.resolve_occupied(ship, point)
+	if not occupied.is_empty():
+		if not occupied.has("point"):
+			return false
+		point = occupied.point
+	if not through.is_empty():
+		through = through.duplicate()
+		var last := _group_orders.resolve_occupied(ship, through[through.size() - 1])
+		if last.has("point"):
+			through[through.size() - 1] = last.point
+		elif not last.is_empty():
+			through.remove_at(through.size() - 1)
+	if _sector_navigation.plan(follower.planning_radius(), locomotion.planar_position, point).size() < 2:
+		return false
+	return follower.order(point, through)
+
+
 func _request_move(point: Vector2, why: String, through := PackedVector2Array()) -> bool:
-	if not arena.has_method("autonomous_move"):
-		return false # A scene without the production command layer: the layer stays passive.
+	if _group_orders == null:
+		return false
 	_own_request = point
-	var accepted: bool = arena.autonomous_move(ship, point, through) if not through.is_empty() else arena.autonomous_move(ship, point)
+	var accepted := autonomous_move(point, through)
 	# The actual acceptance result: an older active leg is never mistaken for an accepted
 	# replacement, and only success is logged.
 	_plans_seen = follower.plans

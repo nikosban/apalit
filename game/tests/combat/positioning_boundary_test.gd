@@ -113,6 +113,7 @@ func _load(packed: PackedScene, rock_point: Variant = null, with_station := fals
 		if ship.name in ["Subject", "Partner"] and not ship.has_node("Behavior"):
 			var behavior := Behavior.new() # Removed by the encounter arena: the standard Behavior.
 			behavior.name = "Behavior"
+			behavior.configure_movement(scene.get_node("GroupOrders"), scene.get_node("StaticNavigation"))
 			ship.add_child(behavior)
 		if ship.has_node("Behavior"):
 			ship.get_node("Behavior").set_physics_process(false)
@@ -243,7 +244,7 @@ func _case_clearance() -> void:
 	var nav = scene.get_node("StaticNavigation")
 	_check("combat footprint check does not acquire the route planner's additional clearance margin",
 		_b()._position_ok(near_edge) and not nav.segment_clear(near_edge, near_edge, follower.planning_radius()))
-	var taken: bool = scene.autonomous_move(subject, near_edge)
+	var taken: bool = _b().autonomous_move(near_edge)
 	_check("the existing route planner still resolves a near-edge request inward",
 		taken and follower.requested == near_edge and follower.route.size() >= 2
 		and follower.route[follower.route.size() - 1].distance_to(near_edge) > 0.1

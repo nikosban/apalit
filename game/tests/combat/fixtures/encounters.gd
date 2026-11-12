@@ -50,13 +50,14 @@ static func apply(arena: Node, index: int) -> String:
 	# autonomous Behavior movement would compete with its station orders.
 	if arena.behavior_layer:
 		for ship: Node3D in [a, b, c]:
-			attach(ship)
+			var behavior := attach(ship)
+			behavior.configure_movement(arena.get_node("GroupOrders"), arena.get_node("StaticNavigation"))
 	return NAMES[index]
 
 
 ## Gives a ship its Behavior node and the Defensive target priority (engageable attackers
 ## first, its own attackers before its allies').
-static func attach(ship: Node3D) -> Node:
+static func attach(ship: Node3D) -> Behavior:
 	var behavior := Behavior.new()
 	behavior.name = "Behavior"
 	ship.add_child(behavior)

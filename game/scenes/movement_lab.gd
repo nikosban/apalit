@@ -16,6 +16,7 @@ const GroupOrders := preload("res://game/orders/group_orders.gd")
 const Shipyard := preload("res://game/shipyard/shipyard.gd")
 const AvoidanceScenarios := preload("res://game/scenes/avoidance_scenarios.gd")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
+const ShipBehavior := preload("res://game/behavior/ship_behavior.gd")
 const TimeControl := preload("res://game/time/time_control.gd")
 const FogView := preload("res://game/presentation/fog_view.gd")
 const WeaponEnvelopes := preload("res://game/presentation/weapon_envelopes.gd")
@@ -85,7 +86,7 @@ var fog_reveal := false # DEBUG override: show every ship despite the fog (tests
 func _ready() -> void:
 	command.configure(_group_orders, $StaticNavigation as StaticNavigation, _asteroids, sector_half_size)
 	if orders != null:
-		orders.configure_move(command.issue_move)
+		orders.configure_move(command.issue_move, _group_orders)
 		_setup_combat_layer()
 	var stations := get_node_or_null("Stations")
 	player.configure($Ships, stations, _asteroids, get_node_or_null("Survey"), orders,
@@ -170,6 +171,9 @@ func _setup_combat_layer() -> void:
 func register_ship(ship: Node3D) -> void:
 	if _registered.has(ship):
 		return
+	var behavior := ship.get_node_or_null("Behavior") as ShipBehavior
+	if behavior != null:
+		behavior.configure_movement(_group_orders, $StaticNavigation as StaticNavigation)
 	for node in [ship.get_node("RouteFollower"), _mining_of(ship), _docking_of(ship), ship.get_node_or_null("Fuel"), _transport_of(ship)]:
 		if node != null and not node.notice.is_connected(_show_notice):
 			node.notice.connect(_show_notice)
@@ -201,10 +205,6 @@ func _on_removing(removed_ship: Node3D) -> void:
 # A shipyard deployed a ship: selection and commands know it before the next frame.
 func _on_ship_deployed(ship: Node3D) -> void:
 	register_ship(ship)
-
-
-func _map_ready(ship: Node) -> bool:
-	return ($StaticNavigation as StaticNavigation).is_ready((ship.get_node("RouteFollower") as RouteFollower).planning_radius())
 
 
 func _mining_of(ship: Node) -> MiningOperation:
@@ -326,53 +326,6 @@ func draw_contact_memory(canvas: Control, camera: Camera3D, width: float) -> voi
 		canvas.draw_string(ThemeDB.fallback_font, center + Vector2(-4, 5) * scale, "?", HORIZONTAL_ALIGNMENT_LEFT, -1, int(14 * scale), Color(0.8, 0.8, 0.82, 0.9))
 		canvas.draw_string(ThemeDB.fallback_font, center + Vector2(d + 4 * scale, 4 * scale), "last seen %.0f s" % entry.age, HORIZONTAL_ALIGNMENT_LEFT, -1, int(11 * scale), Color(0.75, 0.76, 0.78, 0.8))
 
-
-
-## The narrow internal movement request of a ship's Behavior (autonomous positioning: an
-## engagement position, a guard position, a waypoint leg, a stop): one RouteFollower
-## order to the point, moved beside a stationary ship occupying it (as a single MOVE).
-## Unlike a command it cancels no assignment, shows no notice or marker change and is not
-## announced as a command. Refused (false, nothing changes) while the station has the ship
-## (docking in any state but Not docked / Unable to Dock), with no free point beside an
-## occupying ship, or without a route. Before the navigation map is ready the order is
-## queued by RouteFollower (as any order then), unchecked.
-## Stage 6B.2: `through` (queued Waypoints after `point`) is passed on to the
-## RouteFollower order to be flown through; its last point (the stop) is moved beside an
-## occupying stationary ship as `point` is, or left for a later leg request without a
-## free point there.
-func autonomous_move(ship: Node3D, point: Vector2, through := PackedVector2Array()) -> bool:
-	var docking := _docking_of(ship)
-	if docking != null and (docking.under_control() or not (docking.state in [Docking.State.NONE, Docking.State.UNABLE])):
-		return false
-	var follower := ship.get_node("RouteFollower") as RouteFollower
-	if not _map_ready(ship):
-		return follower.order(point, through) # Queued by RouteFollower until the map is ready (as a command).
-	var occupied := _group_orders.resolve_occupied(ship, point)
-	if not occupied.is_empty():
-		if not occupied.has("point"):
-			return false
-		point = occupied.point
-	if not through.is_empty():
-		through = through.duplicate()
-		var last := _group_orders.resolve_occupied(ship, through[through.size() - 1])
-		if last.has("point"):
-			through[through.size() - 1] = last.point
-		elif not last.is_empty():
-			through.remove_at(through.size() - 1)
-	var position := (ship.get_node("Locomotion") as ShipLocomotion).planar_position
-	if ($StaticNavigation as StaticNavigation).plan(follower.planning_radius(), position, point).size() < 2:
-		return false
-	return follower.order(point, through)
-
-
-## One destination per ship around `point`: the point itself for one ship, GroupOrders'
-## assignment for several (only the ships that can be placed; {} when none can).
-func group_destinations(ships: Array, point: Vector2) -> Dictionary:
-	if ships.size() == 1:
-		return {ships[0]: point}
-	if ships.is_empty():
-		return {}
-	return _group_orders.assign(ships, point)
 
 
 # Development bindings keep their arena-specific actions and precedence over player keys.
