@@ -1,6 +1,5 @@
 extends Node3D
-## Assembles the arena's simulation, orders, and world presentation. Player owns
-## screen input and HUD. The resolved order API also serves callers without a Player.
+## Assembles the arena's simulation, Command, Player and world presentation.
 
 const DisplayName := preload("res://game/ui/display_name.gd")
 const AsteroidField := preload("res://game/resources/asteroid_field.gd")
@@ -12,9 +11,9 @@ const RouteFollower := preload("res://game/navigation/route_follower.gd")
 const StaticNavigation := preload("res://game/navigation/static_navigation.gd")
 const ShipAvoidance := preload("res://game/avoidance/ship_avoidance.gd")
 const PlayerController := preload("res://game/player/player.gd")
+const CommandController := preload("res://game/command/command.gd")
 const GroupOrders := preload("res://game/orders/group_orders.gd")
 const Shipyard := preload("res://game/shipyard/shipyard.gd")
-const Station := preload("res://game/stations/station.gd")
 const AvoidanceScenarios := preload("res://game/scenes/avoidance_scenarios.gd")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const TimeControl := preload("res://game/time/time_control.gd")
@@ -36,10 +35,7 @@ const ALWAYS_NODES := ["Player", "DebugUI", "NavigationDebug", "AvoidanceDebug",
 const SCENARIO_KEYS := [KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS]
 const SCENARIO_ZOOM := 40.0
 const GROUND_HALF_SIZE := 150.0 # Sector half-size without a StaticNavigation (sector_half_size()).
-const GROUP_NOTICE := PlayerController.GROUP_NOTICE
-const CommandKind := PlayerController.CommandKind
 
-signal command_given(ship: Node3D, kind: int) # A player command executed for this ship (combat migration).
 signal notice_requested(text: String)
 
 @export var scenario_keys := true # Keys 4-9, 0, - set up the avoidance scenarios (test arena only).
@@ -60,8 +56,6 @@ signal notice_requested(text: String)
 @export var strategic_experiment_e := false
 @export var god_rays_enabled := false
 var _registered := {} # ship -> true: registered ships (register_ship())
-var _pending := {} # ship -> {command, callable}: the command its Docking holds (shown by the marker while held)
-var _silent := false # command_available(): the checks run without their notices.
 # Combat layer (scenes with CombatOrders).
 var debug_visible := false # Combat debug overlay (F10).
 var time_control: Node = null
@@ -76,6 +70,7 @@ var sensor_grid: MeshInstance3D = null # Sensor grid overlay of the first select
 var fog_reveal := false # DEBUG override: show every ship despite the fog (tests only).
 
 @onready var player := $Player as PlayerController
+@onready var command := $Command as CommandController
 @onready var _group_orders := $GroupOrders as GroupOrders
 @onready var _debug_ui := $DebugUI
 @onready var _navigation_debug := $NavigationDebug
@@ -88,13 +83,14 @@ var fog_reveal := false # DEBUG override: show every ship despite the fog (tests
 
 
 func _ready() -> void:
+	command.configure(_group_orders, $StaticNavigation as StaticNavigation, _asteroids, sector_half_size)
 	if orders != null:
+		orders.configure_move(command.issue_move)
 		_setup_combat_layer()
 	var stations := get_node_or_null("Stations")
-	# Temporary world queries and command adapters until their systems expose equivalents.
 	player.configure($Ships, stations, _asteroids, get_node_or_null("Survey"), orders,
-		time_control, strategic, markers, sector_half_size(), player_sees, submit_intent,
-		can_submit_intent, held_move, _development_key)
+		time_control, strategic, markers, sector_half_size(), player_sees, command, _development_key)
+	command.notice_requested.connect(player.show_notice)
 	notice_requested.connect(player.show_notice)
 	for ship: Node3D in $Ships.get_children():
 		register_ship(ship)
@@ -192,7 +188,7 @@ func register_ship(ship: Node3D) -> void:
 func _on_destroyed(destroyed_ship: Node3D) -> void:
 	if is_instance_valid(player):
 		player.ship_destroyed(destroyed_ship)
-	_pending.erase(destroyed_ship)
+	command.forget_ship(destroyed_ship)
 	_show_notice("%s destroyed" % DisplayName.of(destroyed_ship))
 
 
@@ -205,243 +201,6 @@ func _on_removing(removed_ship: Node3D) -> void:
 # A shipyard deployed a ship: selection and commands know it before the next frame.
 func _on_ship_deployed(ship: Node3D) -> void:
 	register_ship(ship)
-
-
-## Submit an already resolved point or target for the explicitly supplied recipients.
-func submit_intent(ships: Array, command: Dictionary) -> bool:
-	if ships.is_empty() or command.is_empty():
-		return false
-	if command.kind == CommandKind.TARGET:
-		if orders == null:
-			return false
-		var count: int = orders.assign_target(ships, command.ship)
-		_show_notice("Target: %s (%d ship%s)" % [DisplayName.of(command.ship), count, "" if count == 1 else "s"])
-		return count > 0
-	if command.kind != CommandKind.GROUP:
-		return _order(ships[0], command)
-	var point: Vector2 = command.point
-	# Only the ships that get a destination are ordered; the others keep their orders,
-	# assignments and commands.
-	if not ships.any(func(ship: Node3D) -> bool: return _held(ship)):
-		var given := _group_orders.command(ships, point)
-		if given.is_empty():
-			_show_notice(GROUP_NOTICE)
-			return false
-		for ship: Node3D in given:
-			_release_assignments(ship)
-			command_given.emit(ship, CommandKind.GROUP_MOVE)
-		_notice_partial(given.size(), ships.size())
-		return true
-	# Some ships are under station control or docked: the same assignment; each such
-	# ship keeps its own destination (the others go now).
-	var destinations := _group_orders.assign(ships, point)
-	if destinations.is_empty():
-		_show_notice(GROUP_NOTICE)
-		return false
-	var accepted := 0
-	for ship: Node3D in destinations:
-		if _order(ship, {"kind": CommandKind.GROUP_MOVE, "point": destinations[ship]}):
-			accepted += 1
-	_notice_partial(accepted, ships.size())
-	return accepted > 0
-
-# A group MOVE accepted by only some of the ships says so (accepted: executed, or held
-# until station control or the controlled exit ends).
-func _notice_partial(accepted: int, total: int) -> void:
-	if accepted < total:
-		_show_notice("%d of %d ships ordered; %d not ordered" % [accepted, total, total - accepted])
-
-
-## UX round (P8): whether the click would be accepted (read-only, no notices): the same
-## checks as _order() and _execute() for the recipient (intent only under station
-## control; Dock at the station it is already docking at changes nothing: false); a
-## GROUP: GroupOrders finds a destination for at least one ship (can_assign(), the
-## same solver as the click; the caller caches).
-func can_submit_intent(ships: Array, command: Dictionary) -> bool:
-	if ships.is_empty() or command.is_empty():
-		return false
-	if command.kind == CommandKind.TARGET:
-		return orders != null
-	if command.kind == CommandKind.GROUP:
-		return _group_orders.can_assign(ships, command.point)
-	var ship: Node3D = ships[0]
-	var docking := _docking_of(ship)
-	if command.kind == CommandKind.DOCK and docking != null and docking.is_docking_at(command.station):
-		return false
-	_silent = true
-	var available := _intent_valid(ship, command) if docking != null and docking.under_control() else _check(ship, command)
-	_silent = false
-	return available
-
-
-# Gives a resolved command to one ship. Under station control it is checked in two
-# stages: now only its intent (_intent_valid: the target exists and the ship can carry
-# it out; no route is planned from the guided position), a refused one changing
-# nothing, so the last valid command stays held; an accepted one is held (newest valid
-# wins) and given again when control ends, checked then from the ship's actual
-# position (refused: its notice, and the held command is gone). Dock at the station
-# it is already docking at changes nothing. Docked (anything but its own station): it
-# is checked first; refused, nothing changes; accepted, automation is paused (as the
-# panel's Undock does), the command held and the controlled exit started. Otherwise
-# it is executed now (with its own checks). A held MOVE shows its destination marker.
-# Returns whether the command was accepted: executed, or held for station control or
-# the controlled exit (accepted, not necessarily under way yet).
-func _order(ship: Node3D, command: Dictionary) -> bool:
-	var docking := _docking_of(ship)
-	var own_station: bool = command.kind == CommandKind.DOCK and docking != null and docking.is_docking_at(command.station)
-	if docking != null and docking.under_control():
-		if own_station or not _intent_valid(ship, command):
-			return false
-		_hold(ship, docking, command)
-		_show_notice("%s: order after station control" % DisplayName.of(ship))
-		return true
-	if docking != null and docking.state == Docking.State.DOCKED and not own_station:
-		if not _check(ship, command):
-			return false
-		_pause_automation(ship)
-		_hold(ship, docking, command)
-		docking.undock()
-		if docking.state == Docking.State.DOCKED:
-			docking.hold_command(Callable()) # No clear exit (its notice): nothing else changes.
-			_pending.erase(ship)
-			return false
-		return true
-	return _execute(ship, command)
-
-
-# Holds a command until station control ends (replacing any held one) and remembers it
-# for the destination marker.
-func _hold(ship: Node3D, docking: Docking, command: Dictionary) -> void:
-	var release := _release.bind(ship, command)
-	_pending[ship] = {"command": command, "callable": release}
-	docking.hold_command(release)
-
-
-# Station control ended: the held command is given (checked from where the ship is now).
-func _release(ship: Node3D, command: Dictionary) -> void:
-	_pending.erase(ship)
-	_order(ship, command)
-
-
-# The command's intent, independent of where the ship is: its target exists and the
-# ship has what the command needs. Refused: a notice, nothing changes.
-func _intent_valid(ship: Node3D, command: Dictionary) -> bool:
-	var valid := true
-	match command.kind:
-		CommandKind.DOCK:
-			valid = _docking_of(ship) != null and is_instance_valid(command.station) and (command.station as Node).is_in_group(Station.GROUP)
-		CommandKind.MINE:
-			valid = _mining_of(ship) != null and _asteroids != null and _asteroids.ids().has(command.asteroid)
-		CommandKind.MOVE, CommandKind.GROUP_MOVE:
-			var point: Vector2 = command.point
-			valid = ship.get_node_or_null("RouteFollower") != null and absf(point.x) <= sector_half_size() and absf(point.y) <= sector_half_size()
-	if not valid:
-		_show_notice("%s: order not possible - held order kept" % DisplayName.of(ship))
-	return valid
-
-
-# Returns whether the command was accepted (executed).
-func _execute(ship: Node3D, command: Dictionary) -> bool:
-	match command.kind:
-		CommandKind.DOCK:
-			var docking := _docking_of(ship)
-			if docking.is_docking_at(command.station):
-				return false # Already docking there: nothing to change.
-			if not _check(ship, command):
-				return false
-			_pause_automation(ship)
-			docking.dock(command.station)
-			command_given.emit(ship, command.kind)
-			return true
-		CommandKind.MINE:
-			if not _check(ship, command):
-				return false
-			if _docking_of(ship) != null:
-				_docking_of(ship).cancel()
-			_mining_of(ship).assign(command.asteroid)
-			command_given.emit(ship, command.kind)
-			return true
-		CommandKind.MOVE:
-			if _move_single(ship, command.point):
-				_release_assignments(ship)
-				command_given.emit(ship, command.kind)
-				return true
-		CommandKind.GROUP_MOVE:
-			if (ship.get_node("RouteFollower") as RouteFollower).order(command.point):
-				_release_assignments(ship)
-				command_given.emit(ship, command.kind)
-				return true
-	return false
-
-
-# The refusal checks of each command, with their notices; nothing changes.
-func _check(ship: Node3D, command: Dictionary) -> bool:
-	match command.kind:
-		CommandKind.DOCK:
-			if _map_ready(ship) and not _docking_of(ship).can_dock(command.station):
-				_show_notice("%s: unable to dock - no reachable docking position" % DisplayName.of(ship))
-				return false
-		CommandKind.MINE:
-			if not _mining_of(ship).can_mine(command.asteroid):
-				_show_notice("%s: no reachable working position at the asteroid" % DisplayName.of(ship))
-				return false
-		CommandKind.MOVE, CommandKind.GROUP_MOVE:
-			var point: Vector2 = command.point
-			if command.kind == CommandKind.MOVE:
-				var occupied := _group_orders.resolve_occupied(ship, point)
-				if not occupied.is_empty():
-					if not occupied.has("point"):
-						_show_notice("No free position near %s - no order given" % DisplayName.of(occupied.blocker))
-						return false
-					point = occupied.point
-			if _map_ready(ship):
-				var follower := ship.get_node("RouteFollower") as RouteFollower
-				var position := (ship.get_node("Locomotion") as ShipLocomotion).planar_position
-				if ($StaticNavigation as StaticNavigation).plan(follower.planning_radius(), position, point).size() < 2:
-					_show_notice("No route found")
-					return false
-	return true
-
-
-# Under station control, or docked (a command for it starts the controlled exit first).
-func _held(ship: Node3D) -> bool:
-	var docking := _docking_of(ship)
-	return docking != null and (docking.under_control() or docking.state == Docking.State.DOCKED)
-
-
-func _pause_automation(ship: Node3D) -> void:
-	if _mining_of(ship) != null:
-		_mining_of(ship).cancel()
-	if _transport_of(ship) != null:
-		_transport_of(ship).cancel()
-
-
-# A manual MOVE replaced the ship's assignments: mining and transport pause (settings
-# kept), the dock request is released.
-func _release_assignments(ship: Node3D) -> void:
-	_pause_automation(ship)
-	if _docking_of(ship) != null:
-		_docking_of(ship).cancel()
-
-
-# Single-ship MOVE. A point inside a stationary ship's clearance is replaced by the
-# nearest valid destination outside it (GroupOrders.resolve_occupied), shown by the
-# destination ring and a notice; none: a notice and no order (the current order and
-# assignments stay). An order counts only once RouteFollower has taken it (or queued
-# it); one it refuses (no route) changes nothing. Returns whether an order was given.
-func _move_single(ship: Node3D, point: Vector2) -> bool:
-	var follower := ship.get_node("RouteFollower") as RouteFollower
-	var occupied := _group_orders.resolve_occupied(ship, point)
-	if occupied.is_empty():
-		return follower.order(point, PackedVector2Array(), true) # Refused (no route): its notice, nothing changed.
-	var blocker: Node = occupied.blocker
-	if not occupied.has("point"):
-		_show_notice("No free position near %s - no order given" % DisplayName.of(blocker))
-		return false
-	if not follower.order(occupied.point, PackedVector2Array(), true):
-		return false
-	_show_notice("Destination occupied by %s - moved beside it" % DisplayName.of(blocker))
-	return true
 
 
 func _map_ready(ship: Node) -> bool:
@@ -458,22 +217,6 @@ func _docking_of(ship: Node) -> Docking:
 
 func _transport_of(ship: Node) -> TransportOperation:
 	return ship.get_node_or_null("Transport") as TransportOperation
-
-
-# The station nearest along a camera ray, or null (no stations in the test arena).
-# The point of the MOVE (or group MOVE) the ship's Docking still holds for it, or null;
-# an entry whose command is no longer the held one (replaced or given) is dropped.
-func held_move(ship: Node3D) -> Variant:
-	if not _pending.has(ship):
-		return null
-	var docking := _docking_of(ship)
-	if docking == null or docking.held_command() != _pending[ship].callable:
-		_pending.erase(ship)
-		return null
-	var command: Dictionary = _pending[ship].command
-	if command.kind == CommandKind.MOVE or command.kind == CommandKind.GROUP_MOVE:
-		return command.point
-	return null
 
 
 # Debug panel and drawings follow the selection when exactly one ship is selected.
@@ -530,8 +273,7 @@ func _start_scenario(index: int) -> void:
 
 
 func _show_notice(text: String) -> void:
-	if not _silent:
-		notice_requested.emit(text)
+	notice_requested.emit(text)
 
 
 # --- Combat layer (combat migration) ---------------------------------------------------
@@ -584,26 +326,6 @@ func draw_contact_memory(canvas: Control, camera: Camera3D, width: float) -> voi
 		canvas.draw_string(ThemeDB.fallback_font, center + Vector2(-4, 5) * scale, "?", HORIZONTAL_ALIGNMENT_LEFT, -1, int(14 * scale), Color(0.8, 0.8, 0.82, 0.9))
 		canvas.draw_string(ThemeDB.fallback_font, center + Vector2(d + 4 * scale, 4 * scale), "last seen %.0f s" % entry.age, HORIZONTAL_ALIGNMENT_LEFT, -1, int(11 * scale), Color(0.75, 0.76, 0.78, 0.8))
 
-
-
-## A move given as a command (CombatOrders.move(): the player's or a commander's) through
-## the scene's command path: one ship as a right-click MOVE (_order: held during station
-## control, occupied-destination resolution, refusal checks), several as a group MOVE
-## (GroupOrders: the ships that get a destination). Announced with command_given for the
-## ships ordered. Returns whether any ship was given the move (one ship: _order()'s
-## result, so executed, queued or held for station control).
-func issue_move(ships: Array, point: Vector2) -> bool:
-	if ships.size() == 1:
-		return _order(ships[0], {"kind": CommandKind.MOVE, "point": point})
-	var given := _group_orders.command(ships, point)
-	if given.is_empty():
-		_show_notice(GROUP_NOTICE)
-		return false
-	for each: Node3D in given:
-		_release_assignments(each)
-		command_given.emit(each, CommandKind.GROUP_MOVE)
-	_notice_partial(given.size(), ships.size())
-	return true
 
 
 ## The narrow internal movement request of a ship's Behavior (autonomous positioning: an

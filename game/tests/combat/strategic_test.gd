@@ -5,6 +5,7 @@ extends SceneTree
 ## E05, through real wheel, click and key input. Run with a fixed step:
 ##   <godot console> --headless --path . --fixed-fps 60 -s res://game/tests/combat/strategic_test.gd
 
+const CommandKind := preload("res://game/command/command.gd").CommandKind
 const E05 := preload("res://game/tests/combat/fixtures/e05_fleet.tscn")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const TacticalGrid := preload("res://game/presentation/tactical_grid.gd")
@@ -147,7 +148,7 @@ func _case_zoom() -> void:
 	var command: Dictionary = scene.get_node("Player").resolve_command(at, scene.selection().selected)
 	scene.selection().set_selection([])
 	_check("interaction at the maximum: full emphasis, the FF01B's marker is picked under it; a right-click resolves to a MOVE at the ground point under the cursor (%s)" % str(command.get("point")),
-		scene.markers.emphasis() == 1.0 and picked == ff01b and command.get("kind") == scene.CommandKind.MOVE and (command.point as Vector2).distance_to(Vector2(ground.x, ground.z)) < 0.01)
+		scene.markers.emphasis() == 1.0 and picked == ff01b and command.get("kind") == CommandKind.MOVE and (command.point as Vector2).distance_to(Vector2(ground.x, ground.z)) < 0.01)
 	var markers = scene.markers
 	var ship: Node3D = scene.ship("FF01A")
 	var states := []

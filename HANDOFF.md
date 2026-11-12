@@ -44,8 +44,8 @@ UI visual authoring (issue #5, section 4.9) and shared selection/marker styles
 Projectile/trail visual authoring and thruster relocation (issue #7, section 4.8)
 are accepted by the owner, including the reported verification limitations.
 
-The reusable Player scene and player folder layout (issue #1) are accepted by the
-owner on `codex/player-layer`.
+The reusable Player scene and player folder layout (issue #1) and the reusable
+Command component are accepted by the owner.
 
 ## 2. Project layout and scenes
 
@@ -85,7 +85,7 @@ owner on `codex/player-layer`.
   `/archive/` stays in `.gitignore` as a guard against recreating it.
 - `AGENTS.md`, `CHANGELOG.md`, `HANDOFF.md`, `.editorconfig`, `.gitattributes`
   (text stored with LF), `.gitignore` (`.godot/`, `/android/`, `/archive/`).
-- Git: accepted Player work is on `codex/player-layer`, based on `main`.
+- Git: `main` is the integration branch for the accepted Player and Command layers.
   Remote `origin` = `git@github.com:nikosban/apalit.git`
   (public on GitHub, checked 2026-10-30; whether it stays public is an open owner
   decision, section 10). No commit or push conventions are decided beyond the initial setup.
@@ -243,7 +243,7 @@ The scenes and scripts work only under this layout:
 - Obstacles are read once at start: stations added later are not obstacles.
 - Reuse is verified by `reuse_test` on `game/tests/reuse_arena.tscn`.
 
-### Player and arena interfaces
+### Player, Command and arena interfaces
 
 - `game/player/player.tscn` provides `CameraRig`, `Selection`, `NoticeUI` and
   `MovementIndicator` in all four arenas. Test Arena and Combat Test add the
@@ -253,12 +253,13 @@ The scenes and scripts work only under this layout:
   routes input. Strategic View still owns handoff and marker picking. Target
   selection and handoff can intercept input before GUI dispatch. Ordinary world
   presses use unhandled input. Developer actions stay with the arena or fixture.
-- Temporary arena connections: replace `submit_intent()` and `can_submit_intent()`
-  when Command exposes equivalent interfaces and Player, cursor and tests use them.
-  Remove ship lifecycle forwarding when ship and world notifications cover
-  same-call deployment, destruction and removal. Replace world queries, including
-  held destinations and visibility, when the owning systems expose equivalents and
-  their callers migrate.
+- All four arenas instantiate `game/command/command.gd` as `Command`. The arena
+  supplies GroupOrders, StaticNavigation, the optional asteroid field and a sector
+  size query. Player calls Command for submission, availability and held MOVE
+  destinations. Command signals dispatch to ShipBehavior and sends notices to Player.
+- The arena still wires ship startup, same-call deployment, destruction and removal.
+  It supplies visibility and sector queries, autonomous movement, and group
+  destination assignment for Attack-Move and Waypoint.
 
 ### Runtime ship registration
 
@@ -325,7 +326,7 @@ horizon, plus the accepted same-course pass side and re-plan after a far pass.
   - Waypoints (Stage 6B): `order(point, through, turn_course)`; one route is chained
 	through every waypoint (`waypoint_marks`, `waypoints_left()`); intermediate
 	waypoints are flown through, only the last is a stop.
-  - Course turn gate: only a single-ship player MOVE (`movement_lab._move_single`) asks
+  - Course turn gate: only a single-ship manual MOVE (`Command._move_single`) asks
 	for it, and `_course_room()` grants it only on a corner-free (two-point) route with
 	the footprint's obstacle and sector-edge clearance (`footprint_clearance()`,
 	`edge_clearance()`) at least 3 × and the route at least 2 × `lookahead_length()`;
@@ -378,7 +379,7 @@ first used them):
 | size class | 1 | 2 | 3 |
 | fuel tank / use per u | 100 / 0.25 | 200 / 0.5 | 400 / 1.0 |
 
-### 4.2 Selection, orders and commands (`player/selection/`, `orders/`, `scenes/movement_lab.gd`)
+### 4.2 Selection, orders and commands (`player/selection/`, `command/`, `orders/`)
 
 - `ship_selection.gd` (`Selection`): click (hull boxes + 0.3 u), Shift-click, box drag
   (centres), green rings; never touches movement. Only live player-faction ships are
@@ -399,11 +400,10 @@ first used them):
   the counters. `resolve_occupied()`: a single-ship MOVE inside a stationary ship's
   clearance goes to the nearest valid point within `resolve_margin` (5 u, provisional)
   beyond it.
-- Command flow: Player resolves ordinary right-clicks into a world point or
-  target and passes the recipients and intent to the arena's `submit_intent()`.
-  Modified combat clicks use CombatOrders with resolved targets or points.
-  The arena keeps acceptance, execution and held-order replay in `_order()`
-  and `_execute()`, with group assignment through GroupOrders.
+- Command flow: Player passes explicit recipients and resolved MOVE, group MOVE,
+  DOCK and MINE intents to `Command.submit_intent()`. TARGET and modified combat
+  clicks use CombatOrders. Command owns acceptance, execution and held-order
+  replay, with group assignment through GroupOrders and release timing through Docking.
   - Every command is checked before anything is cancelled. Refused (MOVE without a
 	route, Dock where `Docking.can_dock()` is false, Mine where
 	`MiningOperation.can_mine()` is false, Resume without a working point): notice
@@ -418,6 +418,8 @@ first used them):
   - Group MOVE: with no ship under station control or docked, `GroupOrders.command()`;
 	otherwise one `assign()` and each placed ship gets its own destination, held ships
 	after their maneuver. Partial: "N of M ships ordered; K not ordered".
+    Scripted `CombatOrders.move()` uses the same single-ship MOVE handling. For a
+    group it dispatches directly through `GroupOrders.command()`.
   - Held commands during station control (two-stage validation, owner decision): at
 	issue only the intent is checked (`_intent_valid()`: target exists, command
 	permitted); a rejected one never replaces the held one ("… - held order kept");
@@ -427,8 +429,8 @@ first used them):
   - Docked ship (any command but Dock at its own station): checked first from the
 	berth; refused: nothing changes; accepted: automation paused as by Undock, command
 	held, controlled exit started, then re-checked at release.
-  - The cursor uses Player's `resolve_command()` and the arena's read-only
-    `can_submit_intent()` through Player. Preview checks suppress notices.
+  - The cursor uses Player's `resolve_command()` and calls
+    `Command.can_submit_intent()` through Player. Preview checks suppress notices.
   - `autonomous_move()`: Behavior's positioning (one RouteFollower order, moved beside
 	an occupying ship, route checked; no assignment cancelled, no notice, not a
 	command; refused while docking owns the ship).
@@ -715,11 +717,11 @@ Combat behaviour is frozen as accepted (section 6).
   through the RouteFollower's configured `navigation_path` (required dependency, no
   fallback). Ship footprint, optional margin, asteroid and station clearance are
   unchanged; the independent E05 fixture controller keeps its own 135 u limit.
-- Movement ownership: Locomotion is the only executor. Behavior moves only through
-  `movement_lab.autonomous_move()`. Player commands are announced by
-  `command_given()` from `_execute()` (a held command is recorded when released);
-  Behavior takes a MOVE there as the player's Move. While docking owns the ship,
-  Behavior holds the Dock command and requests nothing.
+- Movement ownership: Locomotion is the only executor. Behavior requests movement
+  through `movement_lab.autonomous_move()` and listens to `Command.command_given`
+  for manual MOVE and DOCK. Command emits the signal when it dispatches an order,
+  including after a held order is released. While Docking owns the ship, Behavior
+  holds the Dock command and requests nothing.
 - `hostile_commander.gd` (`HostileCommander`): gives its faction's armed ships a
   tactic, Guard and Attack-Move objectives through CombatOrders once their map is
   ready. No strategic AI. Kept as shared code; no scene instances it since the
@@ -1303,13 +1305,15 @@ distribution, logistics balance, models and UI polish.
   `nikosban`, pushes use SSH.
 - Suites: 40 in `game/tests/`, 23 in `game/tests/combat/`, `game/tests/docking/tri_dock_test.gd`
   (64 total). Run: `<godot console> --headless --path . -s res://game/tests/<name>.gd`.
-- Current Player verification (Godot 4.7.2, fixed 60 FPS): 58 of 64 suites passed
-  after migration and relocation, with the same six baseline failures. All 14
-  scene smoke runs exited zero and matched baseline diagnostics. The standalone
-  encounter arena logs two existing errors when its scenario tries to place
-  ships present only in E05. Five rendered captures matched byte for byte.
-  `command_cursor_test` passed 20 checks, including input precedence, notice
-  timing, inherited camera overrides and an order submitted without Player or a camera.
+- Current Command verification (Godot 4.7.2, fixed 60 FPS): 58 of 64 suites passed,
+  with the same six failing suites as both baselines. All nine 600-frame smoke
+  runs exited zero and matched baseline diagnostics, including two errors in the
+  standalone encounter arena when its scenario tries to place ships present only
+  in E05. `command_cursor_test` passed 20 checks, including direct submission
+  without Player or a camera. `station_docking_test` passed 23 checks, including
+  the scripted group MOVE regression. Positioning redirect passed 23 checks
+  and movement reproduced the baseline detour failure (17 of 18 checks passed).
+  This pass used headless verification.
 - `--fixed-fps 60` is required for every combat suite and for `shipyard_runtime_test`,
   `reuse_test` (uninterrupted loop as fast as possible), `camera_test`,
   `tactical_view_test`, `strategic_view_test` (fails its boundary-fade check without
@@ -1323,8 +1327,8 @@ distribution, logistics balance, models and UI polish.
   `shipyard_runtime_test` B10's asteroid and base), timing values, navigation map-ready
   frame, tri-dock warning order. Expected error lines: `guided_locomotion_test` check
   10 guard, `station_docking_test` deliberate `cancel()`, tri-dock navigation edge
-  warnings. Verification scope follows `AGENTS.md` steps C and D. Temporary Player
-  verification logs and runners are under `.godot/player-layer-verification/`.
+  warnings. Verification scope follows `AGENTS.md` steps C and D. Command
+  verification logs and runners are under `.godot/command-layer-verification/`.
 - Movement indicator (2026-10-30, `--fixed-fps 60`): the 12 affected suites, the new
   `movement_indicator_test` (33 checks) and five 600-frame scene runs (the four above
   plus `movement_test.tscn`) compared against two pre-change baselines: all pass, no
@@ -1494,8 +1498,8 @@ distribution, logistics balance, models and UI polish.
 
 ## 10. Next task and open items
 
-Issue #1 is accepted. No next task is selected. The earlier read-only architecture
-inventory brief remains unstarted. New work follows `AGENTS.md`.
+The Player and Command migrations are accepted. No next task is selected.
+New work follows `AGENTS.md`.
 
 Open follow-ups (not started): the two intermittent PDC-exposed test failures and the
 `command_test` failures (section 8 known failures); cleanup of `stash@{0}`.

@@ -14,6 +14,7 @@ extends SceneTree
 ##   <godot console> --headless --path . --fixed-fps 60 -s res://game/tests/movement_indicator_test.gd
 ## Every check is PASS/FAIL.
 
+const CommandKind := preload("res://game/command/command.gd").CommandKind
 const COMBAT_TEST := preload("res://game/scenes/combat_test.tscn")
 const INDICATOR := preload("res://game/player/movement_indicator/movement_indicator.tscn")
 const PREVIEW := preload("res://game/player/movement_indicator/movement_indicator_preview.tscn")
@@ -40,7 +41,8 @@ func _initialize() -> void:
 	_indicator = _scene.get_node("Player/MovementIndicator")
 	_ship = _scene.ship("FF01")
 	_scene.selection().set_selection([_ship])
-	_check("the FF01's MOVE is given", _scene.issue_move([_ship], _destination))
+	var intent := {"kind": CommandKind.MOVE, "point": _destination}
+	_check("the FF01's MOVE is given", _scene.command.submit_intent([_ship], intent))
 	for i in 120: # The route is planned once the navigation map is ready.
 		if _ship.get_node("Locomotion").has_destination:
 			break

@@ -7,6 +7,7 @@ extends SceneTree
 ## Run with a fixed step:
 ##   <godot console> --headless --path . --fixed-fps 60 -s res://game/tests/sector_environment_test.gd
 
+const CommandKind := preload("res://game/command/command.gd").CommandKind
 const MAIN := preload("res://main.tscn")
 const COMBAT_TEST := preload("res://game/scenes/combat_test.tscn")
 const FogView := preload("res://game/presentation/fog_view.gd")
@@ -132,8 +133,8 @@ func _case_combat_sector() -> void:
 		and scene.get_node("Player/CameraRig").bounds == Rect2(-half, -half, 2.0 * half, 2.0 * half)
 		and scene.grid == null and not scene.has_node("TacticalGrid") and scene.strategic.sector_rect() == scene.get_node("Player/CameraRig").bounds)
 	var transporter: Node3D = scene.ship("FF01")
-	var inside: bool = scene._intent_valid(transporter, {"kind": scene.CommandKind.MOVE, "point": Vector2(half - 5.0, 0.0)})
-	var outside: bool = scene._intent_valid(transporter, {"kind": scene.CommandKind.MOVE, "point": Vector2(half + 5.0, 0.0)})
+	var inside: bool = scene.command._intent_valid(transporter, {"kind": CommandKind.MOVE, "point": Vector2(half - 5.0, 0.0)})
+	var outside: bool = scene.command._intent_valid(transporter, {"kind": CommandKind.MOVE, "point": Vector2(half + 5.0, 0.0)})
 	var radius: float = transporter.get_node("RouteFollower").planning_radius()
 	var navigation := scene.get_node("StaticNavigation")
 	_check("Combat Test: MOVE valid inside the sector, refused outside it; navigation's map ends at the same bound",

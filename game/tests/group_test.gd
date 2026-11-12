@@ -12,6 +12,7 @@ extends SceneTree
 ## Reported: assignment cost (candidates, fit and route queries, time), per ship
 ## the click-to-destination distance, route length, arrival time and time waiting.
 
+const GROUP_NOTICE := preload("res://game/command/command.gd").GROUP_NOTICE
 const LAB := preload("res://game/scenes/movement_test.tscn")
 const DT := 1.0 / 60.0
 const TIME_LIMIT := 240.0 # s
@@ -265,7 +266,7 @@ func _insufficient() -> void:
 	_orders.search_radius = 4.0
 	_lab.get_node("Player")._command(camera.unproject_position(Vector3(click.x, 0, click.y)))
 	_orders.search_radius = 40.0
-	_check(label, "lab shows the notice", notice.text == _lab.GROUP_NOTICE and _lab.get_node("Player")._notice_left > 0.0)
+	_check(label, "lab shows the notice", notice.text == GROUP_NOTICE and _lab.get_node("Player")._notice_left > 0.0)
 	_check(label, "existing orders still kept after the right-click", _kept(ships, before))
 	_lab.get_node("Player/Selection").set_selection([])
 

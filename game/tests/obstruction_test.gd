@@ -3,8 +3,8 @@
 ## (game/scenes/movement_test.tscn, unchanged): a Miner2 and a Transporter2 are
 ## added at run time, configured as in main.tscn (movement nodes only). Physics is
 ## stepped manually at 60 Hz in the game's order (per ship RouteFollower then
-## Avoidance, then every Locomotion). Manual MOVE orders go through the lab's
-## single-ship MOVE (movement_lab.gd `_move_single`), as a right-click does.
+## Avoidance, then every Locomotion). Manual MOVE orders go through the same Command
+## submission interface as a right-click.
 ## Run from the project folder:
 ##   <godot console> --headless --path . -s res://game/tests/obstruction_test.gd
 ## Scenarios (open area east of the obstacles, around (115, 0), unless stated):
@@ -22,6 +22,7 @@
 ## stall (stopped with an order), contacts (collision count), smallest footprint
 ## gap, acceleration / turn-limit violations, passing-side flips. Every check is PASS/FAIL.
 
+const CommandKind := preload("res://game/command/command.gd").CommandKind
 const LAB := preload("res://game/scenes/movement_test.tscn")
 const MINER := preload("res://game/ships/miner.tscn")
 const TRANSPORTER := preload("res://game/ships/transporter.tscn")
@@ -99,6 +100,10 @@ func _add_ship(ship: Node3D, ship_name: String, profile: Array, radius: float, s
 	ship.add_child(avoidance)
 
 
+func _submit_move(ship_name: String, point: Vector2) -> bool:
+	return _lab.command.submit_intent([_ship(ship_name)], {"kind": CommandKind.MOVE, "point": point})
+
+
 # 1. MOVE onto or beside a stationary ship.
 func _test_occupied() -> void:
 	var group := _lab.get_node("GroupOrders")
@@ -114,7 +119,7 @@ func _test_occupied() -> void:
 		_place(blocker, CENTER, 0.0)
 		var start := CENTER + Vector2(0, 30)
 		_place(mover, start, 0.0)
-		var given: bool = _lab._move_single(_ship(mover), click)
+		var given := _submit_move(mover, click)
 		var destination := _locomotion(mover).destination
 		var clearance: float = _follower(mover).ship_radius + _follower(blocker).ship_radius + group.separation_margin + group.destination_buffer
 		var label := "1. %s MOVE to %s (%+.1f, %+.1f) from the blocker" % [mover, blocker, case[2].x, case[2].y]
@@ -140,7 +145,7 @@ func _test_occupied() -> void:
 		_step()
 	_place("Transporter", CENTER + Vector2(0, 30), 0.0)
 	var click := _locomotion("Miner2").planar_position
-	_lab._move_single(_ship("Transporter"), click)
+	_submit_move("Transporter", click)
 	_check("1. a click on a moving ship keeps the clicked point (destination %.2f u from it)" % _locomotion("Transporter").destination.distance_to(click),
 		_locomotion("Transporter").destination.distance_to(click) < 0.01)
 
@@ -152,7 +157,7 @@ func _test_occupied() -> void:
 	for i in 60:
 		_step()
 	var before := _locomotion("Transporter").destination
-	var given: bool = _lab._move_single(_ship("Transporter"), Vector2(60, 50))
+	var given := _submit_move("Transporter", Vector2(60, 50))
 	_check("1. no valid destination: command rejected, current order kept (destination unchanged, still moving)",
 		not given and _locomotion("Transporter").has_destination and _locomotion("Transporter").destination == before)
 
@@ -315,7 +320,7 @@ func _test_far_side() -> void:
 	_reset()
 	_place("Miner2", CENTER, 0.0)
 	_place("Transporter", CENTER + Vector2(0, 30), 0.0)
-	_lab._move_single(_ship("Transporter"), CENTER + Vector2(0, -6.4))
+	_submit_move("Transporter", CENTER + Vector2(0, -6.4))
 	var original := _far_run("7. Transporter MOVE 6.4 u beyond the Miner2 (original case)", "Transporter")
 	ok = ok and _far_ok(original)
 	for mover in ["Transporter", "Miner", "Transporter2", "FF01"]:

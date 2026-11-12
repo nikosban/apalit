@@ -13,6 +13,7 @@
 [ext_resource type="Script" path="res://game/combat/combat_orders.gd" id="12_orders"]
 [ext_resource type="Script" path="res://game/tests/combat/fixtures/enemy_controller.gd" id="13_enemy"]
 [ext_resource type="Script" path="res://game/orders/group_orders.gd" id="15_group_orders"]
+[ext_resource type="Script" path="res://game/command/command.gd" id="command_controller"]
 [ext_resource type="Script" path="res://game/debug/navigation_debug.gd" id="16_navigation_debug"]
 [ext_resource type="Script" path="res://game/debug/avoidance_debug.gd" id="17_avoidance_debug"]
 [ext_resource type="PackedScene" path="res://game/debug/debug_ui.tscn" id="18_debug"]
@@ -133,6 +134,9 @@ script = ExtResource("13_enemy")
 
 [node name="GroupOrders" type="Node" parent="."]
 script = ExtResource("15_group_orders")
+
+[node name="Command" type="Node" parent="."]
+script = ExtResource("command_controller")
 
 [node name="NavigationDebug" type="Node3D" parent="."]
 script = ExtResource("16_navigation_debug")

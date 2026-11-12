@@ -1,5 +1,6 @@
 extends SceneTree
 ## Stage 6B. Fixed 60 Hz production movement/weapon integration.
+const CommandKind := preload("res://game/command/command.gd").CommandKind
 const Harness := preload("res://game/tests/combat/fixtures/combat_positioning_harness.gd")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const Behavior := preload("res://game/behavior/ship_behavior.gd")
@@ -359,7 +360,7 @@ func _docking() -> void:
 	var station: Node3D = harness.arena.get_node("Stations/Station")
 	harness.arena.orders.attack([ship], harness.enemy)
 	await _run(3.0)
-	var taken: bool = harness.arena._order(ship, {"kind": harness.arena.CommandKind.DOCK, "station": station})
+	var taken: bool = harness.arena.command.submit_intent([ship], {"kind": CommandKind.DOCK, "station": station})
 	var requests: int = b.move_requests
 	var revoked := true
 	var docked := false
@@ -376,7 +377,7 @@ func _docking() -> void:
 	docking.undock()
 	await _run(1.0)
 	_check("combat-facing input is refused during controlled station guidance", lo.guided and not lo.combat_motion(0.0, 1.5))
-	var held: bool = harness.arena._order(ship, {"kind": harness.arena.CommandKind.MOVE, "point": Vector2(-270, -210)})
+	var held: bool = harness.arena.command.submit_intent([ship], {"kind": CommandKind.MOVE, "point": Vector2(-270, -210)})
 	var controlled: bool = docking.under_control() and docking.has_held_command()
 	await _run(60.0)
 	_check("held Move exits docking without stale combat authority", held and controlled and not lo.combat_control and b.command in [Behavior.Command.MOVE, Behavior.Command.NONE])
@@ -719,7 +720,7 @@ func _print_trace(window: Array, first: int, last: int, every := 6) -> void:
 
 # --- Stage 6B.2 final: repeated Move commands --------------------------------------
 # "-- redirect" (optionally "trace"): FF-01 under way at cruise speed takes new Move
-# commands through the production player path (CombatOrders.move -> issue_move ->
+# commands through the production player path (CombatOrders.move -> Command.issue_move ->
 # _order -> _execute), unobstructed and on a routed path. Directions are relative to
 # the ship's current travel; + turns left (counterclockwise on the X/Z plane).
 

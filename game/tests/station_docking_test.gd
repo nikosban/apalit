@@ -87,6 +87,7 @@ func _initialize() -> void:
 	await _test_panel()
 	_test_operations()
 	_test_counters()
+	_test_scripted_group()
 	print("RESULT: %s (%d of %d checks failed)" % ["PASS" if _failures == 0 else "FAIL", _failures, _checks])
 	quit(0 if _failures == 0 else 1)
 
@@ -362,8 +363,7 @@ func _dock_selected(s: String) -> void:
 
 # Group MOVE with a free ship, a docked ship and a ship under station control: one
 # GroupOrders assignment; each ship ends at its own assigned destination.
-func _test_group() -> void:
-	var selection := _main.get_node("Player/Selection")
+func _prepare_mixed_group() -> Array:
 	_reset()
 	_a.slots[1].ship = _ship("FF01")
 	_place("Miner1", _planar(_a) + Vector2(55, 0))
@@ -374,8 +374,12 @@ func _test_group() -> void:
 	_dk("Transporter").dock(_a)
 	_until(func() -> bool: return _dk("Transporter").under_control(), 60 * 90)
 	_place("Miner3", Vector2(10, -30))
-	var ships := [_ship("Miner3"), _ship("Miner1"), _ship("Transporter")]
-	selection.set_selection(ships)
+	return [_ship("Miner3"), _ship("Miner1"), _ship("Transporter")]
+
+
+func _test_group() -> void:
+	var selection := _main.get_node("Player/Selection")
+	selection.set_selection(_prepare_mixed_group())
 	_frame(Vector2(-5, -25), 45.0)
 	await process_frame
 	var click := Vector2(0, -40)
@@ -399,6 +403,21 @@ func _test_group() -> void:
 		miner3_now, miner_exits and miner_dest, transporter_held and transporter_dest], miner3_now and miner_exits and miner_dest and transporter_held and transporter_dest
 		and _guard_counts() == 0)
 	selection.set_selection([])
+
+
+func _test_scripted_group() -> void:
+	var ships := _prepare_mixed_group()
+	var point := Vector2(0, -40)
+	var destinations: Dictionary = _main.get_node("GroupOrders").assign(ships, point)
+	var guided := _ship("Transporter")
+	var follower := _n("Transporter", "RouteFollower")
+	var refusals_before: int = follower.guided_refusals
+	var accepted: bool = _main.orders.move(ships, point)
+	_check("scripted group MOVE sends free ships their destinations and attempts direct dispatch for a guided ship without holding an order",
+		accepted and _lo("Miner3").has_destination and _ordered("Miner3", destinations)
+		and destinations.has(guided) and _dk("Transporter").under_control()
+		and follower.guided_refusals == refusals_before + 1
+		and not _dk("Transporter").has_held_command() and _main.command.held_move(guided) == null)
 
 
 # The ship's last order is exactly its GroupOrders destination (the point ordered; the

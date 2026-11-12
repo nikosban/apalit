@@ -7,6 +7,10 @@ or the recovery snapshots (`HANDOFF.md` section 9). References in older entries 
 former `HANDOFF.md` sections or removed files may need Git history or those copies. Entries are not edited
 after they are written.
 
+## 2026-11-12 — Reusable Command component
+
+Each arena now uses a shared Command component for MOVE, group MOVE, DOCK and MINE, including availability checks and held-order replay. The full 64-suite comparison and nine scene smoke runs matched the baseline, and a new docking check verifies the scripted group MOVE path.
+
 ## 2026-11-12 — Reusable Player scene and folder layout
 
 All four arenas now assemble camera, selection, input and HUD through the shared Player scene, with player-owned resources under `game/player/` and an arena order API that accepts explicit recipients and resolved intent (issue #1). Owner accepted the migration and layout after the 64-suite comparison, 14 scene smoke runs and five matching rendered captures.

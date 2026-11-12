@@ -3,8 +3,7 @@ extends Node
 ## (node `CombatOrders`, migrated from the combat prototype). Each call addresses a list of
 ## ships (one ship or a group) and changes exactly one channel on every addressed ship that
 ## can take it:
-##   movement:  move() (through the scene's existing command path: RouteFollower /
-##              GroupOrders);
+##   movement:  move() (through Command to RouteFollower and GroupOrders);
 ##   targeting: assign_target(), clear_target();
 ##   engagement: set_stance();
 ##   command (behavior prototype, ships with a Behavior node only): attack(), guard(),
@@ -20,14 +19,20 @@ signal issued(channel: String, ships: Array, detail: String)
 
 var history: Array[Dictionary] = [] # {time, channel, ships, detail}
 
+var _issue_move: Callable
+
 @onready var _arena := get_parent()
+
+
+func configure_move(issue_move: Callable) -> void:
+	_issue_move = issue_move
 
 
 func move(ships: Array, point: Vector2) -> bool:
 	var live := _live(ships)
 	if live.is_empty():
 		return false
-	var given: bool = _arena.issue_move(live, point)
+	var given: bool = _issue_move.call(live, point)
 	_record("movement", live, "move to (%.1f, %.1f)%s" % [point.x, point.y, "" if given else " refused"])
 	return given
 

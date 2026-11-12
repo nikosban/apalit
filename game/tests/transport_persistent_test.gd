@@ -16,6 +16,7 @@ extends SceneTree
 ##   <godot console> --headless --path . -s res://game/tests/transport_persistent_test.gd
 ## Every check is PASS/FAIL.
 
+const CommandKind := preload("res://game/command/command.gd").CommandKind
 const MAIN := preload("res://main.tscn")
 const TRANSPORTER := preload("res://game/ships/transporter_unit.tscn")
 const Inventory := preload("res://game/cargo/inventory.gd")
@@ -203,7 +204,7 @@ func _test_e_interrupt_unloading() -> void:
 	_configure("Transporter", {&"iron": 500})
 	_run_until(func() -> bool: return _dk("Transporter").waiting and _dk("Transporter").station == _b, 480.0)
 	var point := Vector2(_b.global_position.x, _b.global_position.z) + Vector2(0, 40)
-	_main._order(_ship("Transporter"), {"kind": _main.CommandKind.MOVE, "point": point})
+	_main.command.submit_intent([_ship("Transporter")], {"kind": CommandKind.MOVE, "point": point})
 	var paused := _tr("Transporter").status == TransportOperation.Status.PAUSED and _dk("Transporter").state == Docking.State.UNDOCKING
 	_run_until(func() -> bool: return not _dk("Transporter").under_control(), 60.0)
 	_take(_b, &"ice", 300) # Room appears after the interruption: nothing may use it.
@@ -245,7 +246,7 @@ func _test_h_invalid_order() -> void:
 	var before := _cargo_text("Transporter")
 	var slot: int = _a.slot_of(_ship("Transporter"))
 	_main.get_node("StaticNavigation").blocked_to = NO_ROUTE
-	_main._order(_ship("Transporter"), {"kind": _main.CommandKind.MOVE, "point": NO_ROUTE})
+	_main.command.submit_intent([_ship("Transporter")], {"kind": CommandKind.MOVE, "point": NO_ROUTE})
 	_run_until(func() -> bool: return false, 5.0)
 	_main.get_node("StaticNavigation").blocked_to = Vector2.INF
 	_check("H: a refused MOVE while waiting in the berth: still Docked and waiting in the same berth, Loading, cargo %s, nothing held" % before,
@@ -287,11 +288,11 @@ func _test_j_deferred_move() -> void:
 	_main.get_node("Player/Selection").set_selection([_ship("Transporter")])
 	var center := Vector2(_a.global_position.x, _a.global_position.z)
 	var points := [center + Vector2(40, 20), center + Vector2(45, -10), center + Vector2(50, 25)]
-	_main._order(_ship("Transporter"), {"kind": _main.CommandKind.MOVE, "point": points[0]})
+	_main.command.submit_intent([_ship("Transporter")], {"kind": CommandKind.MOVE, "point": points[0]})
 	_run_until(func() -> bool: return false, 2.0)
-	_main._order(_ship("Transporter"), {"kind": _main.CommandKind.MOVE, "point": points[1]})
-	_main._order(_ship("Transporter"), {"kind": _main.CommandKind.MOVE, "point": points[2]})
-	_main._order(_ship("Transporter"), {"kind": _main.CommandKind.MOVE, "point": Vector2(500, 0)}) # Off the map: refused intent.
+	_main.command.submit_intent([_ship("Transporter")], {"kind": CommandKind.MOVE, "point": points[1]})
+	_main.command.submit_intent([_ship("Transporter")], {"kind": CommandKind.MOVE, "point": points[2]})
+	_main.command.submit_intent([_ship("Transporter")], {"kind": CommandKind.MOVE, "point": Vector2(500, 0)}) # Off the map: refused intent.
 	_main.get_node("Player")._process(0.0)
 	var shown: bool = _main.get_node("Player/MovementIndicator").entries().any(func(entry: Dictionary) -> bool:
 		return entry.ship == _ship("Transporter") and (entry.destination as Vector2).distance_to(points[2]) < 0.01)

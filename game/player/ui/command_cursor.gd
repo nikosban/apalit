@@ -1,7 +1,7 @@
 extends Node
 ## UX round (P8) command cursor: the mouse cursor shows what a right-click would do with
 ## the current selection, from the scene's own command resolution and refusal checks
-## (Player resolves the click and the arena checks whether the recipients can take it):
+## (Player resolves the click and Command checks whether the recipients can take it):
 ## Move, Mine, Dock, or Unavailable when that command would be refused (no route, no
 ## working or docking position, no free position beside a stationary ship, Dock at the
 ## station the ship is already docking at, ...); the normal arrow with nothing selected,
@@ -22,7 +22,7 @@ const CELL := 2.0 # u: ground cells sharing one MOVE check
 const REFRESH := 0.5 # s between checks of the same target
 const GROUP_REST := 0.25 # s the cursor rests on a cell before a group's assignment is checked
 
-const CommandKind := preload("res://game/player/player.gd").CommandKind
+const CommandKind := preload("res://game/command/command.gd").CommandKind
 
 var cursor := Cursor.NONE
 var checks := 0 # Validations run (for checks of the caching).

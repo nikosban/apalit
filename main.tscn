@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://game/debug/navigation_debug.gd" id="11_navigation_debug"]
 [ext_resource type="Script" path="res://game/debug/avoidance_debug.gd" id="13_avoidance_debug"]
 [ext_resource type="Script" path="res://game/orders/group_orders.gd" id="15_group_orders"]
+[ext_resource type="Script" path="res://game/command/command.gd" id="command_controller"]
 [ext_resource type="Script" path="res://game/collision/planar_collision.gd" id="16_collision"]
 [ext_resource type="Script" path="res://game/resources/asteroid_field.gd" id="17_field"]
 [ext_resource type="Script" path="res://game/survey/survey.gd" id="18_survey"]
@@ -323,6 +324,9 @@ memory = 8.0
 
 [node name="GroupOrders" type="Node" parent="."]
 script = ExtResource("15_group_orders")
+
+[node name="Command" type="Node" parent="."]
+script = ExtResource("command_controller")
 
 [node name="NavigationDebug" type="Node3D" parent="."]
 script = ExtResource("11_navigation_debug")

@@ -1,6 +1,5 @@
 extends Node3D
-## Arena-independent player input and presentation. The arena supplies world services and
-## receives resolved orders through callables.
+## Arena-independent player input and presentation. Sends resolved orders to Command.
 
 const ShipSelection := preload("res://game/player/selection/ship_selection.gd")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
@@ -9,10 +8,10 @@ const ShipLocomotion := preload("res://game/locomotion/ship_locomotion.gd")
 const DisplayName := preload("res://game/ui/display_name.gd")
 const AsteroidField := preload("res://game/resources/asteroid_field.gd")
 
-enum CommandKind { DOCK, MINE, MOVE, GROUP_MOVE, GROUP, TARGET }
+const CommandController := preload("res://game/command/command.gd")
+const CommandKind := CommandController.CommandKind
 
 const NOTICE_TIME := 2.0
-const GROUP_NOTICE := "Not enough space for the group - no orders given"
 
 signal target_selection_changed
 
@@ -31,9 +30,7 @@ var target_selection := false
 var pointer := Vector2(-1, -1)
 var _asteroids: AsteroidField
 var _sector_half_size: float
-var _submit_intent: Callable
-var _can_submit_intent: Callable
-var _held_move: Callable
+var _command_service: CommandController
 var _development_key: Callable
 var _notice_left := 0.0
 
@@ -46,8 +43,8 @@ var _notice_left := 0.0
 
 func configure(world_ships: Node, world_stations: Node, asteroids: AsteroidField, survey: Node,
 		combat_orders: Node, clock_control: Node, strategic_view: Node, tactical_markers: CanvasLayer,
-		half_size: float, visibility: Callable, submit: Callable, availability: Callable,
-		held_destination: Callable, development_key: Callable) -> void:
+		half_size: float, visibility: Callable, command: CommandController,
+		development_key: Callable) -> void:
 	ships = world_ships
 	stations = world_stations
 	_asteroids = asteroids
@@ -57,9 +54,7 @@ func configure(world_ships: Node, world_stations: Node, asteroids: AsteroidField
 	markers = tactical_markers
 	_sector_half_size = half_size
 	player_sees = visibility
-	_submit_intent = submit
-	_can_submit_intent = availability
-	_held_move = held_destination
+	_command_service = command
 	_development_key = development_key
 
 	camera_rig.bounds = Rect2(-half_size, -half_size, 2.0 * half_size, 2.0 * half_size)
@@ -154,12 +149,23 @@ func _command(screen_position: Vector2) -> bool:
 	var intent := resolve_command(screen_position, recipients)
 	if intent.is_empty():
 		return false
-	var accepted: bool = _submit_intent.call(recipients, intent)
-	return accepted or intent.kind == CommandKind.TARGET
+	if intent.kind == CommandKind.TARGET:
+		_assign_target(recipients, intent.ship)
+		return true
+	return _command_service.submit_intent(recipients, intent)
 
 
 func command_available(recipients: Array, intent: Dictionary) -> bool:
-	return _can_submit_intent.call(recipients, intent)
+	if intent.get("kind", -1) == CommandKind.TARGET:
+		return not recipients.is_empty() and orders != null
+	return _command_service.can_submit_intent(recipients, intent)
+
+
+func _assign_target(recipients: Array, target: Node3D) -> void:
+	if recipients.is_empty() or orders == null:
+		return
+	var count: int = orders.assign_target(recipients, target)
+	show_notice("Target: %s (%d ship%s)" % [DisplayName.of(target), count, "" if count == 1 else "s"])
 
 
 ## UX round (P8): the command a right-click at a screen point would give the selected
@@ -227,7 +233,7 @@ func _process(delta: float) -> void:
 	var handoff: float = strategic.progress if strategic != null else 0.0
 	var entries := []
 	for ship: Node3D in ships.get_children():
-		var held: Variant = _held_move.call(ship)
+		var held: Variant = _command_service.held_move(ship)
 		if not selection.selected.has(ship):
 			continue
 		var follower := ship.get_node("RouteFollower") as RouteFollower
@@ -273,7 +279,7 @@ func _targeting_input(event: InputEvent) -> void:
 	var picked: Node3D = selection.pick_any(mouse.position)
 	var combat = CombatShip.of(picked)
 	if combat != null and combat.faction != selection.player_faction and combat.alive:
-		_submit_intent.call(selection.selected.duplicate(), {"kind": CommandKind.TARGET, "ship": picked})
+		_assign_target(selection.selected.duplicate(), picked)
 		_end_target_selection()
 	elif mouse.button_index == MOUSE_BUTTON_RIGHT:
 		cancel_target_selection()
@@ -367,7 +373,7 @@ func _behavior_command(screen_position: Vector2, waypoint: bool) -> void:
 		var point: Vector2 = command.point
 		var count: int = orders.waypoint(selected, point, true) if waypoint else orders.attack_move(selected, point)
 		if count == 0:
-			show_notice(GROUP_NOTICE if selected.size() > 1 else "No route found")
+			show_notice(CommandController.GROUP_NOTICE if selected.size() > 1 else "No route found")
 		else:
 			show_notice("%s (%.0f, %.0f) (%d ship%s)" % ["Waypoint" if waypoint else "Attack-Move", point.x, point.y, count, "" if count == 1 else "s"])
 		return

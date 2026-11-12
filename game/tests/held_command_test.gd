@@ -13,6 +13,7 @@ extends SceneTree
 ##   <godot console> --headless --path . -s res://game/tests/held_command_test.gd
 ## Every check is PASS/FAIL.
 
+const CommandKind := preload("res://game/command/command.gd").CommandKind
 const MAIN := preload("res://main.tscn")
 const ShipLocomotion := preload("res://game/locomotion/ship_locomotion.gd")
 const Docking := preload("res://game/stations/docking.gd")
@@ -89,10 +90,10 @@ func _test_invalid_keeps_valid() -> void:
 	var held := _dk("Miner1").held_command()
 	var marker_ok := _marker_at("Miner1", first)
 	_notices.clear()
-	_main._order(_ship("Miner1"), {"kind": _main.CommandKind.MINE, "asteroid": 999})
+	_main.command.submit_intent([_ship("Miner1")], {"kind": CommandKind.MINE, "asteroid": 999})
 	_notices.append(_notice_text())
 	_main._show_notice("")
-	_main._order(_ship("Miner1"), {"kind": _main.CommandKind.DOCK, "station": _main.get_node("Asteroids").get_child(0)})
+	_main.command.submit_intent([_ship("Miner1")], {"kind": CommandKind.DOCK, "station": _main.get_node("Asteroids").get_child(0)})
 	_notices.append(_notice_text())
 	var kept := _dk("Miner1").held_command() == held and _marker_at("Miner1", first)
 	_check("exit: a valid MOVE is held and its marker shown at the clicked point at once (%s)" % marker_ok, held.is_valid() and marker_ok)
@@ -203,7 +204,7 @@ func _test_held_mine() -> void:
 	_dk("Miner1").undock()
 	_steps(60)
 	var asteroid := _nearest_asteroid(_planar(_a) + Vector2(40, 0))
-	_main._order(_ship("Miner1"), {"kind": _main.CommandKind.MINE, "asteroid": asteroid})
+	_main.command.submit_intent([_ship("Miner1")], {"kind": CommandKind.MINE, "asteroid": asteroid})
 	_main.get_node("Player")._process(0.0)
 	var held := _dk("Miner1").has_held_command() and _marker("Miner1") == null
 	_until(func() -> bool: return not _dk("Miner1").under_control(), 60 * 60)

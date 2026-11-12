@@ -6,6 +6,7 @@ extends SceneTree
 ## B2 on the playable main scene (stations, individual asteroids, ships). Run with a fixed step:
 ##   <godot console> --headless --path . --fixed-fps 60 -s res://game/tests/tactical_view_test.gd
 
+const CommandKind := preload("res://game/command/command.gd").CommandKind
 const E05 := preload("res://game/tests/combat/fixtures/e05_fleet.tscn")
 const MAIN := preload("res://main.tscn")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
@@ -474,7 +475,7 @@ func _case_station_interaction() -> void:
 	var command: Dictionary = scene.get_node("Player").resolve_command(_screen(station.global_position), scene.selection().selected)
 	scene.selection().set_selection([])
 	_check("a right-click on the station's marker with a miner selected resolves to DOCK at that station",
-		command.get("kind") == scene.CommandKind.DOCK and command.get("station") == station)
+		command.get("kind") == CommandKind.DOCK and command.get("station") == station)
 
 
 ## B2-4: an asteroid's marker lies inside its model's pick (hover, MINE unchanged), and
@@ -502,7 +503,7 @@ func _case_asteroid_interaction() -> void:
 	scene.selection().set_selection([scene.ship("Miner1")])
 	var command: Dictionary = scene.get_node("Player").resolve_command(_screen(asteroid.global_position), scene.selection().selected)
 	_check("a right-click on an asteroid's marker with a miner selected resolves to MINE that asteroid (id %d)" % id,
-		command.get("kind") == scene.CommandKind.MINE and command.get("asteroid") == id)
+		command.get("kind") == CommandKind.MINE and command.get("asteroid") == id)
 	var transporter: Node3D = scene.ship("Transporter")
 	transporter.get_node("Locomotion").place(Vector2(asteroid.global_position.x + field.radius(id) + 2.5, asteroid.global_position.z), 0.0)
 	await physics_frame

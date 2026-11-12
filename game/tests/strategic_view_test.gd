@@ -5,6 +5,7 @@ extends SceneTree
 ## Run with a fixed step:
 ##   <godot console> --headless --path . --fixed-fps 60 -s res://game/tests/strategic_view_test.gd
 
+const CommandKind := preload("res://game/command/command.gd").CommandKind
 const MAIN := preload("res://main.tscn")
 const E05 := preload("res://game/tests/combat/fixtures/e05_fleet.tscn")
 const StrategicView := preload("res://game/presentation/strategic_view.gd")
@@ -400,13 +401,13 @@ func _case_commands() -> void:
 	view.update_hover(Vector2(-500, -500))
 	var hidden: Dictionary = scene.get_node("Player").resolve_command(real_point, scene.selection().selected)
 	_check("with a miner selected: a right-click on an expanded member resolves to MINE that asteroid; on the asteroid's own (hidden) position, collapsed, it does not (%s)" % str(hidden.get("kind")),
-		mine.get("kind") == scene.CommandKind.MINE and mine.get("asteroid") == member.id and hidden.get("kind") != scene.CommandKind.MINE)
+		mine.get("kind") == CommandKind.MINE and mine.get("asteroid") == member.id and hidden.get("kind") != CommandKind.MINE)
 	var station: Node3D = scene.get_node("Stations").get_child(0)
 	var dock: Dictionary = scene.get_node("Player").resolve_command(_screen(station.global_position), scene.selection().selected)
 	scene.selection().set_selection([])
 	await _click(_screen(station.global_position))
 	_check("station marker: DOCK for the miner; a click selects that station (panel: %s)" % str(scene.get_node("Player/StationPanel").station),
-		dock.get("kind") == scene.CommandKind.DOCK and dock.get("station") == station and scene.get_node("Player/StationPanel").station == station)
+		dock.get("kind") == CommandKind.DOCK and dock.get("station") == station and scene.get_node("Player/StationPanel").station == station)
 	var transporter: Node3D = scene.ship("Transporter2")
 	var ff01: Node3D = scene.ship("FF01")
 	await _click(_screen(transporter.global_position))

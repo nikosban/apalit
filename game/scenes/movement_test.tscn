@@ -14,6 +14,7 @@
 [ext_resource type="Script" path="res://game/avoidance/ship_avoidance.gd" id="12_avoidance"]
 [ext_resource type="Script" path="res://game/debug/avoidance_debug.gd" id="13_avoidance_debug"]
 [ext_resource type="Script" path="res://game/orders/group_orders.gd" id="15_group_orders"]
+[ext_resource type="Script" path="res://game/command/command.gd" id="command_controller"]
 [ext_resource type="Script" path="res://game/collision/planar_collision.gd" id="16_collision"]
 [ext_resource type="Script" path="res://game/time/sim_clock.gd" id="90_clock"]
 
@@ -273,6 +274,9 @@ separation_margin = 1.0
 
 [node name="GroupOrders" type="Node" parent="."]
 script = ExtResource("15_group_orders")
+
+[node name="Command" type="Node" parent="."]
+script = ExtResource("command_controller")
 
 [node name="NavigationDebug" type="Node3D" parent="."]
 script = ExtResource("11_navigation_debug")

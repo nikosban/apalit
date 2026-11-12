@@ -10,7 +10,7 @@ extends Node
 ## ship's Combat. Weapons keep their own full firing authorization.
 ##
 ## Precedence (highest first):
-##   1 Commands (player or script; CombatOrders): Move (the scene's `command_given` for a
+##   1 Commands (player or script; CombatOrders): Move (the `command_given` signal from Command for a
 ##     MOVE executed for this ship — a right-click, a group MOVE, CombatOrders.move(), or
 ##     one held during station control when it is released; also any other RouteFollower
 ##     order this node did not give), Attack, Guard, Attack-Move,
@@ -34,6 +34,7 @@ extends Node
 ## independently of that band. An interrupted Attack transfers a live designation to the
 ## manual-target channel, revokes Attack authorization, and inhibits idle resumption.
 
+const CommandController := preload("res://game/command/command.gd")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
 const RouteFollower := preload("res://game/navigation/route_follower.gd")
 const StaticNavigation := preload("res://game/navigation/static_navigation.gd")
@@ -171,11 +172,12 @@ func _ready() -> void:
 	process_physics_priority = -3 # After the sensors, before scripted orders, RouteFollower and Locomotion.
 	_plans_seen = follower.plans
 	_last_stance = combat.stance
-	if arena.has_signal("command_given"):
-		arena.command_given.connect(_on_command_given)
+	var commands := arena.get_node_or_null("Command") as CommandController
+	if commands != null:
+		commands.command_given.connect(_on_command_given)
 
 
-## The scene executed a player command for a ship (right-click, group MOVE,
+## Command dispatched an order for a ship (right-click, group MOVE,
 ## CombatOrders.move(), or a command held during station control when it is released). A
 ## MOVE for this ship is the player's Move: it replaces the current command at once (also
 ## while paused). A Dock is picked up from the Docking state.
@@ -183,11 +185,11 @@ func _on_command_given(target: Node3D, kind: int) -> void:
 	if target != ship or not combat.alive:
 		return
 	_plans_seen = follower.plans
-	if kind == arena.CommandKind.MOVE or kind == arena.CommandKind.GROUP_MOVE:
+	if kind == CommandController.CommandKind.MOVE or kind == CommandController.CommandKind.GROUP_MOVE:
 		_replace("Move")
 		command = Command.MOVE
 		_note("move to (%.0f, %.0f)" % [follower.requested.x, follower.requested.y])
-	elif kind == arena.CommandKind.DOCK:
+	elif kind == CommandController.CommandKind.DOCK:
 		_detect_docking()
 
 

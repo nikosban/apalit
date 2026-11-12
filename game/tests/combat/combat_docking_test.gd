@@ -17,6 +17,7 @@ extends SceneTree
 ##   K6 civilian ships carry no Behavior: mining and transport keep sole ownership of their
 ##      movement orders
 
+const CommandKind := preload("res://game/command/command.gd").CommandKind
 const MAIN := preload("res://main.tscn")
 const FF01 := preload("res://game/ships/ff01_unit.tscn")
 const CombatShip := preload("res://game/combat/combat_ship.gd")
@@ -202,7 +203,7 @@ func _k5() -> void:
 	print("\n=== K5 destroyed during the controlled entry and the controlled exit")
 	var miner := _ship("Miner2")
 	var docking: Docking = miner.get_node("Docking")
-	scene._order(miner, {"kind": scene.CommandKind.DOCK, "station": station})
+	scene.command.submit_intent([miner], {"kind": CommandKind.DOCK, "station": station})
 	var entering := await _run(150.0, func() -> bool: return docking.under_control())
 	var berth: int = docking.slot
 	var before := _records(station, miner)
@@ -216,7 +217,7 @@ func _k5() -> void:
 	# The berth serves the next ship once the hulk is gone.
 	var next := _ship("Miner1")
 	var next_docking: Docking = next.get_node("Docking")
-	scene._order(next, {"kind": scene.CommandKind.DOCK, "station": station})
+	scene.command.submit_intent([next], {"kind": CommandKind.DOCK, "station": station})
 	var served := await _run(180.0, func() -> bool: return next_docking.state == Docking.State.DOCKED)
 	_check("the next ship docks normally afterwards (berth %d, now %s)" % [berth, next_docking.state_name()], served)
 	next_docking.undock()

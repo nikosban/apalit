@@ -141,10 +141,10 @@ func _s1_s2() -> void:
 	var ships: Array = scene.get_node("Ships").get_children()
 	var behaviors := ships.filter(func(s: Node) -> bool: return s.has_node("Behavior")).size()
 	var singles := [count.call("res://game/time/sim_clock.gd"), count.call("res://game/time/time_control.gd"), count.call("res://game/combat/combat_orders.gd"),
-		count.call("res://game/sensors/sensors.gd"), count.call("res://game/combat/projectile_system.gd")]
-	_check("one clock, time authority, command interface, sensor system and projectile system %s; one Combat per ship (%d / %d); %d command_given handlers for %d Behaviors" % [
-		str(singles), count.call("res://game/combat/combat_ship.gd"), ships.size(), scene.command_given.get_connections().size(), behaviors],
-		singles == [1, 1, 1, 1, 1] and count.call("res://game/combat/combat_ship.gd") == ships.size() and scene.command_given.get_connections().size() == behaviors)
+		count.call("res://game/sensors/sensors.gd"), count.call("res://game/combat/projectile_system.gd"), count.call("res://game/command/command.gd")]
+	_check("one clock, time authority, CombatOrders, sensor system, projectile system and Command %s; one Combat per ship (%d / %d); %d command_given handlers for %d Behaviors" % [
+		str(singles), count.call("res://game/combat/combat_ship.gd"), ships.size(), scene.command.command_given.get_connections().size(), behaviors],
+		singles == [1, 1, 1, 1, 1, 1] and count.call("res://game/combat/combat_ship.gd") == ships.size() and scene.command.command_given.get_connections().size() == behaviors)
 	print("\n=== S2 battle")
 	scene.orders.set_stance(PLAYER_FLEET.map(func(n: String) -> Node3D: return _ship(n)), CombatShip.Stance.AGGRESSIVE)
 	var projectiles: Node = scene.get_node("Projectiles")

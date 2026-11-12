@@ -12,6 +12,7 @@ extends SceneTree
 ##   <godot console> --headless --path . -s res://game/tests/command_cursor_test.gd
 ## Every check is PASS/FAIL.
 
+const CommandKind := preload("res://game/command/command.gd").CommandKind
 const MAIN := preload("res://main.tscn")
 const CommandCursor := preload("res://game/player/ui/command_cursor.gd")
 const MiningOperation := preload("res://game/mining/mining_operation.gd")
@@ -229,7 +230,7 @@ func _test_input_precedence() -> void:
 	await process_frame
 
 	var dispatches: Array[Node3D] = []
-	_main.command_given.connect(func(recipient: Node3D, _kind: int) -> void: dispatches.append(recipient))
+	_main.command.command_given.connect(func(recipient: Node3D, _kind: int) -> void: dispatches.append(recipient))
 	_press_at(ground, MOUSE_BUTTON_LEFT)
 	_press_at(ground, MOUSE_BUTTON_RIGHT)
 	_press_at(ground, MOUSE_BUTTON_WHEEL_DOWN)
@@ -307,11 +308,11 @@ func _test_notice_timing() -> void:
 func _test_resolved_intent_without_player() -> void:
 	_reset()
 	var ship := _ship("FF01")
-	var intent := {"kind": _main.CommandKind.MOVE, "point": Vector2(10, -12)}
+	var intent := {"kind": CommandKind.MOVE, "point": Vector2(10, -12)}
 	_main.get_node("Player").free()
 	_main.strategic.free()
-	var available: bool = _main.can_submit_intent([ship], intent)
-	var accepted: bool = _main.submit_intent([ship], intent)
+	var available: bool = _main.command.can_submit_intent([ship], intent)
+	var accepted: bool = _main.command.submit_intent([ship], intent)
 	_check("Resolved order API: a supplied recipient can take a MOVE without Player or a camera",
 		not _main.has_node("Player") and root.get_camera_3d() == null and available and accepted
 		and _n("FF01", "RouteFollower").requested.is_equal_approx(intent.point))
